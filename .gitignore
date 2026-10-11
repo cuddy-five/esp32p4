@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+.vars
+.vars.*
+!.vars.example
+/.runtime/
