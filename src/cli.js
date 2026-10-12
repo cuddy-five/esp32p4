@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { ContractRegistry, validateFile } from "./lib/contracts.js";
 import { GitHubClient, resolveRepo } from "./lib/github.js";
+import { checkPolicies, requiredHumanStages } from "./lib/orchestration.js";
 import { applyAll, exportResource, planAll, RESOURCE_NAMES, selectResources } from "./lib/settings/index.js";
 import { formatAnnotations, formatPlanMarkdown, formatPlanText, writeStepSummary } from "./lib/report.js";
 
@@ -19,6 +21,11 @@ Commands
 
   schema list                   List known contract kinds
   schema show <kind>            Print a contract schema
+
+  policy check                  Validate orchestration/state-machine.yaml and
+                                policies/approvals.yaml against the contracts
+  policy stages --risk <level> [--tag t]... [--path p]...
+                                Show which stages require a human for a task
 
   settings plan                 Show what would change to reach desired state
   settings check                Like plan, exit 2 when drift exists
@@ -53,6 +60,8 @@ export async function main(argv, io = {}) {
         return cmdSchema(rest, { stdout, stderr });
       case "settings":
         return await cmdSettings(rest, { stdout, stderr, env, client: io.client });
+      case "policy":
+        return cmdPolicy(rest, { stdout, stderr });
       case undefined:
       case "help":
       case "--help":
@@ -123,6 +132,61 @@ function cmdSchema(args, { stdout, stderr }) {
     return EXIT.OK;
   }
   stderr(`schema: unknown subcommand "${sub ?? ""}" (expected list or show)`);
+  return EXIT.ERROR;
+}
+
+function cmdPolicy(args, { stdout, stderr }) {
+  const [sub, ...subArgs] = args;
+  if (sub === "check") {
+    const { values } = parseArgs({ args: subArgs, options: { format: { type: "string", default: "text" } } });
+    const { problems, stateMachine, approvals } = checkPolicies();
+    if (values.format === "json") {
+      stdout(JSON.stringify({ ok: problems.length === 0, problems }, null, 2));
+    } else {
+      for (const p of problems) stdout(`FAIL  ${path.relative(process.cwd(), p.file)}${p.path}: ${p.message}`);
+      const nStates = Object.keys(stateMachine.states).length;
+      const nTransitions = stateMachine.transitions.length;
+      const nGates = Object.keys(stateMachine.gates).length;
+      const implemented = Object.values(stateMachine.gates).filter((g) => g.status === "implemented").length;
+      stdout(
+        `state machine: ${nStates} states, ${nTransitions} transition rules, ${nGates} gates (${implemented} implemented)`,
+      );
+      stdout(`approvals: ${Object.keys(approvals.by_risk).length} risk levels, ${approvals.always_human.length} always-human rules`);
+      stdout(problems.length === 0 ? "policy: ok" : `policy: ${problems.length} problem${problems.length === 1 ? "" : "s"}`);
+    }
+    return problems.length === 0 ? EXIT.OK : EXIT.FAILED;
+  }
+  if (sub === "stages") {
+    const { values } = parseArgs({
+      args: subArgs,
+      options: {
+        risk: { type: "string" },
+        tag: { type: "string", multiple: true, default: [] },
+        path: { type: "string", multiple: true, default: [] },
+        format: { type: "string", default: "text" },
+      },
+    });
+    if (!values.risk) {
+      stderr("policy stages: --risk <low|medium|high|critical> is required");
+      return EXIT.ERROR;
+    }
+    const { approvals } = checkPolicies();
+    if (!approvals.by_risk[values.risk]) {
+      stderr(`policy stages: unknown risk level "${values.risk}"`);
+      return EXIT.ERROR;
+    }
+    const out = requiredHumanStages(approvals, { risk: { level: values.risk, tags: values.tag }, paths: values.path });
+    if (values.format === "json") {
+      stdout(JSON.stringify(out, null, 2));
+    } else if (out.stages.length === 0) {
+      stdout("no human approval required; the adversarial loop is the control");
+    } else {
+      stdout(`human approval required at: ${out.stages.join(", ")}`);
+      stdout(`because: ${out.reasons.join(", ")}`);
+    }
+    return EXIT.OK;
+  }
+  stderr(`policy: unknown subcommand "${sub ?? ""}" (expected check or stages)`);
   return EXIT.ERROR;
 }
 

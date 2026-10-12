@@ -22,10 +22,12 @@ from `github.action_path`. TypeScript was rejected for now because a compile
 step in a composite action either commits build output or adds a build to
 every consumer run; neither is worth it at this size. Tests use `node:test`.
 
-### 2. Two runtime dependencies: `ajv` and `ajv-formats`
+### 2. Three runtime dependencies: `ajv`, `ajv-formats`, `yaml`
 
-JSON Schema 2020-12 validation needs a real implementation. Everything else
-(HTTP, diffing, pagination, CLI parsing) is written against Node built-ins.
+JSON Schema 2020-12 validation needs a real implementation, and the
+orchestration and policy files are YAML by design (they are read and edited
+by humans more than by code). Everything else (HTTP, diffing, pagination,
+CLI parsing) is written against Node built-ins.
 Octokit was rejected: the client needs five methods, and a thin `fetch`
 wrapper is easier to fake in tests and to audit.
 

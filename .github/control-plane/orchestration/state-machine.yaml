@@ -1,0 +1,200 @@
+# Task lifecycle for the adversarial team loop.
+#
+# States must equal the `task.status` enum in contracts/task.schema.json.
+# Actors must be roles from contracts/common.schema.json#/$defs/role.
+# tests/unit/orchestration.test.js enforces both and checks every transition
+# references known states, actors, and gates.
+#
+# A transition is permitted only when the actor matches AND every listed gate
+# holds. Gates are named here and implemented by the coordinator; the names are
+# the interface between this file and the code that will enforce it.
+
+version: 1
+
+initial: proposed
+terminal: [done, cancelled]
+
+states:
+  proposed:
+    description: Intake has produced a task document that has not yet been accepted.
+    owner: coordinator
+  accepted:
+    description: Task validated and routed; waiting for a planner.
+    owner: coordinator
+  planning:
+    description: Planner is producing a plan; reviewer will adversarially review it.
+    owner: planner
+  awaiting_approval:
+    description: A human must approve before work proceeds. Nothing executes in this state.
+    owner: human
+  in_progress:
+    description: Implementer is executing an approved plan inside the task scope.
+    owner: implementer
+  in_review:
+    description: Reviewer and security auditor are examining the change and its evidence.
+    owner: reviewer
+  verifying:
+    description: Verifier independently re-derives evidence; merge gate evaluates.
+    owner: verifier
+  blocked:
+    description: An open escalation is pausing the task. Only resolution or cancellation leaves this state.
+    owner: human
+  done:
+    description: Result recorded with outcome success or partial. Terminal.
+    owner: coordinator
+  cancelled:
+    description: Result recorded with outcome aborted or escalated. Terminal.
+    owner: coordinator
+
+# Gate names. Each must be implemented by the coordinator before the transition
+# that uses it can fire. `status` marks which have an implementation today.
+gates:
+  task_valid:
+    description: Task document validates against task.schema.json.
+    status: implemented
+  plan_valid:
+    description: Plan document validates against plan.schema.json and references this task.
+    status: implemented
+  plan_reviewed:
+    description: A review with review_kind=plan and verdict approve or approve_with_comments exists from a reviewer that is not the planner.
+    status: planned
+  approval_not_required:
+    description: policies/approvals.yaml does not require a human at this point for the task's risk level and touched paths.
+    status: planned
+  approval_granted:
+    description: A human approval recorded for this exact plan id and stage, not expired.
+    status: planned
+  evidence_collected:
+    description: An evidence document exists for the current head SHA.
+    status: planned
+  within_scope:
+    description: evidence.diff.out_of_scope_paths is empty, or a review explicitly accepts each path in scope_compliance.violations.
+    status: planned
+  within_budget:
+    description: Cumulative budget_used across documents does not exceed task.budget.
+    status: planned
+  reviews_approve:
+    description: Latest code review verdict is approve or approve_with_comments, and for risk medium or above a security review with the same verdict exists. Reviewers are distinct from the implementer.
+    status: planned
+  verification_passed:
+    description: Verifier's own evidence shows required checks green and tests passing, and a review of kind verification approves.
+    status: planned
+  no_open_escalation:
+    description: No escalation for this task has status open or acknowledged.
+    status: planned
+  retry_budget_remaining:
+    description: Number of in_review -> in_progress or verifying -> in_progress loops is below policies/retries.yaml.
+    status: planned
+
+transitions:
+  - from: proposed
+    to: accepted
+    actor: coordinator
+    gates: [task_valid]
+
+  - from: proposed
+    to: cancelled
+    actor: human
+
+  - from: accepted
+    to: planning
+    actor: coordinator
+    gates: [no_open_escalation]
+
+  - from: planning
+    to: in_progress
+    actor: coordinator
+    gates: [plan_valid, plan_reviewed, approval_not_required, no_open_escalation]
+
+  - from: planning
+    to: awaiting_approval
+    actor: coordinator
+    gates: [plan_valid, plan_reviewed]
+    note: Taken when approvals.yaml requires a human at the plan stage.
+
+  - from: awaiting_approval
+    to: in_progress
+    actor: human
+    gates: [approval_granted]
+
+  - from: awaiting_approval
+    to: planning
+    actor: human
+    note: Human rejected the plan with feedback; planner produces a superseding plan.
+
+  - from: awaiting_approval
+    to: cancelled
+    actor: human
+
+  - from: in_progress
+    to: in_review
+    actor: implementer
+    gates: [evidence_collected, within_scope, within_budget]
+    note: Implementer emits a handoff to reviewer; coordinator records the transition.
+
+  - from: in_review
+    to: in_progress
+    actor: reviewer
+    gates: [retry_budget_remaining]
+    note: Verdict request_changes. Findings travel in the review; the implementer may not edit them.
+
+  - from: in_review
+    to: verifying
+    actor: coordinator
+    gates: [reviews_approve, within_budget, no_open_escalation]
+
+  - from: verifying
+    to: in_progress
+    actor: verifier
+    gates: [retry_budget_remaining]
+    note: Verification failed. The verifier's evidence replaces the implementer's as the record.
+
+  - from: verifying
+    to: awaiting_approval
+    actor: coordinator
+    gates: [verification_passed]
+    note: Taken when approvals.yaml requires a human at the merge stage.
+
+  - from: verifying
+    to: done
+    actor: coordinator
+    gates: [verification_passed, approval_not_required, within_budget, no_open_escalation]
+
+  - from: awaiting_approval
+    to: done
+    actor: human
+    gates: [approval_granted, verification_passed]
+    note: Human approves the merge after verification.
+
+  # Any active state may block on an escalation and may be cancelled by a human.
+  - from: [accepted, planning, awaiting_approval, in_progress, in_review, verifying]
+    to: blocked
+    actor: [coordinator, planner, implementer, reviewer, security_auditor, verifier]
+    note: Emitting an escalation with status open moves the task here.
+
+  - from: blocked
+    to: [planning, in_progress, in_review, verifying]
+    actor: human
+    gates: [no_open_escalation]
+    note: Returns to the state recorded in the escalation's related handoff.
+
+  - from: [accepted, planning, in_progress, in_review, verifying, blocked]
+    to: cancelled
+    actor: human
+
+# Properties the coordinator must uphold regardless of the path taken.
+invariants:
+  - id: separation_of_duties
+    description: The producer of a plan, change, or evidence document never acts as its reviewer, auditor, verifier, or approver. Checked by comparing producer.name and producer.role across linked documents.
+  - id: distinct_review_model
+    description: Where the deployment offers more than one model family, review roles run on a different family than the implementer for the same task. Recorded in producer.model.
+  - id: human_only_approvals
+    description: approval_granted is satisfied only by a producer with kind human. Agents cannot record approvals.
+  - id: halt_is_total
+    description: A halt from the human or coordinator stops every role for the task immediately; each role emits a handoff describing exact state and takes no further action.
+  - id: one_result
+    description: Exactly one result document is emitted per task, when it enters a terminal state.
+  - id: overseer_note_present
+    description: Every review, result, and escalation includes an overseer_note. Documents without one are rejected at intake.
+  - id: no_silent_scope_change
+    description: A change to task.scope after acceptance requires a resolved escalation with reason scope_expansion and produces a new plan.
