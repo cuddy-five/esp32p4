@@ -1,0 +1,24 @@
+{
+  "contract": "plan",
+  "schema_version": "1.0.0",
+  "id": "plan_01J9Z3R0A1B2C3D4E5F6G7H8J9",
+  "created_at": "2026-10-12T00:05:00Z",
+  "producer": { "kind": "agent", "name": "planner", "role": "planner", "model": "example-model-1" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8", "parent_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8" },
+  "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "summary": "Implement a pure plan function over desired and actual label sets, then wire it to the CLI.",
+  "status": "approved",
+  "steps": [
+    { "id": "s1", "description": "Write planLabels(desired, actual) with create/update/rename/delete ops", "kind": "implement", "role": "implementer", "files_touched": ["src/lib/settings/labels.js"], "tests": ["tests/unit/labels.test.js"], "risk": "low", "reversible": true },
+    { "id": "s2", "description": "Expose plan/check/apply via CLI", "kind": "implement", "role": "implementer", "files_touched": ["src/cli.js"], "depends_on": ["s1"], "risk": "low", "reversible": true },
+    { "id": "s3", "description": "Verify exit codes and output against fixtures", "kind": "verify", "role": "verifier", "depends_on": ["s2"] }
+  ],
+  "assumptions": ["Label names are unique per repository, case-insensitively."],
+  "open_questions": [
+    { "question": "Should prune default to false?", "blocking": false, "default_if_unanswered": "false" }
+  ],
+  "rollback_strategy": "Revert the commit; no persistent state is written.",
+  "verification_strategy": "Unit tests for the planner plus a dry-run against a fixture repository.",
+  "estimated_budget": { "tokens": 200000, "wall_clock_seconds": 1800 },
+  "approvals_required": [{ "approver": "reviewer", "reason": "Touches CLI surface" }]
+}

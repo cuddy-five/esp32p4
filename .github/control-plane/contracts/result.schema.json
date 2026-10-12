@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/result.schema.json",
+  "title": "Result",
+  "description": "Terminal record for a task. Exactly one result is emitted per task; it links every other document produced along the way.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "outcome", "summary", "started_at", "finished_at"],
+  "properties": {
+    "contract": { "const": "result" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "outcome": {
+      "type": "string",
+      "enum": ["success", "partial", "failed", "aborted", "escalated"]
+    },
+    "summary": { "$ref": "common.schema.json#/$defs/markdown" },
+    "started_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "finished_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" },
+        "merged": { "type": "boolean" },
+        "merge_sha": { "$ref": "common.schema.json#/$defs/sha" },
+        "branch": { "type": "string" },
+        "commit_shas": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/sha" },
+          "uniqueItems": true
+        },
+        "release_tag": { "type": "string" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "description": "Ids of every contract document produced for this task.",
+      "additionalProperties": false,
+      "properties": {
+        "plan_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "handoff_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "review_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "escalation_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "description": "Final disposition of each acceptance criterion from the task.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion_id", "met"],
+        "properties": {
+          "criterion_id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "met": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "budget_used": { "$ref": "common.schema.json#/$defs/budget" },
+    "retries": { "type": "integer", "minimum": 0 },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "message": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "recoverable": { "type": "boolean" },
+          "occurred_at": { "$ref": "common.schema.json#/$defs/timestamp" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifact" }
+    }
+  }
+}

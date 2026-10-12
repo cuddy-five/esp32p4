@@ -1,0 +1,37 @@
+{
+  "contract": "evidence",
+  "schema_version": "1.0.0",
+  "id": "evidence_01J9Z3T2Z3X4C5V6B7N8M9K0L1",
+  "created_at": "2026-10-12T00:45:00Z",
+  "producer": { "kind": "workflow", "name": "collect-evidence", "run_id": "1234567891" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8", "parent_id": "handoff_01J9Z3S1Q2W3E4R5T6Y7U8I9O0" },
+  "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "collected_at": "2026-10-12T00:45:00Z",
+  "subject": {
+    "repository": { "owner": "example", "name": "control-plane" },
+    "sha": "0123456789abcdef0123456789abcdef01234567",
+    "pull_request": { "number": 7, "head_sha": "0123456789abcdef0123456789abcdef01234567", "base_sha": "fedcba9876543210fedcba9876543210fedcba98" }
+  },
+  "checks": [
+    { "name": "ci / test", "conclusion": "success", "duration_seconds": 42.5, "required": true },
+    { "name": "ci / actionlint", "conclusion": "success", "duration_seconds": 6, "required": true }
+  ],
+  "tests": { "total": 31, "passed": 31, "failed": 0, "skipped": 0, "duration_seconds": 3.2, "coverage_percent": 91.4 },
+  "diff": {
+    "base_sha": "fedcba9876543210fedcba9876543210fedcba98",
+    "files_changed": 4,
+    "additions": 312,
+    "deletions": 8,
+    "paths": ["src/cli.js", "src/lib/settings/labels.js", "tests/unit/labels.test.js", "docs/runbooks/settings-sync.md"],
+    "out_of_scope_paths": []
+  },
+  "policy_results": [
+    { "policy": "scope.paths", "outcome": "pass", "evaluated_by": "merge-gate" },
+    { "policy": "budget.tokens", "outcome": "pass", "details": "190k of 500k", "evaluated_by": "merge-gate" }
+  ],
+  "security": {
+    "secrets_scan": { "tool": "gitleaks", "findings": 0 },
+    "dependency_scan": { "tool": "npm-audit", "critical": 0, "high": 0, "medium": 0, "low": 0 }
+  },
+  "budget_used": { "tokens": 190000, "wall_clock_seconds": 2100, "tool_calls": 84 }
+}

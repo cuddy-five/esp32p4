@@ -1,0 +1,32 @@
+{
+  "contract": "result",
+  "schema_version": "1.0.0",
+  "id": "result_01J9Z3W4L5K6J7H8G9F0D1S2A3",
+  "created_at": "2026-10-12T01:10:00Z",
+  "producer": { "kind": "workflow", "name": "merge-gate", "run_id": "1234567892" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8", "parent_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8" },
+  "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "outcome": "success",
+  "summary": "Labels drift detection merged. All acceptance criteria met.",
+  "started_at": "2026-10-12T00:00:00Z",
+  "finished_at": "2026-10-12T01:10:00Z",
+  "outputs": {
+    "pull_request": { "number": 7, "head_sha": "0123456789abcdef0123456789abcdef01234567" },
+    "merged": true,
+    "merge_sha": "89abcdef0123456789abcdef0123456789abcdef",
+    "branch": "cp/labels-drift"
+  },
+  "lineage": {
+    "plan_ids": ["plan_01J9Z3R0A1B2C3D4E5F6G7H8J9"],
+    "handoff_ids": ["handoff_01J9Z3S1Q2W3E4R5T6Y7U8I9O0"],
+    "evidence_ids": ["evidence_01J9Z3T2Z3X4C5V6B7N8M9K0L1"],
+    "review_ids": ["review_01J9Z3V3P4O5I6U7Y8T9R0E1W2"]
+  },
+  "acceptance": [
+    { "criterion_id": "ac-1", "met": true },
+    { "criterion_id": "ac-2", "met": true }
+  ],
+  "budget_used": { "tokens": 232000, "usd": 2.1, "wall_clock_seconds": 4200 },
+  "retries": 0,
+  "errors": []
+}

@@ -1,0 +1,26 @@
+{
+  "contract": "task",
+  "schema_version": "1.0.0",
+  "id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "created_at": "2026-10-12T00:00:00Z",
+  "producer": { "kind": "workflow", "name": "intake", "run_id": "1234567890" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8" },
+  "title": "Add labels drift detection to settings sync",
+  "intent": "Operators need to know when repository labels diverge from the declared desired state so enrolment stays honest.",
+  "acceptance_criteria": [
+    { "id": "ac-1", "statement": "settings check exits non-zero when labels drift", "verification": "automated_test" },
+    { "id": "ac-2", "statement": "settings plan output lists every create, update, rename, and delete", "verification": "automated_test" }
+  ],
+  "scope": {
+    "repository": { "owner": "example", "name": "control-plane" },
+    "allowed_paths": ["src/**", "tests/**", "docs/**"],
+    "forbidden_paths": [".github/workflows/**"],
+    "network_access": "allowlist"
+  },
+  "risk": { "level": "low", "requires_human_approval": false, "tags": ["ci_cd"] },
+  "status": "accepted",
+  "priority": "p2",
+  "source": { "kind": "issue", "issue": { "number": 42 }, "requested_by": "octocat" },
+  "budget": { "tokens": 500000, "usd": 5, "wall_clock_seconds": 3600 },
+  "labels": ["cp:task", "risk:low"]
+}

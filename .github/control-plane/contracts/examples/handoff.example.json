@@ -1,0 +1,26 @@
+{
+  "contract": "handoff",
+  "schema_version": "1.0.0",
+  "id": "handoff_01J9Z3S1Q2W3E4R5T6Y7U8I9O0",
+  "created_at": "2026-10-12T00:40:00Z",
+  "producer": { "kind": "agent", "name": "implementer", "role": "implementer" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8", "parent_id": "plan_01J9Z3R0A1B2C3D4E5F6G7H8J9" },
+  "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "plan_id": "plan_01J9Z3R0A1B2C3D4E5F6G7H8J9",
+  "from_role": "implementer",
+  "to_role": "reviewer",
+  "state": "in_review",
+  "context_summary": "Steps s1 and s2 complete. Planner is pure and covered by 9 unit tests. CLI exposes plan/check/apply. s3 pending verifier.",
+  "working_ref": {
+    "branch": "cp/labels-drift",
+    "sha": "0123456789abcdef0123456789abcdef01234567",
+    "pull_request": { "number": 7, "head_sha": "0123456789abcdef0123456789abcdef01234567", "base_ref": "main" }
+  },
+  "artifacts": [
+    { "name": "unit-test-log", "kind": "log", "uri": "https://example.invalid/runs/1/logs/unit.txt" }
+  ],
+  "blockers": [],
+  "next_actions": ["Review planner edge cases around case-insensitive renames", "Run verifier on fixture repo"],
+  "budget_remaining": { "tokens": 310000, "wall_clock_seconds": 1500 },
+  "expires_at": "2026-10-13T00:40:00Z"
+}

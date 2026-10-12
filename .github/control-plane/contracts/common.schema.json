@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/common.schema.json",
+  "title": "Control Plane Common Definitions",
+  "description": "Shared building blocks referenced by every control-plane contract. Not a contract on its own.",
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "description": "Semantic version of the contract schema the document conforms to.",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "identifier": {
+      "type": "string",
+      "description": "Stable, URL-safe identifier (ULID, UUID, or slug).",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{3,127}$"
+    },
+    "local_id": {
+      "type": "string",
+      "description": "Identifier scoped to a single document (step, criterion, finding, option). Short slugs allowed.",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "markdown": {
+      "type": "string",
+      "description": "Free-form Markdown intended for humans.",
+      "maxLength": 65536
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "role": {
+      "type": "string",
+      "description": "Control-plane role that produced or will consume a document.",
+      "enum": [
+        "coordinator",
+        "planner",
+        "implementer",
+        "reviewer",
+        "verifier",
+        "security_auditor",
+        "human"
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "description": "Who or what emitted the document.",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["human", "agent", "workflow", "system"]
+        },
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "role": { "$ref": "#/$defs/role" },
+        "version": { "type": "string" },
+        "model": {
+          "type": "string",
+          "description": "Model identifier when kind is agent."
+        },
+        "run_id": { "type": "string" },
+        "run_url": { "$ref": "#/$defs/uri" }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "description": "Correlation metadata linking documents across a single unit of work.",
+      "additionalProperties": false,
+      "required": ["correlation_id"],
+      "properties": {
+        "correlation_id": { "$ref": "#/$defs/identifier" },
+        "parent_id": { "$ref": "#/$defs/identifier" },
+        "span_id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "description": "Fields every contract document must carry.",
+      "required": ["contract", "schema_version", "id", "created_at", "producer"],
+      "properties": {
+        "contract": {
+          "type": "string",
+          "description": "Contract kind. Each concrete schema pins this to a constant."
+        },
+        "schema_version": { "$ref": "#/$defs/semver" },
+        "id": { "$ref": "#/$defs/identifier" },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "producer": { "$ref": "#/$defs/producer" },
+        "trace": { "$ref": "#/$defs/trace" },
+        "annotations": {
+          "type": "object",
+          "description": "Free-form string map for extensions that do not warrant a schema change.",
+          "additionalProperties": { "type": "string" },
+          "maxProperties": 32
+        }
+      }
+    },
+    "repository_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner", "name"],
+      "properties": {
+        "owner": { "$ref": "#/$defs/non_empty_string" },
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "default_branch": { "type": "string" },
+        "url": { "$ref": "#/$defs/uri" }
+      }
+    },
+    "issue_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "$ref": "#/$defs/uri" },
+        "repository": { "$ref": "#/$defs/repository_ref" }
+      }
+    },
+    "pull_request_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "head_sha"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "$ref": "#/$defs/uri" },
+        "head_ref": { "type": "string" },
+        "head_sha": { "$ref": "#/$defs/sha" },
+        "base_ref": { "type": "string" },
+        "base_sha": { "$ref": "#/$defs/sha" },
+        "repository": { "$ref": "#/$defs/repository_ref" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "description": "Resource ceilings or consumption. All fields optional; absent means unbounded or unknown.",
+      "additionalProperties": false,
+      "properties": {
+        "tokens": { "type": "integer", "minimum": 0 },
+        "usd": { "type": "number", "minimum": 0 },
+        "wall_clock_seconds": { "type": "integer", "minimum": 0 },
+        "tool_calls": { "type": "integer", "minimum": 0 },
+        "workflow_runs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "type": "string", "enum": ["sha256", "sha512"] },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64,128}$" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "description": "A file or blob produced during work, addressable and optionally content-hashed.",
+      "additionalProperties": false,
+      "required": ["name", "kind", "uri"],
+      "properties": {
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "log",
+            "report",
+            "diff",
+            "sbom",
+            "attestation",
+            "screenshot",
+            "recording",
+            "coverage",
+            "junit",
+            "other"
+          ]
+        },
+        "uri": { "$ref": "#/$defs/uri" },
+        "content_type": { "type": "string" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "path_glob": {
+      "type": "string",
+      "description": "Repository-relative glob. Leading slash not permitted.",
+      "pattern": "^[^/].*$",
+      "minLength": 1
+    },
+    "label": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 _:./-]{0,49}$"
+    }
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/escalation.schema.json",
+  "title": "Escalation",
+  "description": "A request for a decision the control plane is not permitted to make on its own. Escalations pause the task until resolved or expired.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "reason", "severity", "summary", "requested_decision", "status"],
+  "properties": {
+    "contract": { "const": "escalation" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "reason": {
+      "type": "string",
+      "enum": [
+        "budget_exceeded",
+        "policy_violation",
+        "ambiguous_requirements",
+        "repeated_failure",
+        "security_concern",
+        "human_approval_required",
+        "scope_expansion",
+        "external_dependency",
+        "conflicting_reviews",
+        "other"
+      ]
+    },
+    "severity": { "$ref": "common.schema.json#/$defs/severity" },
+    "status": {
+      "type": "string",
+      "enum": ["open", "acknowledged", "resolved", "expired", "withdrawn"]
+    },
+    "summary": { "$ref": "common.schema.json#/$defs/markdown" },
+    "context": {
+      "$ref": "common.schema.json#/$defs/markdown",
+      "description": "Everything a decision-maker needs without opening other documents."
+    },
+    "requested_decision": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+    "options": {
+      "type": "array",
+      "description": "Concrete choices offered to the decision-maker. Empty means free-form.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "description": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "recommended": { "type": "boolean" },
+          "consequences": { "type": "string" }
+        }
+      }
+    },
+    "related": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plan_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "handoff_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "evidence_id": { "$ref": "common.schema.json#/$defs/identifier" },
+        "review_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "issue": { "$ref": "common.schema.json#/$defs/issue_ref" },
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" }
+      }
+    },
+    "assignees": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+      "uniqueItems": true
+    },
+    "deadline": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "default_action_on_expiry": {
+      "type": "string",
+      "enum": ["abort_task", "pause_task", "proceed_with_recommended"]
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decided_by", "decided_at"],
+      "properties": {
+        "decided_by": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+        "decided_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+        "chosen_option_id": { "$ref": "common.schema.json#/$defs/local_id" },
+        "decision": { "type": "string" },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}
