@@ -1,0 +1,89 @@
+name: Validate contract
+description: >-
+  Validate one or more control-plane contract documents (task, plan, handoff,
+  evidence, review, result, escalation) against their JSON Schemas. Usable from
+  any repository via `uses: <owner>/<control-plane-repo>/.github/actions/validate-contract@<ref>`.
+
+inputs:
+  files:
+    description: >-
+      Whitespace- or newline-separated list of files or globs to validate,
+      relative to the caller's workspace.
+    required: true
+  kind:
+    description: >-
+      Force a contract kind for every file instead of reading the document's
+      `contract` field. Leave empty to infer.
+    required: false
+    default: ""
+  fail-on-error:
+    description: Fail the step when any document is invalid.
+    required: false
+    default: "true"
+  node-version:
+    description: Node.js version to run the validator with.
+    required: false
+    default: "22"
+
+outputs:
+  ok:
+    description: "true when every document validated."
+    value: ${{ steps.run.outputs.ok }}
+  report:
+    description: Path to a JSON report of the validation run.
+    value: ${{ steps.run.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install validator dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}/../../..
+      run: npm ci --omit=dev --no-audit --no-fund --loglevel=error
+
+    - name: Validate
+      id: run
+      shell: bash
+      env:
+        CP_ROOT: ${{ github.action_path }}/../../..
+        CP_FILES: ${{ inputs.files }}
+        CP_KIND: ${{ inputs.kind }}
+        CP_FAIL: ${{ inputs.fail-on-error }}
+      run: |
+        set -uo pipefail
+        shopt -s globstar nullglob
+        # shellcheck disable=SC2206
+        files=( $CP_FILES )
+        if [ "${#files[@]}" -eq 0 ]; then
+          echo "::error::validate-contract: no files matched '${CP_FILES}'"
+          exit 1
+        fi
+        args=()
+        if [ -n "$CP_KIND" ]; then args+=(--kind "$CP_KIND"); fi
+        report="${RUNNER_TEMP}/contract-validation.json"
+        node "$CP_ROOT/src/cli.js" validate "${files[@]}" "${args[@]}" --format json > "$report"
+        code=$?
+        node "$CP_ROOT/src/cli.js" validate "${files[@]}" "${args[@]}" --annotations || true
+        ok=false
+        [ "$code" -eq 0 ] && ok=true
+        {
+          echo "ok=$ok"
+          echo "report=$report"
+        } >> "$GITHUB_OUTPUT"
+        {
+          echo "### Contract validation"
+          echo
+          # shellcheck disable=SC2016
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+            const rows = r.results.map(x => `| ${x.ok ? "ok" : "FAIL"} | \`${x.file}\` | ${x.kind ?? ""} | ${x.errors.length} |`);
+            console.log("| Status | File | Kind | Errors |\n|---|---|---|---|\n" + rows.join("\n"));
+          ' "$report"
+        } >> "$GITHUB_STEP_SUMMARY"
+        if [ "$ok" != "true" ] && [ "$CP_FAIL" = "true" ]; then
+          exit 2
+        fi
