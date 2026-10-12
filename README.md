@@ -1,22 +1,72 @@
 # Control Plane
 
-A repo-agnostic GitHub control plane for agent-driven software delivery. This
-repository is a template: nothing in it assumes a particular language, build
-system, or product. Consumer repositories enrol by referencing its reusable
-workflows and actions and by declaring desired state in a few JSON files.
+A template for running an **adversarial agentic team loop** on any GitHub
+repository, with a human as overseer rather than programmer.
 
-## What exists today (foundation)
+The premise: the software you want to build is beyond what you can write by
+hand, but not beyond what you can judge. A team of AI agents plans,
+implements, attacks, reviews, and verifies each other's work. The control
+plane holds them to contracts, budgets, scopes, and separation of duties.
+You read along, decide the few things only a human should decide, and keep
+the kill switch.
 
-| Layer | Location | Purpose |
+Nothing here assumes a language, framework, or product. Consumer repositories
+enrol by referencing this repository's workflows and actions and declaring
+desired state in a handful of JSON and YAML files.
+
+## The loop
+
+```
+          ┌────────────────────────────────────────────────────────────┐
+          │                        HUMAN OVERSEER                      │
+          │   approves high-risk plans and merges · answers escalations │
+          │   reads every result · can halt everything at any time      │
+          └───────────────▲───────────────────────────────▲────────────┘
+                          │ escalation                    │ approval / result
+   issue ──► coordinator ──► planner ──► reviewer(plan) ──► implementer ──► evidence
+                                  ▲                                             │
+                                  │              ┌──────────────────────────────┘
+                                  │              ▼
+                                  └── reviewer(code) ◄──► security auditor ──► verifier ──► merge gate ──► result
+```
+
+Roles are structurally adversarial. The implementer wants to merge; the
+reviewer is rewarded for finding reasons not to; the security auditor assumes
+the change is hostile until shown otherwise; the verifier re-derives the
+evidence instead of trusting it. No role may approve its own output, and
+review roles should run on a different model family than the implementer so
+blind spots do not line up. See `docs/architecture/adversarial-loop.md`.
+
+## What the control plane enforces
+
+| Guardrail | Mechanism | Status |
 |---|---|---|
-| Contracts | `.github/control-plane/contracts/` | Seven closed JSON Schemas (`task`, `plan`, `handoff`, `evidence`, `review`, `result`, `escalation`) plus shared definitions. Every document agents and workflows exchange conforms to one of them. |
-| Validator | `src/lib/contracts.js`, `control-plane validate` | Ajv-backed registry that infers contract kind, enforces formats, and reports JSON-pointer error paths. |
-| Settings reconciliation | `src/lib/settings/`, `control-plane settings` | Declarative labels and rulesets with `plan`, `check`, `apply`, and `export`. Drift is computed by pure functions and applied through a minimal REST client. |
-| Composite action | `.github/actions/validate-contract/` | Validate contract documents from any repository's workflow. |
-| Workflows | `.github/workflows/ci.yml`, `settings-sync.yml` | Tests, example validation, workflow lint, non-blocking drift report; plan-on-PR and apply-on-dispatch for settings. |
+| Every message between roles has a fixed, closed shape | JSON Schema contracts (`task`, `plan`, `handoff`, `evidence`, `review`, `result`, `escalation`) | available |
+| Agents cannot invent fields a consumer did not agree to | `unevaluatedProperties: false` on every contract; enforced by `tests/security/` | available |
+| Task lifecycle is explicit; only named roles may move a task between states | `orchestration/state-machine.yaml` | defined |
+| Risk decides how much a human must see | `policies/approvals.yaml`: low risk flows unattended, medium needs a merge approval, high and critical need plan and merge approval | defined |
+| Repository protections cannot silently drift | `settings/rulesets.json` and `labels.json`, reconciled by `control-plane settings` | available |
+| Scope is declared on the task and verified on the diff | `task.scope.allowed_paths`, `evidence.diff.out_of_scope_paths`, `review.scope_compliance` | contracts available, collector next |
+| Budgets stop work before the ceiling | `budget` on task; `budget_used` on evidence, review, result | contracts available, enforcement next |
+| Humans are told what happened in plain language | `overseer_note` on review, result, escalation | available |
+| Mutating anything requires an explicit flag | `--yes` on apply; `settings-sync` applies only on manual dispatch behind an environment | available |
 
-Everything else under `.github/` carries a `.disabled` suffix and is reserved
-for later stages (agent definitions, orchestration, policies, recovery).
+Everything under `.github/` with a `.disabled` suffix is a placeholder for a
+later stage (agent charters, routing, budgets, tool policy, recovery).
+
+## For the overseer
+
+You are not expected to read the code. You are expected to:
+
+1. Read every `result` and `escalation`. Each carries an `overseer_note`
+   written for you, not for another agent.
+2. Approve or reject what `policies/approvals.yaml` routes to you. Reject
+   when you do not understand; "explain this differently" is a valid reply.
+3. Halt the loop when something feels wrong. Halting is always safe; the
+   control plane never leaves a task in a state that needs a human to clean
+   up.
+4. Learn as you go. Plans, reviews, and results are written to be read in
+   order; `docs/runbooks/overseer.md` explains how.
 
 ## Quick start
 
@@ -24,100 +74,63 @@ for later stages (agent definitions, orchestration, policies, recovery).
 npm ci
 npm test
 
-# Validate contract documents
-node src/cli.js validate path/to/*.json
+node src/cli.js validate path/to/*.json           # validate contract documents
 node src/cli.js schema list
-node src/cli.js schema show evidence
 
-# Repository settings (token from GH_TOKEN, GITHUB_TOKEN, or `gh auth token`)
-node src/cli.js settings plan                 # what would change
-node src/cli.js settings check                # exit 2 on drift
-node src/cli.js settings export labels        # snapshot live state as desired-state JSON
-node src/cli.js settings apply --yes          # reconcile
+node src/cli.js settings plan                      # what would change in this repo
+node src/cli.js settings check                     # exit 2 on drift
+node src/cli.js settings export labels             # snapshot live state
+node src/cli.js settings apply --yes               # reconcile
 ```
 
-Target repository resolution order: `--repo owner/name`, `GH_REPO`,
-`GITHUB_REPOSITORY`, then the `origin` remote.
-
-Exit codes: `0` success or no drift, `1` usage or runtime error, `2` invalid
-document or drift detected.
+Token: `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. Target repository:
+`--repo owner/name`, `GH_REPO`, `GITHUB_REPOSITORY`, or the `origin` remote.
+Exit codes: `0` success or no drift, `1` error, `2` invalid document or drift.
 
 ## Using from another repository
-
-Validate contract documents produced in a consumer workflow:
 
 ```yaml
 - uses: <owner>/<control-plane-repo>/.github/actions/validate-contract@v0.1.0
   with:
-    files: |
-      .control-plane/out/*.json
+    files: .control-plane/out/*.json
 ```
-
-Reconcile a consumer repository's labels from this control plane's CLI:
 
 ```bash
-GH_TOKEN=... node src/cli.js settings plan --repo other-org/other-repo --only labels
+GH_TOKEN=... node src/cli.js settings plan --repo other-org/other-repo
 ```
 
-Per-repository desired state for consumers (so each repo carries its own
-`labels.json`) is part of the next stage, along with the bootstrap installer.
+Per-repository desired state for consumers and the bootstrap installer are
+the next stage.
 
-## Desired-state files
+## Layout
 
-`.github/control-plane/settings/labels.json`
-
-```json
-{
-  "version": 1,
-  "prune": false,
-  "labels": [
-    { "name": "kind:bug", "color": "d73a4a", "description": "Something is broken", "aliases": ["bug"] }
-  ]
-}
-```
-
-`aliases` renames an existing label in place instead of deleting and
-recreating it, preserving issue associations. `prune: true` deletes labels
-not declared; otherwise they are reported as `unmanaged` and never count as
-drift.
-
-`.github/control-plane/settings/rulesets.json`
-
-```json
-{
-  "version": 1,
-  "prune": false,
-  "comparison": "declared",
-  "rulesets": [ { "name": "...", "target": "branch", "enforcement": "active", "conditions": {}, "rules": [] } ]
-}
-```
-
-Ruleset bodies mirror the REST representation, so `settings export rulesets`
-output can be committed verbatim. `comparison: "declared"` compares only the
-fields you declare and tolerates GitHub-populated defaults; `"strict"`
-requires an exact match.
+| Path | Contents |
+|---|---|
+| `.github/control-plane/contracts/` | Contract schemas and one example per contract on a shared trace |
+| `.github/control-plane/orchestration/` | `state-machine.yaml`: task states, transitions, actors, gates, invariants |
+| `.github/control-plane/policies/` | `approvals.yaml`: what requires a human, by risk level and by path |
+| `.github/control-plane/settings/` | Desired labels and rulesets for this repository |
+| `.github/actions/validate-contract/` | Composite action, usable from any repository |
+| `.github/workflows/` | `ci.yml`, `settings-sync.yml` |
+| `src/` | CLI and library (plain ESM, Node 20+) |
+| `tests/unit/`, `tests/security/` | `node:test` suites |
+| `docs/architecture/` | `contracts.md`, `adversarial-loop.md` |
+| `docs/threat-models/` | `adversarial-loop.md` |
+| `docs/runbooks/` | `overseer.md`, `settings-sync.md` |
+| `docs/decisions/` | ADRs |
 
 ## Token requirements
 
 | Operation | Minimum permission |
 |---|---|
-| `settings plan`/`check` (labels, rulesets) | Metadata: read |
+| `settings plan` / `check` | Metadata: read |
 | `settings apply` labels | Issues: write |
-| `settings apply` rulesets | Administration: write |
-
-`github.token` in Actions can read both and write labels. Rulesets require a
-fine-grained PAT or GitHub App token supplied as `CONTROL_PLANE_TOKEN`.
-
-## Documentation
-
-- `docs/architecture/contracts.md`: contract model and envelope semantics
-- `docs/decisions/0001-node-runtime-and-closed-contracts.md`: runtime and schema-strictness decisions
-- `docs/runbooks/settings-sync.md`: operating the settings reconciler
+| `settings apply` rulesets | Administration: write (`CONTROL_PLANE_TOKEN`) |
 
 ## Roadmap
 
-1. Contracts and settings reconciliation (this stage)
-2. Reusable checks behind a repo-profile adapter (`scripts/adapters/`)
-3. Bootstrap installer for consumer repositories (`scripts/bootstrap/`)
-4. Evidence collection and merge gate
-5. Agent roles, orchestration, policies, recovery
+1. Contracts, settings reconciliation, state machine, approvals policy (this stage)
+2. Reusable checks behind a repo-profile adapter; bootstrap installer for consumer repos
+3. Evidence collector and merge gate that enforce scope, budget, and approvals
+4. Agent charters, routing, tool policy, budgets, recovery
+5. Overseer digest: one place to read what the team did and why
