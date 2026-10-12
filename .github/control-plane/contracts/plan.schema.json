@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/plan.schema.json",
+  "title": "Plan",
+  "description": "An ordered, reviewable proposal for how a task will be executed. Plans are immutable once approved; changes produce a new plan with supersedes set.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "summary", "steps", "status"],
+  "properties": {
+    "contract": { "const": "plan" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "supersedes": {
+      "$ref": "common.schema.json#/$defs/identifier",
+      "description": "Id of the plan this one replaces."
+    },
+    "summary": { "$ref": "common.schema.json#/$defs/markdown" },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "proposed", "approved", "rejected", "superseded"]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description", "kind"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "description": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "investigate",
+              "implement",
+              "test",
+              "refactor",
+              "document",
+              "configure",
+              "migrate",
+              "verify",
+              "release"
+            ]
+          },
+          "role": { "$ref": "common.schema.json#/$defs/role" },
+          "files_touched": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+            "uniqueItems": true
+          },
+          "tests": {
+            "type": "array",
+            "description": "Tests that must pass for this step to be considered complete.",
+            "items": { "$ref": "common.schema.json#/$defs/non_empty_string" }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "$ref": "common.schema.json#/$defs/local_id" },
+            "uniqueItems": true
+          },
+          "risk": { "$ref": "common.schema.json#/$defs/risk_level" },
+          "reversible": { "type": "boolean" },
+          "estimated_budget": { "$ref": "common.schema.json#/$defs/budget" }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/non_empty_string" }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["question", "blocking"],
+        "properties": {
+          "question": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "blocking": { "type": "boolean" },
+          "default_if_unanswered": { "type": "string" }
+        }
+      }
+    },
+    "rollback_strategy": { "$ref": "common.schema.json#/$defs/markdown" },
+    "verification_strategy": { "$ref": "common.schema.json#/$defs/markdown" },
+    "estimated_budget": { "$ref": "common.schema.json#/$defs/budget" },
+    "approvals_required": {
+      "type": "array",
+      "description": "Roles or named approvers that must sign off before execution.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["approver"],
+        "properties": {
+          "approver": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "reason": { "type": "string" },
+          "granted_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+          "granted_by": { "type": "string" }
+        }
+      }
+    }
+  }
+}

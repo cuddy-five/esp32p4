@@ -1,0 +1,94 @@
+name: settings-sync
+
+# Reconciles repository settings (labels, rulesets) with the desired state
+# declared under .github/control-plane/settings/.
+#
+# - Pull requests touching desired state get a plan posted to the step summary.
+# - Mutations only happen on manual dispatch with apply=true. Nothing is applied
+#   automatically on merge; promoting a plan to live settings is an explicit
+#   operator decision.
+#
+# Token: `github.token` can read labels/rulesets and write labels, but cannot
+# write rulesets. Provide CONTROL_PLANE_TOKEN (fine-grained PAT or GitHub App
+# token with Administration: write) to apply rulesets.
+
+on:
+  pull_request:
+    paths:
+      - ".github/control-plane/settings/**"
+      - "src/**"
+      - ".github/workflows/settings-sync.yml"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Apply the plan (otherwise plan only)
+        type: boolean
+        default: false
+      only:
+        description: Comma-separated resources to include (labels,rulesets). Empty for all.
+        type: string
+        default: ""
+      repo:
+        description: Target repository (owner/name). Empty for this repository.
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: settings-sync-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: plan
+    if: ${{ github.event_name == 'pull_request' || inputs.apply != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - name: Plan
+        env:
+          # PR code gets a read-only token, never the administration secret.
+          GH_TOKEN: ${{ github.token }}
+          CP_ONLY: ${{ inputs.only }}
+          CP_REPO: ${{ inputs.repo }}
+        run: |
+          args=(--summary)
+          [ -n "$CP_ONLY" ] && args+=(--only "$CP_ONLY")
+          [ -n "$CP_REPO" ] && args+=(--repo "$CP_REPO")
+          node src/cli.js settings plan "${args[@]}"
+
+  apply:
+    name: apply
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: settings-admin
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --omit=dev --no-audit --no-fund
+      - name: Apply
+        env:
+          GH_TOKEN: ${{ secrets.CONTROL_PLANE_TOKEN || github.token }}
+          CP_ONLY: ${{ inputs.only }}
+          CP_REPO: ${{ inputs.repo }}
+        run: |
+          args=(--yes --summary)
+          [ -n "$CP_ONLY" ] && args+=(--only "$CP_ONLY")
+          [ -n "$CP_REPO" ] && args+=(--repo "$CP_REPO")
+          node src/cli.js settings apply "${args[@]}"

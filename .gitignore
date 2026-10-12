@@ -5,3 +5,5 @@
 .vars.*
 !.vars.example
 /.runtime/
+node_modules/
+npm-debug.log*

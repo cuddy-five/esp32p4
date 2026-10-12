@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/review.schema.json",
+  "title": "Review",
+  "description": "A judgement about a change, produced by a reviewer or security auditor (agent or human). Reviews consume evidence and emit a verdict plus structured findings.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "subject", "verdict", "findings", "overseer_note"],
+  "properties": {
+    "contract": { "const": "review" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "plan_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "evidence_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha"],
+      "properties": {
+        "sha": { "$ref": "common.schema.json#/$defs/sha" },
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" }
+      }
+    },
+    "review_kind": {
+      "type": "string",
+      "enum": ["code", "security", "plan", "architecture", "verification"]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "approve_with_comments", "request_changes", "block", "abstain"]
+    },
+    "summary": { "$ref": "common.schema.json#/$defs/markdown" },
+    "overseer_note": { "$ref": "common.schema.json#/$defs/overseer_note" },
+    "confidence": { "$ref": "common.schema.json#/$defs/confidence" },
+    "findings": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "category", "message", "blocking"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "severity": { "$ref": "common.schema.json#/$defs/severity" },
+          "category": {
+            "type": "string",
+            "enum": [
+              "correctness",
+              "security",
+              "performance",
+              "maintainability",
+              "testing",
+              "documentation",
+              "scope",
+              "style",
+              "dependency",
+              "policy"
+            ]
+          },
+          "message": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "blocking": { "type": "boolean" },
+          "path": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "line": { "type": "integer", "minimum": 1 },
+          "end_line": { "type": "integer", "minimum": 1 },
+          "suggestion": { "type": "string" },
+          "rule": {
+            "type": "string",
+            "description": "Identifier of the policy or lint rule that produced the finding."
+          },
+          "cwe": {
+            "type": "string",
+            "pattern": "^CWE-[0-9]{1,5}$"
+          },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+    "checklist": {
+      "type": "array",
+      "description": "Explicit acceptance checks the reviewer evaluated, usually mirroring task.acceptance_criteria.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["item", "satisfied"],
+        "properties": {
+          "item": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "criterion_id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "satisfied": { "type": "boolean" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "scope_compliance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["within_scope"],
+      "properties": {
+        "within_scope": { "type": "boolean" },
+        "violations": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" }
+        }
+      }
+    },
+    "budget_used": { "$ref": "common.schema.json#/$defs/budget" }
+  }
+}

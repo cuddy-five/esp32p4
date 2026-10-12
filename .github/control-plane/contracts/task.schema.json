@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/task.schema.json",
+  "title": "Task",
+  "description": "A unit of work accepted into the control plane. Tasks are the root of every trace; plans, handoffs, evidence, reviews, results, and escalations all reference a task.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["title", "intent", "acceptance_criteria", "scope", "risk", "status"],
+  "properties": {
+    "contract": { "const": "task" },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 200
+    },
+    "intent": {
+      "$ref": "common.schema.json#/$defs/markdown",
+      "description": "What outcome the requester wants and why. Not how."
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement"],
+        "properties": {
+          "id": { "$ref": "common.schema.json#/$defs/local_id" },
+          "statement": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "verification": {
+            "type": "string",
+            "enum": ["automated_test", "manual_check", "review", "metric", "none"]
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "description": "Where the work may and may not touch. Enforced by tool policy and verified by review.",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "$ref": "common.schema.json#/$defs/repository_ref" },
+        "allowed_paths": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "uniqueItems": true
+        },
+        "forbidden_paths": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "uniqueItems": true
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "uniqueItems": true
+        },
+        "network_access": {
+          "type": "string",
+          "enum": ["none", "allowlist", "unrestricted"]
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": {
+        "level": { "$ref": "common.schema.json#/$defs/risk_level" },
+        "requires_human_approval": { "type": "boolean" },
+        "rationale": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "auth",
+              "secrets",
+              "data_migration",
+              "public_api",
+              "ci_cd",
+              "dependencies",
+              "infra",
+              "billing",
+              "pii"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "accepted",
+        "planning",
+        "awaiting_approval",
+        "in_progress",
+        "in_review",
+        "verifying",
+        "blocked",
+        "done",
+        "cancelled"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["p0", "p1", "p2", "p3"]
+    },
+    "source": {
+      "type": "object",
+      "description": "Where the task originated.",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["issue", "pull_request", "discussion", "schedule", "manual", "escalation", "api"]
+        },
+        "issue": { "$ref": "common.schema.json#/$defs/issue_ref" },
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" },
+        "url": { "$ref": "common.schema.json#/$defs/uri" },
+        "requested_by": { "type": "string" }
+      }
+    },
+    "budget": { "$ref": "common.schema.json#/$defs/budget" },
+    "labels": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/label" },
+      "uniqueItems": true
+    },
+    "depends_on": {
+      "type": "array",
+      "description": "Task ids that must reach done before this task may start.",
+      "items": { "$ref": "common.schema.json#/$defs/identifier" },
+      "uniqueItems": true
+    },
+    "deadline": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "assigned_role": { "$ref": "common.schema.json#/$defs/role" }
+  }
+}

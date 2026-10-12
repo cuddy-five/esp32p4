@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "prune": false,
+  "labels": [
+    { "name": "cp:task", "color": "0e8a16", "description": "Accepted into the control plane as a task" },
+    { "name": "cp:plan", "color": "1d76db", "description": "Carries or awaits a plan document" },
+    { "name": "cp:needs-approval", "color": "fbca04", "description": "Plan or action requires human approval before execution" },
+    { "name": "cp:approved", "color": "0e8a16", "description": "Approved for execution" },
+    { "name": "cp:in-progress", "color": "c5def5", "description": "An agent or human is actively working" },
+    { "name": "cp:needs-review", "color": "d4c5f9", "description": "Awaiting reviewer verdict" },
+    { "name": "cp:verifying", "color": "bfd4f2", "description": "Verifier is collecting evidence" },
+    { "name": "cp:blocked", "color": "b60205", "description": "Cannot proceed; see linked escalation" },
+    { "name": "cp:escalation", "color": "e11d21", "description": "Requires a human decision" },
+    { "name": "cp:done", "color": "5319e7", "description": "Result recorded; task closed" },
+    { "name": "risk:low", "color": "c2e0c6", "description": "Low blast radius, reversible" },
+    { "name": "risk:medium", "color": "fef2c0", "description": "Moderate blast radius or partially reversible" },
+    { "name": "risk:high", "color": "f9d0c4", "description": "High blast radius; approval required" },
+    { "name": "risk:critical", "color": "b60205", "description": "Touches auth, secrets, billing, or data; human-gated" },
+    { "name": "role:planner", "color": "006b75", "description": "Routed to the planner role" },
+    { "name": "role:implementer", "color": "006b75", "description": "Routed to the implementer role" },
+    { "name": "role:reviewer", "color": "006b75", "description": "Routed to the reviewer role" },
+    { "name": "role:verifier", "color": "006b75", "description": "Routed to the verifier role" },
+    { "name": "role:security-auditor", "color": "006b75", "description": "Routed to the security auditor role" },
+    { "name": "kind:bug", "color": "d73a4a", "description": "Something is broken", "aliases": ["bug"] },
+    { "name": "kind:feature", "color": "a2eeef", "description": "New capability", "aliases": ["enhancement", "feature"] },
+    { "name": "kind:chore", "color": "ededed", "description": "Maintenance with no user-facing change" },
+    { "name": "kind:docs", "color": "0075ca", "description": "Documentation only", "aliases": ["documentation"] },
+    { "name": "kind:security", "color": "ee0701", "description": "Security-relevant change" }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/handoff.schema.json",
+  "title": "Handoff",
+  "description": "Transfer of a task between roles. Carries enough context for the receiving role to continue without re-deriving state.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "from_role", "to_role", "state", "context_summary"],
+  "properties": {
+    "contract": { "const": "handoff" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "plan_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "from_role": { "$ref": "common.schema.json#/$defs/role" },
+    "to_role": { "$ref": "common.schema.json#/$defs/role" },
+    "state": {
+      "type": "string",
+      "description": "Task state at the moment of handoff, mirroring task.status.",
+      "enum": [
+        "proposed",
+        "accepted",
+        "planning",
+        "awaiting_approval",
+        "in_progress",
+        "in_review",
+        "verifying",
+        "blocked",
+        "done",
+        "cancelled"
+      ]
+    },
+    "context_summary": {
+      "$ref": "common.schema.json#/$defs/markdown",
+      "description": "What has been done, what was learned, what remains. Written for the receiver."
+    },
+    "working_ref": {
+      "type": "object",
+      "description": "Where the in-flight work lives.",
+      "additionalProperties": false,
+      "properties": {
+        "branch": { "type": "string" },
+        "sha": { "$ref": "common.schema.json#/$defs/sha" },
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifact" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description"],
+        "properties": {
+          "description": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "owner": { "type": "string" },
+          "escalation_id": { "$ref": "common.schema.json#/$defs/identifier" }
+        }
+      }
+    },
+    "next_actions": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/non_empty_string" }
+    },
+    "budget_remaining": { "$ref": "common.schema.json#/$defs/budget" },
+    "expires_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "After this time the handoff is stale and the coordinator must re-route."
+    }
+  }
+}

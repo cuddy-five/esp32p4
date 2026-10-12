@@ -1,0 +1,30 @@
+{
+  "contract": "escalation",
+  "schema_version": "1.0.0",
+  "id": "esc_01J9Z3X5M6N7B8V9C0X1Z2A3S4",
+  "created_at": "2026-10-12T00:30:00Z",
+  "producer": { "kind": "agent", "name": "implementer", "role": "implementer" },
+  "trace": { "correlation_id": "trace_01J9Z3Q8K2M4N6P8R0T2V4X6Y8", "parent_id": "plan_01J9Z3R0A1B2C3D4E5F6G7H8J9" },
+  "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
+  "reason": "scope_expansion",
+  "severity": "medium",
+  "status": "resolved",
+  "summary": "Implementing rename support requires touching the GitHub client, which is outside allowed_paths.",
+  "context": "Plan step s1 needs PATCH /labels/{name} with new_name. The client wrapper lives in src/lib/github.js which is covered by allowed_paths (src/**), but the call also needs a retry policy change in .github/control-plane/policies/retries.yaml, which is forbidden.",
+  "requested_decision": "May the task expand scope to include policies/retries.yaml, or should rename support be split into a follow-up task?",
+  "overseer_note": "While implementing, the agent found it would need to edit a policy file the task did not allow. It asked whether to widen the task or split the work. The recommended option keeps policy changes separate from feature changes, which is the safer habit. You chose that option.",
+  "options": [
+    { "id": "opt-expand", "description": "Expand scope to include the retries policy file", "recommended": false, "consequences": "Policy change ships with a feature change." },
+    { "id": "opt-split", "description": "Ship rename without a retry policy change; open a follow-up task", "recommended": true, "consequences": "Renames may fail transiently until follow-up lands." }
+  ],
+  "related": { "plan_id": "plan_01J9Z3R0A1B2C3D4E5F6G7H8J9", "issue": { "number": 42 } },
+  "assignees": ["octocat"],
+  "deadline": "2026-10-12T12:00:00Z",
+  "default_action_on_expiry": "pause_task",
+  "resolution": {
+    "decided_by": "octocat",
+    "decided_at": "2026-10-12T00:38:00Z",
+    "chosen_option_id": "opt-split",
+    "rationale": "Keep policy changes isolated."
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@control-plane/core",
+  "version": "0.1.0",
+  "description": "Repo-agnostic GitHub control plane: contracts, settings reconciliation, and policy gates.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "control-plane": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test \"tests/unit/*.test.js\" \"tests/security/*.test.js\"",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:security": "node --test \"tests/security/*.test.js\"",
+    "validate:examples": "node src/cli.js validate .github/control-plane/contracts/examples/*.json",
+    "settings:plan": "node src/cli.js settings plan",
+    "settings:check": "node src/cli.js settings check",
+    "settings:apply": "node src/cli.js settings apply"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.1"
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://control-plane.dev/contracts/v1/evidence.schema.json",
+  "title": "Evidence",
+  "description": "Machine-collected facts about a change: checks, tests, diff shape, policy outcomes, and attestations. Evidence is append-only input to review and merge gates; it never contains judgement.",
+  "type": "object",
+  "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
+  "unevaluatedProperties": false,
+  "required": ["task_id", "subject", "collected_at"],
+  "properties": {
+    "contract": { "const": "evidence" },
+    "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
+    "collected_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+    "subject": {
+      "type": "object",
+      "description": "The exact code state the evidence describes.",
+      "additionalProperties": false,
+      "required": ["sha"],
+      "properties": {
+        "repository": { "$ref": "common.schema.json#/$defs/repository_ref" },
+        "sha": { "$ref": "common.schema.json#/$defs/sha" },
+        "pull_request": { "$ref": "common.schema.json#/$defs/pull_request_ref" }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "conclusion"],
+        "properties": {
+          "name": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "conclusion": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure",
+              "neutral",
+              "cancelled",
+              "skipped",
+              "timed_out",
+              "action_required",
+              "pending"
+            ]
+          },
+          "url": { "$ref": "common.schema.json#/$defs/uri" },
+          "duration_seconds": { "type": "number", "minimum": 0 },
+          "required": {
+            "type": "boolean",
+            "description": "Whether a ruleset requires this check."
+          }
+        }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "failed"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "coverage_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "coverage_delta_percent": { "type": "number" },
+        "report": { "$ref": "common.schema.json#/$defs/artifact" }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files_changed", "additions", "deletions"],
+      "properties": {
+        "base_sha": { "$ref": "common.schema.json#/$defs/sha" },
+        "files_changed": { "type": "integer", "minimum": 0 },
+        "additions": { "type": "integer", "minimum": 0 },
+        "deletions": { "type": "integer", "minimum": 0 },
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "uniqueItems": true
+        },
+        "out_of_scope_paths": {
+          "type": "array",
+          "description": "Changed paths not covered by task.scope.allowed_paths or hitting forbidden_paths.",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "uniqueItems": true
+        },
+        "generated_paths": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/path_glob" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "policy_results": {
+      "type": "array",
+      "description": "Outcome of each control-plane policy evaluated against the subject.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["policy", "outcome"],
+        "properties": {
+          "policy": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+          "outcome": {
+            "type": "string",
+            "enum": ["pass", "fail", "warn", "skipped", "error"]
+          },
+          "severity": { "$ref": "common.schema.json#/$defs/severity" },
+          "details": { "type": "string" },
+          "evaluated_by": { "type": "string" }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "secrets_scan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["findings"],
+          "properties": {
+            "tool": { "type": "string" },
+            "findings": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "dependency_scan": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tool": { "type": "string" },
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "sast": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tool": { "type": "string" },
+            "findings": { "type": "integer", "minimum": 0 },
+            "report": { "$ref": "common.schema.json#/$defs/artifact" }
+          }
+        }
+      }
+    },
+    "attestations": {
+      "type": "array",
+      "description": "Signed statements about the subject (provenance, SBOM, review).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["predicate_type", "subject_digest"],
+        "properties": {
+          "predicate_type": { "$ref": "common.schema.json#/$defs/uri" },
+          "subject_digest": { "$ref": "common.schema.json#/$defs/digest" },
+          "issuer": { "type": "string" },
+          "bundle": { "$ref": "common.schema.json#/$defs/artifact" }
+        }
+      }
+    },
+    "budget_used": { "$ref": "common.schema.json#/$defs/budget" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/artifact" }
+    }
+  }
+}
