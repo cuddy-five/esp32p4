@@ -6,7 +6,7 @@
   "type": "object",
   "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
   "unevaluatedProperties": false,
-  "required": ["task_id", "outcome", "summary", "started_at", "finished_at"],
+  "required": ["task_id", "outcome", "summary", "overseer_note", "started_at", "finished_at"],
   "properties": {
     "contract": { "const": "result" },
     "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
@@ -15,6 +15,7 @@
       "enum": ["success", "partial", "failed", "aborted", "escalated"]
     },
     "summary": { "$ref": "common.schema.json#/$defs/markdown" },
+    "overseer_note": { "$ref": "common.schema.json#/$defs/overseer_note" },
     "started_at": { "$ref": "common.schema.json#/$defs/timestamp" },
     "finished_at": { "$ref": "common.schema.json#/$defs/timestamp" },
     "outputs": {

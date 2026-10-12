@@ -12,6 +12,7 @@
   "summary": "Implementing rename support requires touching the GitHub client, which is outside allowed_paths.",
   "context": "Plan step s1 needs PATCH /labels/{name} with new_name. The client wrapper lives in src/lib/github.js which is covered by allowed_paths (src/**), but the call also needs a retry policy change in .github/control-plane/policies/retries.yaml, which is forbidden.",
   "requested_decision": "May the task expand scope to include policies/retries.yaml, or should rename support be split into a follow-up task?",
+  "overseer_note": "While implementing, the agent found it would need to edit a policy file the task did not allow. It asked whether to widen the task or split the work. The recommended option keeps policy changes separate from feature changes, which is the safer habit. You chose that option.",
   "options": [
     { "id": "opt-expand", "description": "Expand scope to include the retries policy file", "recommended": false, "consequences": "Policy change ships with a feature change." },
     { "id": "opt-split", "description": "Ship rename without a retry policy change; open a follow-up task", "recommended": true, "consequences": "Renames may fail transiently until follow-up lands." }

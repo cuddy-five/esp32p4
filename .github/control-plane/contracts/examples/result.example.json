@@ -8,6 +8,7 @@
   "task_id": "task_01J9Z3Q8K2M4N6P8R0T2V4X6Y8",
   "outcome": "success",
   "summary": "Labels drift detection merged. All acceptance criteria met.",
+  "overseer_note": "The team added a tool that compares the repository's labels with the list kept in git and reports differences. Both acceptance criteria passed, the budget was not exceeded, and the change merged. Nothing for you to do.",
   "started_at": "2026-10-12T00:00:00Z",
   "finished_at": "2026-10-12T01:10:00Z",
   "outputs": {

@@ -6,7 +6,7 @@
   "type": "object",
   "allOf": [{ "$ref": "common.schema.json#/$defs/envelope" }],
   "unevaluatedProperties": false,
-  "required": ["task_id", "reason", "severity", "summary", "requested_decision", "status"],
+  "required": ["task_id", "reason", "severity", "summary", "requested_decision", "overseer_note", "status"],
   "properties": {
     "contract": { "const": "escalation" },
     "task_id": { "$ref": "common.schema.json#/$defs/identifier" },
@@ -36,6 +36,7 @@
       "description": "Everything a decision-maker needs without opening other documents."
     },
     "requested_decision": { "$ref": "common.schema.json#/$defs/non_empty_string" },
+    "overseer_note": { "$ref": "common.schema.json#/$defs/overseer_note" },
     "options": {
       "type": "array",
       "description": "Concrete choices offered to the decision-maker. Empty means free-form.",

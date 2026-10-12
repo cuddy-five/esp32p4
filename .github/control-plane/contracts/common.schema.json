@@ -40,6 +40,12 @@
       "description": "Free-form Markdown intended for humans.",
       "maxLength": 65536
     },
+    "overseer_note": {
+      "type": "string",
+      "description": "Plain-language explanation written for the human overseer: what happened, why it matters, and what, if anything, they should do. Assume a smart reader who is learning and did not write the code.",
+      "minLength": 20,
+      "maxLength": 4000
+    },
     "severity": {
       "type": "string",
       "enum": ["info", "low", "medium", "high", "critical"]

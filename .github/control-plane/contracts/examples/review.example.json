@@ -12,6 +12,7 @@
   "review_kind": "code",
   "verdict": "approve_with_comments",
   "summary": "Planner is correct and well tested. One non-blocking suggestion on error messaging.",
+  "overseer_note": "The change does what the task asked and the tests prove it. I left one small suggestion about an error message; it does not block merging. Nothing here needs your attention.",
   "confidence": 0.9,
   "findings": [
     {

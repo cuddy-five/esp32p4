@@ -94,6 +94,26 @@ describe("contract schemas are closed", () => {
   });
 });
 
+describe("documents a human reads must explain themselves", () => {
+  for (const kind of ["review", "result", "escalation"]) {
+    test(`${kind} requires overseer_note`, () => {
+      const doc = JSON.parse(fs.readFileSync(path.join(CONTRACTS_DIR, "examples", `${kind}.example.json`), "utf8"));
+      delete doc.overseer_note;
+      const res = registry.validate(doc);
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.path === "/overseer_note" && e.keyword === "required"));
+    });
+
+    test(`${kind} rejects a token overseer_note`, () => {
+      const doc = JSON.parse(fs.readFileSync(path.join(CONTRACTS_DIR, "examples", `${kind}.example.json`), "utf8"));
+      doc.overseer_note = "ok";
+      const res = registry.validate(doc);
+      assert.equal(res.ok, false);
+      assert.ok(res.errors.some((e) => e.path === "/overseer_note" && e.keyword === "minLength"));
+    });
+  }
+});
+
 describe("validator refuses dangerous inputs", () => {
   test("a review cannot smuggle an approval through an undeclared field", () => {
     const doc = JSON.parse(fs.readFileSync(path.join(CONTRACTS_DIR, "examples", "review.example.json"), "utf8"));

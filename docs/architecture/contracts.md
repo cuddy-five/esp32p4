@@ -81,6 +81,11 @@ after.
 `proceed_with_recommended`. The control plane may only proceed on its own
 when the escalation explicitly allows it.
 
+**Documents a human reads explain themselves.** `review`, `result`, and
+`escalation` require an `overseer_note` (20–4000 characters) written in
+plain language for an overseer who did not write the code. The schema
+enforces presence and length; `tests/security/` pins it.
+
 **Identifiers are two-tier.** Document ids use `identifier` (4–128 chars).
 Ids scoped to one document (plan steps, acceptance criteria, findings,
 options) use `local_id` and may be short slugs like `s1` or `ac-2`.
