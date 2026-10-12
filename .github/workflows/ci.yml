@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  issues: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -56,6 +55,10 @@ jobs:
     name: settings-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Only this read-only report needs access to repository labels.
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -66,4 +69,13 @@ jobs:
       - name: Report drift
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node src/cli.js settings check --summary
+        # Desired settings are applied after merge by an approved manual dispatch.
+        # Pending drift is expected here; API/validation errors still fail the job.
+        run: |
+          status=0
+          node src/cli.js settings check --summary || status=$?
+          if [ "$status" -eq 2 ]; then
+            echo "::notice::Settings drift found. Review the summary; apply after merge."
+          else
+            exit "$status"
+          fi

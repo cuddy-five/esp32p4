@@ -35,7 +35,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  issues: read
 
 concurrency:
   group: settings-sync-${{ github.ref }}
@@ -56,7 +56,8 @@ jobs:
       - run: npm ci --omit=dev --no-audit --no-fund
       - name: Plan
         env:
-          GH_TOKEN: ${{ secrets.CONTROL_PLANE_TOKEN || github.token }}
+          # PR code gets a read-only token, never the administration secret.
+          GH_TOKEN: ${{ github.token }}
           CP_ONLY: ${{ inputs.only }}
           CP_REPO: ${{ inputs.repo }}
         run: |
@@ -71,6 +72,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: settings-admin
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

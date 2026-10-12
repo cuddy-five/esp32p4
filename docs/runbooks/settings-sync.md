@@ -11,10 +11,16 @@ desired (JSON in git)  ──plan──►  ops  ──apply──►  GitHub
           └──────────────── export ───────────────────┘
 ```
 
-- `plan` is read-only and always exits 0.
+- `plan` is read-only and exits 0 on success; invalid input or API failures exit 1.
 - `check` is `plan` that exits 2 when drift exists. Use it as a gate.
 - `apply` executes the plan. Requires `--yes`.
 - `export` writes the live state in desired-file format for bootstrapping.
+
+CI's `settings-check` job reports drift in its summary without blocking the PR.
+Changes to desired settings must merge before the approved manual apply, so
+pending drift is expected. API errors and invalid configuration still fail CI.
+The three required code checks remain `test`, `validate-examples`, and
+`lint-workflows`; compare these names with `settings/rulesets.json`.
 
 Op types: `create`, `update`, `rename` (labels, via `aliases`), `delete`
 (only with `prune: true`), `unmanaged` (live but undeclared, informational),
@@ -78,14 +84,17 @@ becomes a `delete` op. Review the plan carefully before applying; the
 
 | Need | Permission | `github.token` sufficient? |
 |---|---|---|
-| Read labels, rulesets | Metadata: read | yes |
+| Read labels | Issues: read (or Pull requests: read) | yes |
+| Read rulesets | Metadata: read | yes |
 | Write labels | Issues: write | yes (`permissions: issues: write`) |
 | Write rulesets | Administration: write | no |
 
 Provide a fine-grained PAT or GitHub App installation token as the
-`CONTROL_PLANE_TOKEN` repository secret for ruleset writes. The workflows
-fall back to `github.token` when it is absent, so label-only setups need no
-secret.
+`CONTROL_PLANE_TOKEN` secret for ruleset writes, preferably scoped to the
+`settings-admin` environment. Only the manual `apply` job consumes that secret.
+PR planning and CI reporting use the read-only `github.token`. The apply job
+falls back to `github.token` when the secret is absent, so label-only setups
+need no administration secret.
 
 ## Troubleshooting
 
