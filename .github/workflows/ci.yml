@@ -55,9 +55,10 @@ jobs:
     name: settings-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Read-only drift report for this repository. Non-blocking: drift is a
-    # signal for operators, not a code defect. Use settings-sync to reconcile.
-    continue-on-error: true
+    continue-on-error: 
+    permissions:
+      contents: read
+      issues: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
