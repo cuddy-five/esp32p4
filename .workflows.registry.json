@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "workflows": [
+    {
+      "id": "intake",
+      "name": "Request Intake",
+      "description": "Entry point: classify request intent and route to appropriate workflow",
+      "states": [
+        "received",
+        "classified",
+        "routed"
+      ],
+      "initial_state": "received",
+      "transitions": {
+        "received": {
+          "classify": "classified"
+        },
+        "classified": {
+          "route": "routed"
+        }
+      },
+      "agent": "coordinator",
+      "timeout_ms": 60000,
+      "enabled": true
+    },
+    {
+      "id": "plan-review",
+      "name": "Plan Review",
+      "description": "Planner creates plan, then reviewer adversarially reviews before approval",
+      "states": [
+        "planning",
+        "plan_ready",
+        "review_in_progress",
+        "review_complete",
+        "approved",
+        "rejected"
+      ],
+      "initial_state": "planning",
+      "transitions": {
+        "planning": {
+          "plan_complete": "plan_ready"
+        },
+        "plan_ready": {
+          "request_review": "review_in_progress"
+        },
+        "review_in_progress": {
+          "review_complete": "review_complete"
+        },
+        "review_complete": {
+          "approve": "approved",
+          "reject": "rejected"
+        }
+      },
+      "roles": {
+        "planner": "creates plan with tests and rollback",
+        "reviewer": "adversarially reviews plan before approval"
+      },
+      "timeout_ms": 900000,
+      "enabled": true
+    },
+    {
+      "id": "implement",
+      "name": "Implementation",
+      "description": "Implementer executes approved plan, verifier re-validates",
+      "states": [
+        "ready",
+        "in_progress",
+        "implementation_complete",
+        "verification_in_progress",
+        "verified",
+        "failed"
+      ],
+      "initial_state": "ready",
+      "transitions": {
+        "ready": {
+          "start": "in_progress"
+        },
+        "in_progress": {
+          "complete": "implementation_complete"
+        },
+        "implementation_complete": {
+          "request_verification": "verification_in_progress"
+        },
+        "verification_in_progress": {
+          "pass": "verified",
+          "fail": "failed"
+        }
+      },
+      "roles": {
+        "implementer": "writes code following approved plan",
+        "verifier": "re-runs tests and re-derives results independently"
+      },
+      "timeout_ms": 1200000,
+      "enabled": true
+    },
+    {
+      "id": "security-review",
+      "name": "Security Review",
+      "description": "Security auditor performs hostile review for vulnerabilities",
+      "states": [
+        "ready",
+        "audit_in_progress",
+        "audit_complete",
+        "approved",
+        "blocked"
+      ],
+      "initial_state": "ready",
+      "transitions": {
+        "ready": {
+          "start": "audit_in_progress"
+        },
+        "audit_in_progress": {
+          "complete": "audit_complete"
+        },
+        "audit_complete": {
+          "approve": "approved",
+          "block": "blocked"
+        }
+      },
+      "agent": "security_auditor",
+      "required_for_risk_levels": [
+        "medium",
+        "high",
+        "critical"
+      ],
+      "timeout_ms": 600000,
+      "enabled": true
+    },
+    {
+      "id": "merge-gate",
+      "name": "Merge Gate",
+      "description": "Final approval before merging; enforces all reviews complete and passing",
+      "states": [
+        "ready",
+        "checking",
+        "approved",
+        "rejected"
+      ],
+      "initial_state": "ready",
+      "transitions": {
+        "ready": {
+          "check": "checking"
+        },
+        "checking": {
+          "approve": "approved",
+          "reject": "rejected"
+        }
+      },
+      "prerequisites": [
+        "plan-review",
+        "implement"
+      ],
+      "required_checks": [
+        "all_reviews_complete",
+        "tests_passing",
+        "no_unresolved_threads"
+      ],
+      "timeout_ms": 300000,
+      "enabled": true
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "skills": [
+    {
+      "id": "code-reviewer",
+      "name": "Code Reviewer",
+      "description": "Expert code review specialist for quality, security, and maintainability",
+      "category": "review",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 500,
+        "description": "Per review session"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.6-luna"],
+      "tags": ["code-quality", "review", "architecture"]
+    },
+    {
+      "id": "python-reviewer",
+      "name": "Python Reviewer",
+      "description": "Expert Python code reviewer for PEP 8, idioms, type hints, security",
+      "category": "review",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 400,
+        "description": "Per Python file batch"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.6-luna"],
+      "tags": ["python", "review", "pep8"]
+    },
+    {
+      "id": "security-reviewer",
+      "name": "Security Reviewer",
+      "description": "Vulnerability detection and remediation for OWASP Top 10, secrets, injection",
+      "category": "security",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 600,
+        "description": "Per security review"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.6-luna"],
+      "tags": ["security", "vulnerabilities", "owasp"]
+    },
+    {
+      "id": "database-reviewer",
+      "name": "Database Reviewer",
+      "description": "PostgreSQL specialist for schema, queries, security, performance optimization",
+      "category": "review",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 500,
+        "description": "Per database review"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.6-luna"],
+      "tags": ["database", "postgresql", "performance"]
+    },
+    {
+      "id": "build-error-resolver",
+      "name": "Build Error Resolver",
+      "description": "TypeScript and build error resolution with minimal diffs",
+      "category": "implementation",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 300,
+        "description": "Per build error fix"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.3-codex"],
+      "tags": ["typescript", "build", "errors"]
+    },
+    {
+      "id": "e2e-runner",
+      "name": "E2E Test Runner",
+      "description": "End-to-end testing with Vercel Agent Browser, manages test journeys",
+      "category": "testing",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 800,
+        "description": "Per test session (includes artifacts)"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.6-luna"],
+      "tags": ["e2e", "testing", "browser"]
+    },
+    {
+      "id": "tdd-guide",
+      "name": "Test-Driven Development Guide",
+      "description": "Write-tests-first methodology enforcer with 80%+ coverage target",
+      "category": "testing",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 400,
+        "description": "Per feature test suite"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.3-codex"],
+      "tags": ["tdd", "testing", "coverage"]
+    },
+    {
+      "id": "doc-updater",
+      "name": "Documentation Updater",
+      "description": "Documentation and codemap specialist for READMEs, guides, codemaps",
+      "category": "documentation",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 250,
+        "description": "Per documentation update"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["claude-haiku-4.5"],
+      "tags": ["documentation", "codemaps", "guides"]
+    },
+    {
+      "id": "refactor-cleaner",
+      "name": "Refactor Cleaner",
+      "description": "Dead code cleanup and consolidation using automated analysis tools",
+      "category": "maintenance",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 300,
+        "description": "Per refactoring batch"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-5.3-codex"],
+      "tags": ["refactoring", "dead-code", "cleanup"]
+    },
+    {
+      "id": "architect",
+      "name": "Software Architect",
+      "description": "System design, scalability planning, architectural decisions and trade-offs",
+      "category": "architecture",
+      "provider": "ecc",
+      "cost": {
+        "ai_credits": 700,
+        "description": "Per architectural review"
+      },
+      "prerequisites": [],
+      "enabled": true,
+      "models": ["gpt-6-luna"],
+      "tags": ["architecture", "design", "scalability"]
+    }
+  ]
+}

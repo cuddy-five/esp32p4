@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "agents": [
+    {
+      "id": "planner",
+      "name": "Planner",
+      "description": "Constructive role that turns intent into steps with tests and rollback",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "high",
+      "budget": {
+        "max_ai_credits": 5000,
+        "max_tokens_per_request": 8000,
+        "max_concurrent_tasks": 2
+      },
+      "scope": {
+        "allowed_paths": [
+          ".github/control-plane/**",
+          "docs/**",
+          "src/**",
+          "tests/**"
+        ],
+        "forbidden_paths": [
+          ".env*",
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/.git/**"
+        ]
+      },
+      "approval_rules": {
+        "requires_approval_for_paths": [
+          ".github/control-plane/**",
+          ".github/workflows/**",
+          ".github/actions/**"
+        ],
+        "min_approval_level": "maintainer"
+      },
+      "timeout_ms": 300000,
+      "enabled": true
+    },
+    {
+      "id": "implementer",
+      "name": "Implementer",
+      "description": "Constructive role that executes approved plans inside scope",
+      "model": "gpt-6-luna",
+      "reasoning_effort": "medium",
+      "budget": {
+        "max_ai_credits": 8000,
+        "max_tokens_per_request": 16000,
+        "max_concurrent_tasks": 3
+      },
+      "scope": {
+        "allowed_paths": [
+          "src/**",
+          "tests/**",
+          "docs/**"
+        ],
+        "forbidden_paths": [
+          ".env*",
+          ".github/control-plane/**",
+          ".github/workflows/**",
+          ".github/actions/**",
+          "**/node_modules/**",
+          "**/.git/**"
+        ]
+      },
+      "approval_rules": {
+        "requires_approval_for_paths": [
+          "src/lib/**",
+          "tests/**"
+        ],
+        "min_approval_level": "reviewer"
+      },
+      "timeout_ms": 600000,
+      "enabled": true
+    },
+    {
+      "id": "security_auditor",
+      "name": "Security Auditor",
+      "description": "Hostile role that assumes change is an attack until shown otherwise",
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "high",
+      "budget": {
+        "max_ai_credits": 4000,
+        "max_tokens_per_request": 8000,
+        "max_concurrent_tasks": 1
+      },
+      "scope": {
+        "allowed_paths": [
+          "src/**",
+          "tests/**",
+          ".github/workflows/**"
+        ],
+        "forbidden_paths": [
+          ".env*",
+          "**/node_modules/**",
+          "**/.git/**"
+        ]
+      },
+      "approval_rules": {
+        "requires_approval_for": "any_risk_medium_or_above",
+        "min_approval_level": "owner"
+      },
+      "timeout_ms": 300000,
+      "enabled": true
+    },
+    {
+      "id": "verifier",
+      "name": "Verifier",
+      "description": "Skeptical role that re-runs and re-derives instead of trusting evidence",
+      "model": "claude-haiku-4.5",
+      "reasoning_effort": "medium",
+      "budget": {
+        "max_ai_credits": 2000,
+        "max_tokens_per_request": 4000,
+        "max_concurrent_tasks": 2
+      },
+      "scope": {
+        "allowed_paths": [
+          "tests/**",
+          "src/**"
+        ],
+        "forbidden_paths": [
+          ".env*",
+          ".github/control-plane/**",
+          "**/node_modules/**",
+          "**/.git/**"
+        ]
+      },
+      "approval_rules": {
+        "requires_approval_for_paths": [],
+        "min_approval_level": "none"
+      },
+      "timeout_ms": 180000,
+      "enabled": true
+    }
+  ]
+}

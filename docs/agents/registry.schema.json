@@ -1,0 +1,281 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Control Plane Resource Registry",
+  "description": "Defines agents, workflows, and skills available to the adversarial agentic team loop",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version for breaking change tracking"
+    },
+    "agents": {
+      "type": "array",
+      "description": "Available agent roles in the team loop",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "model", "budget", "scope", "enabled"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$",
+            "description": "Unique identifier (lowercase, alphanumeric, underscore)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Role description and responsibilities"
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "claude-haiku-4.5",
+              "gpt-5.3-codex",
+              "gpt-5.6-luna",
+              "gpt-6-luna",
+              "kimi-k3",
+              "mai-code-1.1-flash"
+            ],
+            "description": "Primary LLM model for this agent"
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Reasoning budget for complex decision-making"
+          },
+          "budget": {
+            "type": "object",
+            "required": ["max_ai_credits", "max_tokens_per_request", "max_concurrent_tasks"],
+            "properties": {
+              "max_ai_credits": {
+                "type": "integer",
+                "minimum": 100,
+                "description": "Maximum AI credits per session"
+              },
+              "max_tokens_per_request": {
+                "type": "integer",
+                "minimum": 1000,
+                "description": "Maximum tokens per API call"
+              },
+              "max_concurrent_tasks": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Maximum parallel tasks"
+              }
+            }
+          },
+          "scope": {
+            "type": "object",
+            "required": ["allowed_paths", "forbidden_paths"],
+            "properties": {
+              "allowed_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Glob patterns for allowed file paths"
+              },
+              "forbidden_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Glob patterns for forbidden file paths"
+              }
+            }
+          },
+          "approval_rules": {
+            "type": "object",
+            "properties": {
+              "requires_approval_for_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Paths requiring approval before merge"
+              },
+              "requires_approval_for": {
+                "type": "string",
+                "description": "When approval is required (e.g., any_risk_medium_or_above)"
+              },
+              "min_approval_level": {
+                "type": "string",
+                "enum": ["none", "reviewer", "maintainer", "owner"],
+                "description": "Minimum approval level"
+              }
+            }
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 10000,
+            "description": "Task timeout in milliseconds"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this agent is active"
+          }
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "description": "Available workflows for task orchestration",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "states", "initial_state", "transitions", "enabled"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Unique identifier (kebab-case)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Workflow purpose and flow"
+          },
+          "states": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 2,
+            "description": "Valid states in this workflow"
+          },
+          "initial_state": {
+            "type": "string",
+            "description": "Starting state when workflow is created"
+          },
+          "transitions": {
+            "type": "object",
+            "description": "State machine transitions (state -> {action: nextState})"
+          },
+          "agent": {
+            "type": "string",
+            "description": "Primary agent orchestrating this workflow"
+          },
+          "roles": {
+            "type": "object",
+            "description": "Roles involved and their responsibilities"
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Workflows that must complete before this one"
+          },
+          "required_checks": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Checks that must pass (e.g., tests_passing, no_unresolved_threads)"
+          },
+          "required_for_risk_levels": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "critical"]
+            },
+            "description": "Risk levels requiring this workflow"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 10000,
+            "description": "Workflow timeout in milliseconds"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this workflow is active"
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "Available skills/specialists",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "category", "provider", "cost", "enabled"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Unique identifier (kebab-case)"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What this skill does"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "review",
+              "security",
+              "testing",
+              "implementation",
+              "architecture",
+              "documentation",
+              "maintenance"
+            ],
+            "description": "Skill category"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Who provides this skill (e.g., ecc, internal)"
+          },
+          "cost": {
+            "type": "object",
+            "required": ["ai_credits", "description"],
+            "properties": {
+              "ai_credits": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Credit cost"
+              },
+              "description": {
+                "type": "string",
+                "description": "What cost applies to"
+              }
+            }
+          },
+          "prerequisites": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Other skills that must be available first"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "claude-haiku-4.5",
+                "gpt-5.3-codex",
+                "gpt-5.6-luna",
+                "gpt-6-luna",
+                "kimi-k3",
+                "mai-code-1.1-flash"
+              ]
+            },
+            "description": "LLM models this skill supports"
+          },
+          "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Tags for filtering and discovery"
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether this skill is available"
+          }
+        }
+      }
+    }
+  }
+}
