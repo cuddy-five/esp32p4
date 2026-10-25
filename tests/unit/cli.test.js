@@ -159,6 +159,25 @@ describe("settings orchestration", () => {
     assert.deepEqual(s.counts, { noop: 1, unmanaged: 1 });
     assert.equal(summarize("labels", [{ type: "rename" }]).drift, true);
   });
+
+  test("applyAll rejects ambiguous rulesets before applying earlier label drift", async () => {
+    const dir = tmpSettings({ "labels.json": LABELS_FILE, "rulesets.json": RULESETS_FILE });
+    const ruleset = RULESETS_FILE.rulesets[0];
+    const { client, calls } = fakeClient({
+      "GET /repos/o/r/labels": [],
+      "GET /repos/o/r/rulesets": [{ id: 77 }, { id: 88 }],
+      "GET /repos/o/r/rulesets/77": { ...ruleset, id: 77 },
+      "GET /repos/o/r/rulesets/88": { ...ruleset, id: 88, enforcement: "disabled" },
+    });
+    try {
+      await assert.rejects(applyAll({ client, repo: { owner: "o", name: "r" }, settingsDir: dir }),
+        /duplicate live ruleset name "p".*77.*88/);
+      assert.equal(calls.length, 4);
+      assert.ok(calls.every((c) => c.method === "GET"));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("cli settings", () => {
@@ -200,6 +219,21 @@ describe("cli settings", () => {
     assert.equal(await main(["settings", "apply", "--repo", "o/r", "--only", "labels", "--yes"], { ...b.io, client }), EXIT.OK);
     assert.ok(calls.filter((c) => c.method === "POST").length > 0);
     assert.match(b.out.at(-1), /applied \d+ changes/);
+  });
+
+  test("apply --yes reports ambiguous live names and performs no mutations", async () => {
+    const ruleset = { name: "ambiguous", target: "branch", enforcement: "active", rules: [] };
+    const { client, calls } = fakeClient({
+      "GET /repos/o/r/labels": [],
+      "GET /repos/o/r/rulesets": [{ id: 77 }, { id: 88 }],
+      "GET /repos/o/r/rulesets/77": { ...ruleset, id: 77 },
+      "GET /repos/o/r/rulesets/88": { ...ruleset, id: 88 },
+    });
+    const { err, io } = capture();
+    assert.equal(await main(["settings", "apply", "--repo", "o/r", "--yes"], { ...io, client }), EXIT.ERROR);
+    assert.match(err.join("\n"), /duplicate live ruleset name "ambiguous".*77.*88/);
+    assert.equal(calls.length, 4);
+    assert.ok(calls.every((c) => c.method === "GET"));
   });
 
   test("export prints desired-file JSON for a resource", async () => {

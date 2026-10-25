@@ -117,6 +117,15 @@ set to exactly what you declared.
 **`could not determine repository`.** Pass `--repo owner/name` or set
 `GH_REPO`. In Actions, `GITHUB_REPOSITORY` is used automatically.
 
+**Duplicate live ruleset names.** Planning rejects repeated names and reports
+the conflicting live IDs, including undeclared names and either prune mode.
+The CLI identifies rulesets by name, so it cannot safely choose which live ID
+you intended. A settings apply that includes rulesets plans all selected
+resources before writing; this error stops label and ruleset mutations. The
+owner must inspect those IDs in GitHub and decide which ruleset to rename or
+remove, preserving needed protections. Resolve the collision, rerun the plan,
+and review it before an authorized apply. Changing prune cannot resolve it.
+
 ## Exit codes
 
 | Code | Meaning |

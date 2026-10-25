@@ -142,9 +142,16 @@ export async function fetchActual(client, repo) {
  * @returns {RulesetOp[]}
  */
 export function plan(desired, actual) {
+  const actualByName = new Map();
+  for (const ruleset of actual) {
+    const existing = actualByName.get(ruleset.name);
+    if (existing) {
+      throw new Error(`duplicate live ruleset name "${ruleset.name}" (IDs ${existing.id}, ${ruleset.id}); resolve the name collision before reconciling settings`);
+    }
+    actualByName.set(ruleset.name, ruleset);
+  }
   /** @type {RulesetOp[]} */
   const ops = [];
-  const actualByName = new Map(actual.map((r) => [r.name, r]));
   const consumed = new Set();
 
   for (const d of desired.rulesets) {

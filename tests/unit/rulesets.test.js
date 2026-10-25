@@ -74,6 +74,23 @@ describe("rulesets.normalizeRuleset", () => {
 });
 
 describe("rulesets.plan", () => {
+  test("rejects duplicate live names regardless of declaration, pruning, or order", () => {
+    const first = { ...rulesets.normalizeRuleset(LIVE_PROTECT), id: 77 };
+    const second = { ...first, id: 88, enforcement: "disabled" };
+    for (const prune of [false, true]) {
+      for (const declared of [[], [DESIRED_PROTECT]]) {
+        for (const live of [[first, second], [second, first]]) {
+          assert.throws(() => rulesets.plan(desired(declared, { prune }), live), (err) => {
+            assert.match(err.message, /duplicate live ruleset name "protect"/);
+            assert.match(err.message, /77/);
+            assert.match(err.message, /88/);
+            return true;
+          });
+        }
+      }
+    }
+  });
+
   test("declared mode tolerates server defaults and rule order", () => {
     const ops = rulesets.plan(desired([DESIRED_PROTECT]), [{ ...rulesets.normalizeRuleset(LIVE_PROTECT), id: 77 }]);
     assert.deepEqual(
