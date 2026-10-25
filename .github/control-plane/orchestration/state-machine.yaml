@@ -6,8 +6,9 @@
 # references known states, actors, and gates.
 #
 # A transition is permitted only when the actor matches AND every listed gate
-# holds. Gates are named here and implemented by the coordinator; the names are
-# the interface between this file and the code that will enforce it.
+# holds. Gates are named here for the future coordinator. Today the CLI checks
+# declarations and document shape; docs/runbooks/agent-team.md supplies the
+# manual process. No running dispatcher enforces these transitions.
 
 version: 1
 
@@ -53,13 +54,16 @@ gates:
     description: Task document validates against task.schema.json.
     status: implemented
   plan_valid:
-    description: Plan document validates against plan.schema.json and references this task.
+    description: Plan document validates against plan.schema.json. Validation checks shape only; the coordinator must separately check task_id and trace links.
     status: implemented
   plan_reviewed:
     description: A review with review_kind=plan and verdict approve or approve_with_comments exists from a reviewer that is not the planner.
     status: planned
   approval_not_required:
     description: policies/approvals.yaml does not require a human at this point for the task's risk level and touched paths.
+    status: planned
+  approval_required:
+    description: policies/approvals.yaml requires a human at the plan stage for the task's risk level, tags, or touched paths.
     status: planned
   approval_granted:
     description: A human approval recorded for this exact plan id and stage, not expired.
@@ -68,7 +72,7 @@ gates:
     description: An evidence document exists for the current head SHA.
     status: planned
   within_scope:
-    description: evidence.diff.out_of_scope_paths is empty, or a review explicitly accepts each path in scope_compliance.violations.
+    description: evidence.diff.out_of_scope_paths is empty against the accepted task scope. Reviewers record violations; expansion requires a human-resolved scope_expansion escalation and a new reviewed plan before work resumes.
     status: planned
   within_budget:
     description: Cumulative budget_used across documents does not exceed task.budget.
@@ -109,7 +113,7 @@ transitions:
   - from: planning
     to: awaiting_approval
     actor: coordinator
-    gates: [plan_valid, plan_reviewed]
+    gates: [plan_valid, plan_reviewed, approval_required, no_open_escalation]
     note: Taken when approvals.yaml requires a human at the plan stage.
 
   - from: awaiting_approval
@@ -152,18 +156,13 @@ transitions:
   - from: verifying
     to: awaiting_approval
     actor: coordinator
-    gates: [verification_passed]
-    note: Taken when approvals.yaml requires a human at the merge stage.
-
-  - from: verifying
-    to: done
-    actor: coordinator
-    gates: [verification_passed, approval_not_required, within_budget, no_open_escalation]
+    gates: [verification_passed, within_budget, no_open_escalation]
+    note: Every risk level requires the human's merge decision.
 
   - from: awaiting_approval
     to: done
     actor: human
-    gates: [approval_granted, verification_passed]
+    gates: [approval_granted, verification_passed, within_budget, no_open_escalation]
     note: Human approves the merge after verification.
 
   # Any active state may block on an escalation and may be cancelled by a human.
@@ -197,4 +196,4 @@ invariants:
   - id: overseer_note_present
     description: Every review, result, and escalation includes an overseer_note. Documents without one are rejected at intake.
   - id: no_silent_scope_change
-    description: A change to task.scope after acceptance requires a resolved escalation with reason scope_expansion and produces a new plan.
+    description: A change to task.scope after acceptance requires a human-resolved escalation with reason scope_expansion and a new reviewed plan before implementation resumes. A reviewer cannot waive scope.

@@ -4,7 +4,9 @@ This document describes how work moves through the control plane, who does
 what, why the roles are set against each other, and where the human sits.
 The machine-readable versions are `orchestration/state-machine.yaml` and
 `policies/approvals.yaml`; `node src/cli.js policy check` proves they agree
-with the contracts.
+with the contracts. Follow the [manual team runbook](../runbooks/agent-team.md)
+for execution today. Schema validation checks shape; it does not prove
+authorship, factual truth, test execution, linked records or human approval.
 
 ## Why adversarial
 
@@ -15,15 +17,15 @@ of blind spots, and only the intersection gets through. Adding a role that
 assumes hostility and a role that refuses to trust anyone's evidence narrows
 the intersection further.
 
-The control plane's job is to make this structure impossible to skip: roles
-are separated by contract, transitions are gated, and the human sees exactly
-the decisions the policy says a human should see.
+The design separates roles by contract and declares gated transitions. People
+and agents currently uphold that separation: there is no running coordinator
+or merge gate. Repository protections enforce only their configured checks.
 
 ## Roles
 
 | Role | Stance | Reads | Writes | Forbidden |
 |---|---|---|---|---|
-| coordinator | neutral | everything | `task`, `handoff`, `result`, `escalation` | code, reviews |
+| planned coordinator | neutral | everything | `task`, `handoff`, `result`, `escalation` | code, reviews |
 | planner | constructive | `task` | `plan` | implementing its own plan |
 | implementer | constructive | `task`, approved `plan`, `review` findings | code, `handoff` | editing the plan; reviewing, verifying, or merging its own change |
 | reviewer | adversarial | `plan` or `evidence` + diff | `review` (`plan`, `code`) | fixing what it finds; approving without the acceptance checklist |
@@ -43,29 +45,28 @@ Two deployment rules reinforce the structure:
 
 ## Lifecycle
 
-```
-proposed ──► accepted ──► planning ──┬──► in_progress ──► in_review ──► verifying ──┬──► done
-                                     │        ▲               │            │        │
-                                     │        └───────────────┘            │        │
-                                     │        ▲   request_changes          │        │
-                                     │        └────────────────────────────┘        │
-                                     │            verification failed               │
-                                     └──► awaiting_approval ◄───────────────────────┘
-                                               │  (human)                plan or merge stage
-                                               └──► in_progress / done / planning / cancelled
-
-any active state ──► blocked (escalation open) ──► back, by human
-any active state ──► cancelled, by human
+```text
+proposed → accepted → planning
+planning → in_progress                         (approval_not_required)
+planning → awaiting_approval → in_progress      (approval_required; human approves)
+in_progress → in_review → verifying
+in_review / verifying → in_progress             (changes required; retry budget)
+verifying → awaiting_approval → done            (every merge; human approves)
+awaiting_approval → planning / cancelled         (human rejects or cancels)
+active → blocked → prior permitted state         (escalation; human resolves)
+active → cancelled                              (human cancels)
 ```
 
 States are exactly `task.status`. Every transition names its actor and its
-gates; a transition fires only when the actor matches and every gate holds.
+gates; the manual process permits a transition only when its actor matches
+and every gate holds. The CLI checks declarations, not running transitions.
 
 ### Stage by stage
 
 1. **Intake (`proposed` → `accepted`).** The coordinator validates the
    `task` document. Scope, risk level, acceptance criteria, and budget are
-   fixed here. Changing any of them later requires a resolved escalation.
+   fixed here. Changing them later requires human resolution of an escalation;
+   scope expansion also requires a new reviewed plan.
 2. **Planning (`accepted` → `planning`).** The planner produces a `plan`:
    ordered steps, each with kind, files, tests, dependencies, risk, and
    reversibility; assumptions; open questions with defaults; rollback and
@@ -78,12 +79,17 @@ gates; a transition fires only when the actor matches and every gate holds.
    must approve the plan. Low risk in ordinary paths: no. Medium: no at this
    stage. High or critical, or any change touching the control plane,
    secrets, auth, PII, or destructive migrations: yes. The task waits in
-   `awaiting_approval`; nothing executes.
+   `awaiting_approval`; nothing executes. The planned `approval_required` and
+   `approval_not_required` gates select complementary routes. Both routes
+   require `plan_valid`, `plan_reviewed` and `no_open_escalation`. Instruction
+   and ownership paths also require human plan and merge decisions.
 5. **Implementation (`in_progress`).** The implementer executes the plan
    inside `task.scope`. On completion it emits a `handoff` to the reviewer.
-   Evidence is collected mechanically (checks, tests, diff shape,
-   out-of-scope paths, policy results, scans). Gates: evidence exists for
-   the head SHA, no out-of-scope paths, budget not exceeded.
+   Today roles collect actual checks, tests, diff paths and policy results
+   manually. The planned collector and gates require evidence for the exact
+   subject, no out-of-scope paths and a budget not exceeded. Parallel work is
+   integrated before review; dirty-tree evidence needs the base HEAD and a
+   digest manifest under the manual runbook, and remains local-only.
 6. **Review (`in_review`).** The reviewer and, from medium risk up, the
    security auditor each emit a `review`. Findings are structured and
    severity-tagged; blocking findings force `request_changes`, which returns
@@ -94,19 +100,22 @@ gates; a transition fires only when the actor matches and every gate holds.
    `verification`. If it disagrees with the implementer's evidence, its
    evidence becomes the record and the task returns to `in_progress`.
 8. **Approval gate (merge stage).** `approvals.yaml` is consulted again with
-   the actual diff. Medium risk and up, or any always-human path or tag,
-   routes to the human, who reads the `overseer_note`s on the reviews and
-   the pending result.
+   the actual diff. Every risk level routes from `verifying` to
+   `awaiting_approval`, then only the human can authorize `done`. The human
+   reads the reviews, independent evidence and proposed outcome for the actual
+   reviewed commit. There is no direct verifier-to-done route.
 9. **Done.** The coordinator emits exactly one `result` linking every
    document in the trace, with an `overseer_note` written for the human.
 
 ### Escalation
 
 Any role may emit an `escalation` at any time. The task moves to `blocked`
-and stays there until a human resolves or the escalation expires with its
-declared `default_action_on_expiry` (`abort_task`, `pause_task`, or
-`proceed_with_recommended`). Escalations carry concrete options with one
-marked recommended, so the human is choosing, not designing.
+and stays there until a human resolves or cancels it. The contract can record
+a `default_action_on_expiry` (`abort_task`, `pause_task`, or
+`proceed_with_recommended`), but expiry grants no authority to leave the
+human-owned state or expand scope. Scope expansion needs human resolution
+and a new reviewed plan; reviewers record violations and cannot waive them.
+Escalations carry concrete options with one recommended.
 
 Reasons that must escalate rather than be worked around: budget exceeded,
 policy violation, ambiguous requirements, repeated failure, security
@@ -115,11 +124,13 @@ conflicting reviews.
 
 ## Where the human sits
 
-The human is **not** in the hot path for ordinary work. They are:
+Ordinary low-risk work can proceed without a separate plan approval, but
+every merge requires the human. They are:
 
 - **The approver** at the stages `approvals.yaml` names. Approvals are tied
-  to a specific plan id or SHA, come only from a `producer.kind: human`, and
-  expire.
+  to the exact plan and stage (and commit for merge), originate from the
+  authorized human and expire. A `producer.kind: human` field or annotation
+  is a claim; the original human approval must be checked manually today.
 - **The decider** on escalations. Options are pre-digested; "explain this
   differently" is a legitimate response and obliges the role to rewrite its
   `overseer_note` without changing its decision.
@@ -129,9 +140,10 @@ The human is **not** in the hot path for ordinary work. They are:
   `overseer_note` in plain language. Reading them in trace order is how the
   human learns what the team did and why.
 
-The system is designed so that a human who approves nothing and reads
-everything still gets a safe outcome: low-risk work completes under the
-adversarial loop, and anything riskier waits.
+When the human grants no approval, ordinary preparation can continue within
+authorized scope, but every merge waits. Halt is a manual working agreement:
+running agents and jobs must be stopped explicitly; no automatic cancellation
+or rollback exists yet.
 
 ## Gates and what implements them
 
@@ -139,18 +151,23 @@ adversarial loop, and anything riskier waits.
 |---|---|---|
 | `task_valid`, `plan_valid` | Document validates | `control-plane validate` |
 | `plan_reviewed` | A plan review from a non-planner approves | coordinator (next stage) |
-| `approval_not_required` / `approval_granted` | `approvals.yaml` evaluation; a valid human approval | coordinator + `policy stages` |
+| `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | planned coordinator; `policy stages` evaluates required stages only |
+| `approval_granted` | Current original human approval covers this task, plan, stage and revision | planned coordinator; manually checked today |
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; empty `out_of_scope_paths`; `budget_used` ≤ `task.budget` | collect-evidence (next stage) |
-| `reviews_approve` | Latest code review and, when required, security review approve; reviewers distinct from implementer | coordinator |
-| `verification_passed` | Verifier's own evidence green and verification review approves | verifier + merge gate |
-| `no_open_escalation` | No escalation open or acknowledged | coordinator |
-| `retry_budget_remaining` | Review/verify loops under `policies/retries.yaml` | coordinator |
+| `reviews_approve` | Latest code review and, when required, security review approve; reviewers distinct from implementer | planned coordinator |
+| `verification_passed` | Verifier's own evidence green and verification review approves | planned verifier integration + merge gate |
+| `no_open_escalation` | No escalation open or acknowledged | planned coordinator |
+| `retry_budget_remaining` | Review/verify loops below the configured retry budget | planned coordinator |
 
-`node src/cli.js policy check` reports how many gates have implementations.
+`node src/cli.js policy check` checks declaration consistency and reports gate
+status. `policy stages` calculates required stages from risk, paths and tags;
+it neither authenticates approval nor executes a transition. Required unmet
+checks remain pending and block the corresponding acceptance criterion.
 
 ## Invariants
 
-Enforced regardless of path (see `state-machine.yaml#invariants`):
+Declared for every path (see `state-machine.yaml#invariants`); only the noted
+schema rule is directly enforced by validation today:
 
 - Separation of duties across every linked document.
 - Distinct review model where the deployment allows.

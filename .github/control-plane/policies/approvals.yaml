@@ -1,12 +1,13 @@
 # Who must approve what, and when.
 #
-# The human overseer is the last line of defence, not the first. Low-risk
-# work flows through the adversarial loop unattended; the loop itself is the
-# control. As risk rises, the human is brought in earlier and more often.
+# Agents prepare and check work; the human decides every merge. As risk
+# rises, the human is brought in earlier. The CLI evaluates these declarations;
+# the manual team process must uphold them until an executor exists.
 #
 # Risk levels must equal contracts/common.schema.json#/$defs/risk_level.
 # Stages are points in orchestration/state-machine.yaml where a transition
-# consults this policy via the approval_not_required / approval_granted gates.
+# consults this policy via approval_required / approval_not_required; a human's
+# decision is checked by approval_granted.
 # tests/unit/orchestration.test.js validates the shape and the enums.
 
 version: 1
@@ -15,7 +16,7 @@ stages:
   plan:
     description: Before planning -> in_progress. The human reads the plan and the plan review.
   merge:
-    description: Before verifying -> done. The human reads the result-to-be, the reviews, and the verifier's evidence.
+    description: After verifying -> awaiting_approval, before the human moves to done. The human reads the result-to-be, the reviews, and the verifier's evidence.
   step:
     description: Before each plan step whose kind or files match a sensitive rule. Reserved; not yet enforced.
 
@@ -24,10 +25,10 @@ stages:
 # produce before the task may even reach that stage.
 by_risk:
   low:
-    human_stages: []
+    human_stages: [merge]
     required_reviews: [code]
     security_review: optional
-    note: The adversarial loop is the control. The overseer reads the result afterwards.
+    note: Agents may prepare ordinary changes; the overseer decides whether to merge.
   medium:
     human_stages: [merge]
     required_reviews: [code, security]
@@ -50,12 +51,16 @@ always_human:
     paths: [".github/control-plane/**", ".github/workflows/**", ".github/actions/**"]
     stages: [plan, merge]
     reason: Changes to the guardrails are the highest-leverage attack surface.
+  - id: instructions_and_ownership
+    paths: ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md", "PROJECT.md", ".github/copilot-instructions.md", ".github/instructions/**", ".github/agents/**", ".github/skills/**", ".github/CODEOWNERS", "docs/runbooks/agent-team.md", "docs/runbooks/overseer.md", "docs/templates/project-brief.md"]
+    stages: [plan, merge]
+    reason: Changes to agent instructions, project constraints, or review ownership can redirect the team.
   - id: secrets_and_auth
     tags: [secrets, auth, pii]
     stages: [plan, merge]
   - id: supply_chain
     tags: [dependencies]
-    paths: ["package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "requirements*.txt", "poetry.lock", "go.sum", "Cargo.lock", "Gemfile.lock"]
+    paths: ["package.json", "**/package.json", "package-lock.json", "**/package-lock.json", "pnpm-lock.yaml", "**/pnpm-lock.yaml", "yarn.lock", "**/yarn.lock", "requirements*.txt", "**/requirements*.txt", "poetry.lock", "**/poetry.lock", "go.sum", "**/go.sum", "Cargo.lock", "**/Cargo.lock", "Gemfile.lock", "**/Gemfile.lock"]
     stages: [merge]
     reason: New or changed dependencies are reviewed by a human even on low-risk tasks.
   - id: destructive_migration

@@ -1,0 +1,15 @@
+# Native GitHub update proposals start after this file reaches the default branch.
+# Next: CONTRIBUTING.md describes the checks and owner review for each proposal.
+# These ecosystems belong to the control-plane template; adapt them when copied.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

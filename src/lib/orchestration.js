@@ -89,8 +89,9 @@ export function loadStateMachine({ file = STATE_MACHINE_FILE, enums = contractEn
   // Separation of duties: human-owned states are left only by humans, except into blocked.
   for (const e of edges) {
     const owner = doc.states[e.from]?.owner;
-    if (owner === "human" && e.to !== "blocked" && !e.actors.includes("human")) {
-      p(`/transitions/${e.index}`, `leaves human-owned state "${e.from}" without a human actor`);
+    // Any listed actor may trigger a transition; adding human cannot authorize an agent.
+    if (owner === "human" && e.to !== "blocked" && e.actors.some((actor) => actor !== "human")) {
+      p(`/transitions/${e.index}`, `leaves human-owned state "${e.from}" with a non-human actor`);
     }
   }
   // Agents may never complete a task alone when approval is pending.
@@ -195,15 +196,28 @@ export function requiredHumanStages(approvals, { risk, paths = [] }) {
 }
 
 /**
- * Minimal glob: `**` matches any path segment sequence, `*` matches within a segment.
+ * Minimal glob: `**` followed by `/` at a segment boundary matches zero or more directories;
+ * other `**` spans paths, `*` stays within a segment, and all other text is literal.
  * @param {string} pattern
  * @param {string} file
  */
 export function globMatch(pattern, file) {
-  const re = pattern
-    .split("**")
-    .map((part) => part.split("*").map(escapeRe).join("[^/]*"))
-    .join(".*");
+  let re = "";
+  for (let i = 0; i < pattern.length;) {
+    if ((i === 0 || pattern[i - 1] === "/") && pattern.startsWith("**/", i)) {
+      re += "(?:[^/]+/)*";
+      i += 3;
+    } else if (pattern.startsWith("**", i)) {
+      re += ".*";
+      i += 2;
+    } else if (pattern[i] === "*") {
+      re += "[^/]*";
+      i++;
+    } else {
+      re += escapeRe(pattern[i]);
+      i++;
+    }
+  }
   return new RegExp(`^${re}$`).test(file);
 }
 

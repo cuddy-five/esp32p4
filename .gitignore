@@ -5,5 +5,10 @@
 .vars.*
 !.vars.example
 /.runtime/
+/.ori/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
 node_modules/
 npm-debug.log*

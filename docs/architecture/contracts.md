@@ -11,9 +11,9 @@ Workflows, agents, and gates are all consumers or producers of these
 documents. Pinning their shape before writing any of those means:
 
 - Workflows can be tested against fixtures instead of live agent output.
-- A reviewer agent cannot be tricked by an implementer agent's free-form
-  prose; it reads structured `evidence` and emits a structured `review`.
-- The merge gate has an unambiguous input: a `result` with linked `evidence`
+- A reviewer receives structured `evidence` and emits a structured `review`.
+  Text inside valid fields remains untrusted; structure does not stop deception.
+- The planned merge gate has an unambiguous input: a `result` with linked `evidence`
   and `review` documents, not a PR description.
 - Schema versions give consumers a stable integration point across releases
   of the control plane.
@@ -46,11 +46,11 @@ task ──► plan ──► handoff ──► evidence ──► review ──
 
 | Kind | Producer | Consumer | Carries |
 |---|---|---|---|
-| `task` | intake workflow, human | coordinator, planner | intent, acceptance criteria, scope (paths, tools, network), risk, budget, status |
+| `task` | coordinator or human today; intake workflow planned | coordinator, planner | intent, acceptance criteria, scope (paths, tools, network), risk, budget, status |
 | `plan` | planner | reviewer (plan review), implementer | ordered steps with kinds, files, tests, dependencies; assumptions; open questions; rollback and verification strategy; required approvals |
 | `handoff` | any role | the next role | state snapshot, working ref, artefacts, blockers, next actions, budget remaining, expiry |
-| `evidence` | collect-evidence workflow | reviewer, merge gate | checks, tests, diff shape (including out-of-scope paths), policy results, security scans, attestations |
-| `review` | reviewer, security auditor | merge gate, implementer | verdict, structured findings (severity, category, path, CWE), acceptance checklist, scope compliance, confidence |
+| `evidence` | verifier today; collect-evidence workflow planned | reviewer, merge gate | checks, tests, diff shape (including out-of-scope paths), policy results, security scans, attestations |
+| `review` | reviewer, security auditor, verifier | merge gate, implementer | verdict, structured findings (severity, category, path, CWE), acceptance checklist, scope compliance, confidence |
 | `result` | merge gate / coordinator | humans, metrics | outcome, outputs (PR, merge SHA), full lineage of ids, acceptance disposition, budget used, errors |
 | `escalation` | any role | humans | reason, severity, requested decision, concrete options, deadline and default action, resolution |
 
@@ -67,9 +67,11 @@ both documents. This keeps collectors cheap and untrusted, and reviewers
 accountable.
 
 **Scope is declared on the task and verified on the evidence.**
-`task.scope.allowed_paths` and `forbidden_paths` are globs. `collect-evidence`
-reports `diff.out_of_scope_paths`; `review.scope_compliance` records whether
-the reviewer accepted them.
+`task.scope.allowed_paths` and `forbidden_paths` are globs. The planned
+`collect-evidence` reports `diff.out_of_scope_paths`; roles inspect scope
+manually today. `review.scope_compliance` records violations, not a waiver.
+Expansion requires human resolution of a `scope_expansion` escalation and
+a new reviewed plan before implementation resumes.
 
 **Budgets are first-class.** `task.budget` sets ceilings; `plan`,
 `handoff`, `evidence`, `review`, and `result` carry `budget_used` or
@@ -78,8 +80,10 @@ after.
 
 **Escalations pause, never decide.** An `escalation` lists options and a
 `default_action_on_expiry` of `abort_task`, `pause_task`, or
-`proceed_with_recommended`. The control plane may only proceed on its own
-when the escalation explicitly allows it.
+`proceed_with_recommended`. These fields do not override the state machine
+or grant authority. A human resolves the blocked state; scope expansion
+still needs human resolution and a new reviewed plan. Expiry cannot supply
+that approval.
 
 **Documents a human reads explain themselves.** `review`, `result`, and
 `escalation` require an `overseer_note` (20–4000 characters) written in
@@ -108,6 +112,13 @@ In workflows, use the composite action:
 
 Errors are reported as JSON pointers (`/findings/0/severity`) with the
 offending keyword, deduplicated across `allOf` branches, and sorted.
+
+Validation proves document shape only. It does not authenticate the producer,
+prove factual truth or test execution, check linked-document validity, or
+grant human approval. People check those facts today. Evidence and reviews
+identify the exact subject: dirty-tree proof records the base HEAD plus a
+digest manifest and is local-only; published proof must name the actual
+reviewed commit. See the [manual team runbook](../runbooks/agent-team.md).
 
 ## Evolving a contract
 

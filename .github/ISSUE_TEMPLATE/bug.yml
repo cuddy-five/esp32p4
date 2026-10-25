@@ -1,0 +1,34 @@
+# Follow CONTRIBUTING.md from this report to the task and plan contracts.
+# A bug report is intake data, not an approved task or an automatic dispatch.
+name: Bug report
+description: Describe unexpected behavior and the result you expected.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An agent can prepare this report from your description. You may also submit it directly.
+        Include only relevant evidence; remove secrets and private information from logs.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and who or what it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Describe the behavior that would be correct.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can someone reproduce it?
+      description: Give steps, inputs, and relevant versions or environment details. Say if it happens intermittently.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and context
+      description: Link a failing check or add a short error, screenshot, or related issue. Say what you already tried.

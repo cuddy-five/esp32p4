@@ -1,0 +1,27 @@
+# Start here: CONTRIBUTING.md explains how intake becomes a task and plan.
+# Next: .github/control-plane/contracts/task.schema.json defines the agent handoff.
+name: Task
+description: Describe an outcome for an agent or contributor to plan.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An agent can draft this issue and the plan from your request. You may also fill it in yourself.
+        This form records intent; submitting it does not approve work or start an agent.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should someone be able to do when this is finished?
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: What would show it is done?
+      description: Give observable results or examples, if known. The planner can propose the checks.
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries and context
+      description: Add constraints, relevant links, or things to preserve. Leave implementation choices open if undecided.

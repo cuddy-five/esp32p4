@@ -5,6 +5,20 @@ expected to write or read the code. You are expected to read what the team
 tells you, decide a small number of things, and stop everything if it feels
 wrong. This runbook is for you.
 
+Start with [CONTRIBUTING.md](../../CONTRIBUTING.md) for the path through the
+actual files. Agents can draft issues and plans from your request; you may
+also write them yourself. The owner keeps the final merge decision.
+
+Use the [manual team runbook](agent-team.md) to start or resume work and the
+[project brief](../templates/project-brief.md) to record requirements and
+unknowns in `PROJECT.md`.
+
+**Current boundary:** contracts, validation, settings tools, and CI work
+today. The coordinator, automatic approval routing, merge gate, and halt
+handling are not implemented. The process below describes duties for the
+people and agents running the task until that automation exists. Labels,
+checkboxes, and approval-like comments do not trigger it.
+
 ## What you will see
 
 Everything the team produces is a document of one of seven kinds. Three of
@@ -37,19 +51,27 @@ Two more may be put in front of you when policy requires approval:
    match what the plan promised?
 3. **Escalation resolution.** Pick an option. The recommended one is marked.
    If none fit, reply with free text; the coordinator will turn it into a
-   new plan or a cancellation.
+   new plan or a cancellation. Scope expansion requires your resolution and
+   a new reviewed plan before work resumes; a reviewer or expiry cannot grant it.
 4. **Halt.** Any time. No justification needed.
 
-You will never be asked to approve low-risk work in ordinary files. The
-adversarial loop is the control there; you read the result afterwards.
+Every risk level requires your merge decision for the exact reviewed commit.
+The packet must identify independent reviews, acceptance results, unmet checks,
+remaining decisions and rollback. Local-only dirty-tree proof is not final
+committed evidence; see the snapshot rules in the manual team runbook.
+
+The declared policy does not require plan approval for low-risk work in
+ordinary files. That does not grant agents permission to merge: the owner
+still reviews the PR and chooses whether to merge.
 
 ## What "halt" does
 
-Every role stops immediately. Each writes a `handoff` describing exactly
-where it was. The task moves to `blocked`. Nothing is half-applied: the
-control plane only moves between states at clean points, so halting never
-leaves work that needs a human to untangle. When you are ready, resolve the
-escalation to resume or cancel the task.
+The working agreement requires each role to stop and write a `handoff`
+describing its state. Today you must tell the running agents to stop and
+inspect or cancel any separately running jobs. A comment does not cancel a
+workflow or undo changes. The coordinator records the blocked task and
+outstanding work manually; review that record before resuming or rolling
+back. Automated halt and recovery remain planned.
 
 ## Reading to learn
 
@@ -76,9 +98,10 @@ Those patterns are the curriculum.
   the task's `intent`.
 - Reviews that approve with zero findings on a non-trivial change.
 - `evidence.diff.out_of_scope_paths` that is not empty.
-- Approvals you do not remember giving. Approvals are tied to a specific plan
-  or commit and expire after 72 hours; check `annotations` on the plan or
-  result.
+- Approvals you do not remember giving. The declared policy ties approvals
+  to a specific plan or commit and expires them after 72 hours; inspect
+  the original human approval and its task, plan, stage and revision yourself
+  until the gate exists. An annotation alone cannot establish authorship.
 - Any role proposing to change `.github/control-plane/**`. That always
   needs you, at both the plan and merge stage.
 - Repeated escalations with `reason: scope_expansion` on one task. The task
@@ -106,4 +129,13 @@ node src/cli.js settings check     # repository protections match what is declar
 npm test                           # contracts are still closed
 ```
 
-All three should exit 0. CI runs them on every change.
+`node` executes `src/cli.js`; `policy check` validates the policy declarations
+and `settings check` compares declared settings with GitHub. `npm test` runs
+the repository's test script. These commands use no additional flags.
+
+The policy check and tests should exit `0`. Settings check exits `0` for no
+drift, `2` for drift, and `1` for an error. [CI](../../.github/workflows/ci.yml)
+runs these on pull requests and pushes to `main`; its `settings-check` job
+turns drift into a notice but still fails on API or validation errors. Read
+that job's summary even when CI is green. See
+[settings sync](settings-sync.md) before deciding whether to apply a change.

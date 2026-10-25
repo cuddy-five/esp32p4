@@ -28,11 +28,13 @@ untrusted input ──► [intake] ──► task ──► [roles, separated] �
 
 - Issue bodies, PR descriptions, commit messages, file contents, dependency
   metadata, and tool output are **untrusted**.
-- Contract documents are **trusted only after validation** and only for
-  the fields the schema defines.
+- Contract validation proves **shape only**. Authorship, factual truth, test
+  execution, linked-document validity and human approval require separate
+  checks. Valid text fields remain untrusted input.
 - A role's own reasoning is **not evidence**. Only artefacts are.
-- Human approvals are **trusted when bound** to a plan id or SHA and
-  unexpired.
+- Human approvals require an original authorized human record bound to the
+  task, current plan, stage and merge SHA when applicable, still unexpired.
+  An annotation or `producer.kind: human` claim is not authentication.
 
 ## Threats and mitigations
 
@@ -56,7 +58,9 @@ a blind spot and both approve a flaw.
 - `separation_of_duties` invariant; `reviews_approve` gate requires reviewers
   distinct from the implementer. `declared`
 - Human-owned states can be left only by humans; the implementer can never
-  transition to `verifying` or `done` (tested). `available`
+  transition to `verifying` or `done`. Declaration checks reject contrary
+  actor definitions; runtime enforcement remains planned. `available` (checks),
+  `declared` (execution rule)
 - `distinct_review_model` invariant: review roles on a different model
   family where possible. `declared`
 - Verifier re-derives evidence instead of trusting it. `declared`
@@ -69,19 +73,22 @@ for another.
 - Approvals must reference `task_id`, `plan_id`, and stage; expire after 72
   hours; are invalidated by a superseding plan or new head SHA. `declared`
 - `approval_granted` is satisfied only by `producer.kind: human`. `declared`
-- Rulesets require PRs and status checks on the default branch so nothing
-  merges outside the loop. `available` (declared in `rulesets.json`, applied
-  on dispatch)
+- Desired rulesets require PRs and status checks when applied. Current required
+  approvals are zero and code-owner review is not mandatory; these checks do
+  not enforce the agent loop or the universal human merge decision. Inspect
+  live protections during [adoption](../runbooks/template-adoption.md). `declared`
 
 ### T4. Scope creep and quiet expansion
 
 Work drifts into paths or systems the task did not cover; each step looks
 reasonable in isolation.
 
-- `no_silent_scope_change` invariant: scope changes require a resolved
-  `scope_expansion` escalation and a new plan. `declared`
+- `no_silent_scope_change` invariant: scope changes require human resolution
+  of a `scope_expansion` escalation and a new reviewed plan. Reviewers cannot
+  waive scope; expiry cannot authorize expansion. `declared`
 - `always_human` rules force human approval for control-plane, workflow,
-  secret, auth, PII, dependency, migration, and release paths regardless of
+  instruction/ownership, secret, auth, PII, dependency, migration and release
+  paths or tags regardless of
   declared risk. `available` (`policy stages` evaluates it)
 - Reviewer verdict carries `scope_compliance`. `available` (contract)
 
@@ -91,7 +98,8 @@ An agent edits `state-machine.yaml`, `approvals.yaml`, workflows, or
 rulesets to weaken them.
 
 - `.github/control-plane/**`, `.github/workflows/**`, `.github/actions/**`
-  are `always_human` at plan and merge stages. `available`
+  and protected instruction/ownership paths are `always_human` at plan and
+  merge stages. `available` (evaluation), `declared` (manual enforcement)
 - `policy check` fails CI if the files disagree with contracts or lose
   required invariants (monotonic approvals, human-only approval, terminal
   states, reachability). `available`
@@ -108,8 +116,9 @@ Secrets appear in contract documents, logs, summaries, or `overseer_note`s.
 - Evidence carries `security.secrets_scan` counts; a non-zero count is a
   policy result the gate can block on. `available` (contract), `planned`
   (enforcement)
-- Settings apply is gated behind an Actions environment so admin tokens are
-  only exposed on manual dispatch. `available`
+- Settings apply uses an Actions environment and manual dispatch. Required
+  reviewers must be configured separately; an environment name alone supplies
+  no approval gate. `available`
 
 ### T7. Runaway budget
 
@@ -127,11 +136,13 @@ minutes indefinitely.
 The implementer reports passing tests that did not run, or edits the
 evidence document.
 
-- Evidence is produced by a workflow, not by the implementer role
-  (`producer.kind: workflow`). `declared`
+- Automated evidence collection is planned. Today a separate verifier records
+  its own execution; implementer test runs cannot replace that proof. `declared`
 - Verifier produces independent evidence; on disagreement, the verifier's
   record wins. `declared`
-- Evidence is bound to a SHA; a new SHA invalidates it. `declared`
+- Evidence and reviews bind to the exact subject. Dirty-tree proof needs the
+  base HEAD plus a digest manifest and remains local-only; snapshot changes
+  invalidate it. Published proof names the actual reviewed commit. `declared`
 - Attestations with digests are modelled for future signing. `available`
   (contract)
 
@@ -140,8 +151,9 @@ evidence document.
 The human approves everything because they are asked too often or cannot
 understand what they are shown.
 
-- Low-risk work needs no human; approvals scale with risk and with
-  sensitive paths, not with volume. `available`
+- Every merge requires a human. Ordinary low-risk work can omit a separate
+  plan decision; risk and sensitive paths add earlier decisions. `available`
+  (policy evaluation), `declared` (manual approval enforcement)
 - `overseer_note` is required and length-bounded on every review, result,
   and escalation. `available` (schema-enforced)
 - Escalations carry pre-digested options with one recommended. `available`
@@ -153,8 +165,9 @@ understand what they are shown.
 The overseer halts; one role keeps going and merges.
 
 - `halt_is_total` invariant. `declared`
-- Rulesets require status checks; the merge gate is one of them, so a halted
-  task cannot merge even if a role tries. `declared`
+- Automatic halt and the merge gate are not implemented. The owner or
+  coordinator must stop roles and separately cancel running jobs; a comment
+  cannot stop a workflow. Preserve handoffs before resumption. `declared`
 
 ## Residual risks at this stage
 

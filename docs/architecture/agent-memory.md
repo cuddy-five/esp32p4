@@ -24,9 +24,10 @@ making a chat transcript into policy or an old approval into new permission.
   and sensitive paths or tags, can require earlier decisions. Approval expires
   after 72 hours. The [state machine](../../.github/control-plane/orchestration/state-machine.yaml)
   declares most gates as planned; it does not execute them.
-- Some older [architecture prose](adversarial-loop.md) describes weaker
-  low-risk merge rules. Read current policy and schemas for the actual local
-  declarations. Local edits do not prove that remote policy has been published.
+- The [architecture](adversarial-loop.md) and [manual team runbook](../runbooks/agent-team.md)
+  describe the current human merge decision at every risk level. Read policy
+  and schemas for the local declarations; local edits do not prove that remote
+  policy has been published.
 
 ## Authority and storage
 

@@ -1,0 +1,5 @@
+# Copies: replace @cuddy-five with an owner or team that has repository write access.
+# Next: docs/runbooks/template-adoption.md explains the required GitHub settings.
+# This file routes eligible review requests; branch rules enforce approvals.
+# A PR author cannot approve their own PR, including when they are the code owner.
+* @cuddy-five

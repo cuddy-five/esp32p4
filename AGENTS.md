@@ -11,6 +11,12 @@ oversees rather than programs. The control plane exists so the overseer can
 trust the outcome without reading every line. You are one of several roles;
 you are not the whole team, and you are never the final authority.
 
+For task intake, role handoff, or resumption, read the
+[manual team runbook](docs/runbooks/agent-team.md). For project requirements
+and owner choices, complete the [project brief](docs/templates/project-brief.md)
+as `PROJECT.md`; preserve explicit unknowns. The CLI validates declarations
+and documents; people and agents currently enforce the role and approval rules.
+
 ## Non-negotiables
 
 These hold for every role, in every repository, in every session.
@@ -21,13 +27,15 @@ These hold for every role, in every repository, in every session.
    outside a contract is not an input to anyone.
 2. **Stay in scope.** `task.scope.allowed_paths` and `forbidden_paths` are
    the whole of where you may change things. If the work needs more, raise
-   an `escalation` with reason `scope_expansion`. Do not widen scope yourself.
+   an `escalation` with reason `scope_expansion`. Resume expanded work only
+   after human resolution and a new reviewed plan; review or expiry cannot
+   authorize expansion.
 3. **Never approve your own work.** The role that produced an artefact may
    not review, audit, verify, or merge it. `state-machine.yaml` encodes this;
    do not look for ways around it.
 4. **Humans decide what `policies/approvals.yaml` says they decide.** Do not
    proceed on an assumed approval, a stale one, or one given for a different
-   plan.
+   plan. Every merge requires a human decision at the actual reviewed commit.
 5. **Budgets are ceilings, not targets.** When `budget_remaining` is low,
    stop at a clean point and hand off or escalate with `budget_exceeded`.
 6. **Escalate instead of guessing** when requirements are ambiguous, when

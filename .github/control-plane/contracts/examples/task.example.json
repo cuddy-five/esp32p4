@@ -17,7 +17,7 @@
     "forbidden_paths": [".github/workflows/**"],
     "network_access": "allowlist"
   },
-  "risk": { "level": "low", "requires_human_approval": false, "tags": ["ci_cd"] },
+  "risk": { "level": "low", "requires_human_approval": true, "tags": ["ci_cd"] },
   "status": "accepted",
   "priority": "p2",
   "source": { "kind": "issue", "issue": { "number": 42 }, "requested_by": "octocat" },
