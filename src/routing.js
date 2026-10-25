@@ -17,6 +17,23 @@
  * `model` is the exact model name selected by our configuration.
  * Passing the model explicitly avoids silently changing versions.
  */
+/*
+ * Shared input checks for request builders. Reject rather than truncate
+ * long text: this is our application's limit, not Jev's advertised limit.
+ */
+export const MAX_REQUEST_CHARS = 8000;
+export function checkRequestInput(text, model, label) {
+  if (typeof text !== "string" || !text.trim()) {
+    throw new TypeError(`The ${label} request must contain text.`);
+  }
+  if (text.length > MAX_REQUEST_CHARS) {
+    throw new RangeError(`The ${label} request exceeds ${MAX_REQUEST_CHARS} characters.`);
+  }
+  if (typeof model !== "string" || !model.trim()) {
+    throw new TypeError("Provide a Jev model name.");
+  }
+}
+
 export function buildIntakeRequest(text, model) {
   /*
    * Check our inputs before preparing anything for the internet.
@@ -27,22 +44,7 @@ export function buildIntakeRequest(text, model) {
    * `trim()` removes whitespace from both ends.
    * `!` means "not", so !text.trim() catches blank requests.
    */
-  if (typeof text !== "string" || !text.trim()) {
-    throw new TypeError("The intake request must contain text.");
-  }
-
-  /*
-   * Start with a small input limit.
-   * This is our application's limit, not Jev's advertised limit.
-   * Reject long input rather than silently cutting off its meaning.
-   */
-  if (text.length > 8000) {
-    throw new RangeError("The intake request exceeds 8000 characters.");
-  }
-
-  if (typeof model !== "string" || !model.trim()) {
-    throw new TypeError("Provide a Jev model name.");
-  }
+  checkRequestInput(text, model, "intake");
 
   /*
    * `return` hands this object back to the caller.
@@ -103,8 +105,25 @@ export function buildIntakeRequest(text, model) {
  */
 export function interpretIntakeResponse(response, request) {
   // ?. reads a field safely if its parent exists; missing data is undefined.
-  const answer = response?.answers?.intent;
   const options = Object.keys(request.questions.intent.criteria);
+  const answer = checkChoiceAnswer(response?.answers?.intent, options, "intake");
+  return {
+    mode: "advisory",
+    disposition: answer.choice === "unclear" ? "clarify" : "human_review",
+    choice: answer.choice,
+    confidence: answer.confidence,
+    probabilities: pickProbabilities(answer, options),
+    requested_model: request.model,
+    resolved_model: response.model,
+    usage: response.usage,
+  };
+}
+
+/*
+ * Shared validator for any Choice answer: the pick must be one of our options
+ * and the probabilities must be a complete, consistent set. Returns the answer.
+ */
+export function checkChoiceAnswer(answer, options, label) {
   const probabilities = answer?.probabilities;
   const isProbability = (value) => Number.isFinite(value) && value >= 0 && value <= 1;
   if (answer?.type !== "choice" || !options.includes(answer.choice) ||
@@ -113,25 +132,20 @@ export function interpretIntakeResponse(response, request) {
       Object.keys(probabilities).length !== options.length ||
       !options.every((option) => Object.hasOwn(probabilities, option) &&
         isProbability(probabilities[option]))) {
-    throw new Error("Jev returned an invalid intake answer; use manual intake.");
+    throw new Error(`Jev returned an invalid ${label} answer; use manual intake.`);
   }
-
   // Probabilities are slices of one pie. Allow a small difference from one
   // because the server may round the slices before sending them.
   const values = options.map((option) => probabilities[option]);
   const total = values.reduce((sum, value) => sum + value, 0);
   if (Math.abs(total - 1) > 0.02 ||
       probabilities[answer.choice] < Math.max(...values)) {
-    throw new Error("Jev returned inconsistent probabilities; use manual intake.");
+    throw new Error(`Jev returned inconsistent ${label} probabilities; use manual intake.`);
   }
-  return {
-    mode: "advisory",
-    disposition: answer.choice === "unclear" ? "clarify" : "human_review",
-    choice: answer.choice,
-    confidence: answer.confidence,
-    probabilities: Object.fromEntries(options.map((option) => [option, probabilities[option]])),
-    requested_model: request.model,
-    resolved_model: response.model,
-    usage: response.usage,
-  };
+  return answer;
+}
+
+// Copy only the known options' probabilities, in option order.
+export function pickProbabilities(answer, options) {
+  return Object.fromEntries(options.map((option) => [option, answer.probabilities[option]]));
 }

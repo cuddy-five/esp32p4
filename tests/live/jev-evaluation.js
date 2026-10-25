@@ -11,8 +11,10 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
-const cases = JSON.parse(fs.readFileSync(path.join(here, "jev-cases.json"), "utf8"));
-const usage = 'Usage: npm run evaluate:jev -- --yes [--model NAME] [--case ID]';
+const selectMode = process.argv.slice(2).some((arg, i, all) => arg === "--select" && all[i - 1] !== "--model");
+const cases = JSON.parse(fs.readFileSync(
+  path.join(here, selectMode ? "jev-selection-cases.json" : "jev-cases.json"), "utf8"));
+const usage = 'Usage: npm run evaluate:jev -- --yes [--select] [--model NAME] [--case ID]';
 
 /*
  * ELI5: Parse the switches before making any internet calls.
@@ -25,6 +27,7 @@ function readOptions(args) {
   let onlyCase;
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--yes" && !confirmed) confirmed = true;
+    else if (args[index] === "--select") continue;
     else if (args[index] === "--model" && args[index + 1] && !args[index + 1].startsWith("--")) {
       model = args[index + 1];
       index += 1;
@@ -49,7 +52,8 @@ function readOptions(args) {
  */
 function evaluateOne(item, model) {
   const result = spawnSync(process.execPath, [
-    path.join(repo, "src/run-jev.js"), "--yes", "--model", model, item.request,
+    path.join(repo, "src/run-jev.js"), "--yes", ...(selectMode ? ["--select"] : []),
+    "--model", model, item.request,
   ], {
     cwd: repo,
     encoding: "utf8",
@@ -67,6 +71,23 @@ function evaluateOne(item, model) {
   } catch {
     throw new Error(`${item.id}: runner did not return readable JSON.`);
   }
+  if (selectMode) {
+    // null expected means "nothing should fit" (Jev answers none -> null).
+    const kinds = Object.keys(advice.selections ?? {});
+    const wanted = Object.keys(item.expected).filter((kind) => kind !== "disposition");
+    const wrong = wanted.filter((kind) => !advice.selections?.[kind] ||
+      item.expected[kind] !== advice.selections[kind].choice);
+    return {
+      id: item.id,
+      expected: JSON.stringify(item.expected),
+      actual: JSON.stringify(Object.fromEntries(kinds.map((kind) => [kind, advice.selections[kind].choice]))),
+      match: wrong.length === 0 &&
+        (!item.expected.disposition || item.expected.disposition === advice.disposition),
+      confidence: kinds.map((kind) => advice.selections[kind].confidence).join("/"),
+      resolved_model: advice.resolved_model,
+      usage: advice.usage,
+    };
+  }
   return {
     id: item.id,
     expected: item.expected,
@@ -82,9 +103,17 @@ try {
   const { model, selected } = readOptions(process.argv.slice(2));
   console.log(`Running ${selected.length} live Jev example(s) with ${model}.`);
   console.log("Requests go to TypeSafe. No task is created and no GitHub action runs.");
-  const results = selected.map((item) => evaluateOne(item, model));
+  // One refused answer should not hide the other cases: record it and go on.
+  const results = selected.map((item) => {
+    try {
+      return evaluateOne(item, model);
+    } catch (error) {
+      return { id: item.id, expected: "-", actual: error.message, match: false,
+        confidence: "-", resolved_model: "-", usage: { input_tokens: 0, output_tokens: 0 }, errored: true };
+    }
+  });
   for (const result of results) {
-    console.log(`${result.match ? "MATCH" : "MISMATCH"} ${result.id}: expected=${result.expected}, actual=${result.actual}, confidence=${result.confidence}`);
+    console.log(`${result.errored ? "ERROR" : result.match ? "MATCH" : "MISMATCH"} ${result.id}: expected=${result.expected}, actual=${result.actual}, confidence=${result.confidence}`);
     console.log(`  resolved model=${result.resolved_model}; usage=${result.usage.input_tokens} input + ${result.usage.output_tokens} output tokens`);
   }
   const matches = results.filter((result) => result.match).length;

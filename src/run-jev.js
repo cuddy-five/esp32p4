@@ -2,6 +2,8 @@
  * Entry point: connect routing's question sheet to Jev's telephone.
  * To make a REAL call from the repository root:
  * node src/run-jev.js --yes --model YOUR_MODEL "Find why the build fails."
+ * Add --select to pick a registered workflow, agent and skill instead of an
+ * intent (options come from the enabled .agents/.workflows/.skills registries).
  *
  * `node` runs JavaScript; src/run-jev.js selects this file.
  * --yes permits sending your supplied text to TypeSafe.
@@ -13,12 +15,13 @@
  * Never put the key in this file or a command-line argument.
  */
 import { buildIntakeRequest, interpretIntakeResponse } from "./routing.js";
+import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
 import { requestJev } from "./jev.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const usage = 'Usage: node src/run-jev.js --yes [--model NAME] "request text"';
+const usage = 'Usage: node src/run-jev.js --yes [--select] [--model NAME] "request text"';
 
 /*
  * ELI5: The program knows where the locked drawer is; the key itself never
@@ -58,19 +61,21 @@ async function main() {
   }
   let model = process.env.TYPESAFE_MODEL;
   let confirmed = false;
+  let select = false;
   let text;
   let request;
   try {
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       if (arg === "--yes" && !confirmed) confirmed = true;
+      else if (arg === "--select" && !select) select = true;
       else if (arg === "--model" && args[i + 1] && !args[i + 1].startsWith("--")) {
         model = args[++i];
       } else if (!arg.startsWith("--") && text === undefined) text = arg;
       else throw new Error(usage);
     }
     if (!confirmed) throw new Error(`A live call requires --yes. ${usage}`);
-    request = buildIntakeRequest(text, model);
+    request = select ? buildSelectionRequest(text, model) : buildIntakeRequest(text, model);
   } catch (error) {
     console.error(error.message);
     return 2; // Repository convention: invalid input or invocation.
@@ -78,7 +83,9 @@ async function main() {
 
   try {
     const response = await requestJev(request, { apiKey: loadApiKey() });
-    const advice = interpretIntakeResponse(response, request);
+    const advice = select
+      ? interpretSelectionResponse(response, request)
+      : interpretIntakeResponse(response, request);
     // Show the actual model choice and usage. No agent is launched and no
     // task state or approval changes. You inspect whether the answer fits.
     console.log(JSON.stringify(advice, null, 2));

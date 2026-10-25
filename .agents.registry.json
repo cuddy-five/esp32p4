@@ -4,7 +4,7 @@
     {
       "id": "planner",
       "name": "Planner",
-      "description": "Constructive role that turns intent into steps with tests and rollback",
+      "description": "Choose when the work needs a step-by-step plan with tests and rollback before any code changes, or the request is vague or large. Not for writing code or judging finished work.",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "high",
       "budget": {
@@ -40,7 +40,7 @@
     {
       "id": "implementer",
       "name": "Implementer",
-      "description": "Constructive role that executes approved plans inside scope",
+      "description": "Choose when an approved plan exists and the request is to make the code, test or doc changes inside its scope. Not for planning, reviewing or verifying its own work.",
       "model": "gpt-6-luna",
       "reasoning_effort": "medium",
       "budget": {
@@ -76,7 +76,7 @@
     {
       "id": "security_auditor",
       "name": "Security Auditor",
-      "description": "Hostile role that assumes change is an attack until shown otherwise",
+      "description": "Choose when the request involves secrets, credentials, auth, input handling, untrusted data, dependencies or any attack surface, or asks for a security check. Not for general code quality.",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "high",
       "budget": {
@@ -106,7 +106,7 @@
     {
       "id": "verifier",
       "name": "Verifier",
-      "description": "Skeptical role that re-runs and re-derives instead of trusting evidence",
+      "description": "Choose when the request is to independently re-run tests or re-check that finished work really meets its acceptance criteria. Not for writing the change or for opinions on design.",
       "model": "claude-haiku-4.5",
       "reasoning_effort": "medium",
       "budget": {

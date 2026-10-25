@@ -4,7 +4,7 @@
     {
       "id": "code-reviewer",
       "name": "Code Reviewer",
-      "description": "Expert code review specialist for quality, security, and maintainability",
+      "description": "Choose to review any code change for quality, maintainability and bugs, in any language. Not for Python-only style, database work or security-only audits.",
       "category": "review",
       "provider": "ecc",
       "cost": {
@@ -13,13 +13,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.6-luna"],
-      "tags": ["code-quality", "review", "architecture"]
+      "models": [
+        "gpt-5.6-luna"
+      ],
+      "tags": [
+        "code-quality",
+        "review",
+        "architecture"
+      ]
     },
     {
       "id": "python-reviewer",
       "name": "Python Reviewer",
-      "description": "Expert Python code reviewer for PEP 8, idioms, type hints, security",
+      "description": "Choose to review Python code for PEP 8, idioms, type hints and Python-specific bugs. Not for other languages.",
       "category": "review",
       "provider": "ecc",
       "cost": {
@@ -28,13 +34,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.6-luna"],
-      "tags": ["python", "review", "pep8"]
+      "models": [
+        "gpt-5.6-luna"
+      ],
+      "tags": [
+        "python",
+        "review",
+        "pep8"
+      ]
     },
     {
       "id": "security-reviewer",
       "name": "Security Reviewer",
-      "description": "Vulnerability detection and remediation for OWASP Top 10, secrets, injection",
+      "description": "Choose to look for vulnerabilities: secrets, injection, unsafe input handling, OWASP Top 10. Not for style or general quality review.",
       "category": "security",
       "provider": "ecc",
       "cost": {
@@ -43,13 +55,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.6-luna"],
-      "tags": ["security", "vulnerabilities", "owasp"]
+      "models": [
+        "gpt-5.6-luna"
+      ],
+      "tags": [
+        "security",
+        "vulnerabilities",
+        "owasp"
+      ]
     },
     {
       "id": "database-reviewer",
       "name": "Database Reviewer",
-      "description": "PostgreSQL specialist for schema, queries, security, performance optimization",
+      "description": "Choose for PostgreSQL schemas, SQL queries, migrations or database performance. Not for application logic without a database.",
       "category": "review",
       "provider": "ecc",
       "cost": {
@@ -58,13 +76,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.6-luna"],
-      "tags": ["database", "postgresql", "performance"]
+      "models": [
+        "gpt-5.6-luna"
+      ],
+      "tags": [
+        "database",
+        "postgresql",
+        "performance"
+      ]
     },
     {
       "id": "build-error-resolver",
       "name": "Build Error Resolver",
-      "description": "TypeScript and build error resolution with minimal diffs",
+      "description": "Choose when a TypeScript or build error is failing and needs the smallest fix to turn the build green. Not for new features or refactors.",
       "category": "implementation",
       "provider": "ecc",
       "cost": {
@@ -73,13 +97,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.3-codex"],
-      "tags": ["typescript", "build", "errors"]
+      "models": [
+        "gpt-5.3-codex"
+      ],
+      "tags": [
+        "typescript",
+        "build",
+        "errors"
+      ]
     },
     {
       "id": "e2e-runner",
       "name": "E2E Test Runner",
-      "description": "End-to-end testing with Vercel Agent Browser, manages test journeys",
+      "description": "Choose to create or run end-to-end browser tests of user journeys. Not for unit tests or non-browser work.",
       "category": "testing",
       "provider": "ecc",
       "cost": {
@@ -88,13 +118,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.6-luna"],
-      "tags": ["e2e", "testing", "browser"]
+      "models": [
+        "gpt-5.6-luna"
+      ],
+      "tags": [
+        "e2e",
+        "testing",
+        "browser"
+      ]
     },
     {
       "id": "tdd-guide",
       "name": "Test-Driven Development Guide",
-      "description": "Write-tests-first methodology enforcer with 80%+ coverage target",
+      "description": "Choose when building new behavior or fixing a bug test-first with high coverage. Not for writing a plan or design, and not for end-to-end browser tests.",
       "category": "testing",
       "provider": "ecc",
       "cost": {
@@ -103,13 +139,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.3-codex"],
-      "tags": ["tdd", "testing", "coverage"]
+      "models": [
+        "gpt-5.3-codex"
+      ],
+      "tags": [
+        "tdd",
+        "testing",
+        "coverage"
+      ]
     },
     {
       "id": "doc-updater",
       "name": "Documentation Updater",
-      "description": "Documentation and codemap specialist for READMEs, guides, codemaps",
+      "description": "Choose to update READMEs, guides or codemaps so documentation matches the code. Not for changing program behavior.",
       "category": "documentation",
       "provider": "ecc",
       "cost": {
@@ -118,13 +160,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["claude-haiku-4.5"],
-      "tags": ["documentation", "codemaps", "guides"]
+      "models": [
+        "claude-haiku-4.5"
+      ],
+      "tags": [
+        "documentation",
+        "codemaps",
+        "guides"
+      ]
     },
     {
       "id": "refactor-cleaner",
       "name": "Refactor Cleaner",
-      "description": "Dead code cleanup and consolidation using automated analysis tools",
+      "description": "Choose to remove dead code, unused dependencies and duplication without changing behavior. Not for adding features.",
       "category": "maintenance",
       "provider": "ecc",
       "cost": {
@@ -133,13 +181,19 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-5.3-codex"],
-      "tags": ["refactoring", "dead-code", "cleanup"]
+      "models": [
+        "gpt-5.3-codex"
+      ],
+      "tags": [
+        "refactoring",
+        "dead-code",
+        "cleanup"
+      ]
     },
     {
       "id": "architect",
       "name": "Software Architect",
-      "description": "System design, scalability planning, architectural decisions and trade-offs",
+      "description": "Choose when designing or planning structure, approach or trade-offs for new work, including writing a plan. Not for small edits or routine fixes.",
       "category": "architecture",
       "provider": "ecc",
       "cost": {
@@ -148,8 +202,14 @@
       },
       "prerequisites": [],
       "enabled": true,
-      "models": ["gpt-6-luna"],
-      "tags": ["architecture", "design", "scalability"]
+      "models": [
+        "gpt-6-luna"
+      ],
+      "tags": [
+        "architecture",
+        "design",
+        "scalability"
+      ]
     }
   ]
 }
