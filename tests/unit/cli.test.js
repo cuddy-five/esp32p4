@@ -165,6 +165,13 @@ describe("cli triage and evidence", () => {
       await main(["evidence", "--task", taskPath, "--sha", sha, "--path", ".github/workflows/ci.yml"], badRun.io),
       EXIT.FAILED,
     );
+
+    const missingTask = capture();
+    assert.equal(
+      await main(["evidence", "--task", "nonexistent-task.json", "--sha", sha], missingTask.io),
+      EXIT.ERROR,
+    );
+    assert.match(missingTask.err[0], /evidence: cannot read task contract/);
   });
 });
 

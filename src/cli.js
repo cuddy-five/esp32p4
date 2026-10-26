@@ -431,7 +431,13 @@ function cmdEvidence(args, { stdout, stderr, env }) {
     }
   }
 
-  const task = JSON.parse(fs.readFileSync(values.task, "utf8"));
+  let task;
+  try {
+    task = JSON.parse(fs.readFileSync(values.task, "utf8"));
+  } catch (err) {
+    stderr(`evidence: cannot read task contract "${values.task}": ${err.message}`);
+    return EXIT.ERROR;
+  }
   const additions = Number.parseInt(values.additions, 10) || 0;
   const deletions = Number.parseInt(values.deletions, 10) || 0;
   const filesChanged = values["files-changed"]
@@ -441,16 +447,22 @@ function cmdEvidence(args, { stdout, stderr, env }) {
     ? { tokens: Number.parseInt(values["tokens-used"], 10) }
     : undefined;
 
-  const result = buildEvidenceContract(task, {
-    sha: values.sha,
-    baseSha: values["base-sha"],
-    paths: values.path,
-    filesChanged,
-    additions,
-    deletions,
-    budgetUsed,
-    ...(reviewDomains ? { reviewDomains } : {}),
-  });
+  let result;
+  try {
+    result = buildEvidenceContract(task, {
+      sha: values.sha,
+      baseSha: values["base-sha"],
+      paths: values.path,
+      filesChanged,
+      additions,
+      deletions,
+      budgetUsed,
+      ...(reviewDomains ? { reviewDomains } : {}),
+    });
+  } catch (err) {
+    stderr(`evidence: failed to build evidence contract: ${err.message}`);
+    return EXIT.ERROR;
+  }
 
   if (values.output) {
     fs.writeFileSync(values.output, `${JSON.stringify(result.evidence, null, 2)}\n`, "utf8");
