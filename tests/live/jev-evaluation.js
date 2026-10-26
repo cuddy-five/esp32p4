@@ -52,7 +52,7 @@ function readOptions(args) {
  */
 function evaluateOne(item, model) {
   const result = spawnSync(process.execPath, [
-    path.join(repo, "src/run-jev.js"), "--yes", ...(selectMode ? ["--select"] : []),
+    path.join(repo, "src/run-jev.js"), "--yes", ...(selectMode ? ["--select", "--guardrails"] : []),
     "--model", model, item.request,
   ], {
     cwd: repo,
