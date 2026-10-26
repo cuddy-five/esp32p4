@@ -29,6 +29,7 @@ import { loadReviewDomains } from "./review-domains.js";
 import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
 import { synthesizeIntakeContract } from "./triage.js";
 import { buildEvidenceContract } from "./evidence.js";
+import { compactLogs } from "./compaction.js";
 
 export const EXIT = Object.freeze({ OK: 0, ERROR: 1, FAILED: 2 });
 
@@ -62,6 +63,10 @@ Commands
 
   spending [--ledger <file>] [--format text|json] [--daily-cap <amount>]
                                Show daily Jev token consumption and budget cap
+
+  compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
+                               Compact execution/test logs using Jev System One scoring
+                               with deterministic fallback
 
   settings plan [--project <dir>]
                                Show what would change to reach desired state
@@ -113,6 +118,8 @@ export async function main(argv, io = {}) {
         return cmdEvidence(rest, { stdout, stderr, env });
       case "spending":
         return cmdSpending(rest, { stdout, stderr, env });
+      case "compact":
+        return await cmdCompact(rest, { stdout, stderr, env, fetchImpl: io.jevFetch, stdin: io.stdin });
       case undefined:
       case "help":
       case "--help":
@@ -517,6 +524,91 @@ function cmdSpending(args, { stdout, stderr, env }) {
   stdout(`output tokens:    ${ledger.total_output_tokens}`);
   stdout(`ledger file:      ${ledgerPath}`);
   return EXIT.OK;
+}
+
+async function cmdCompact(args, { stdout, stderr, env, fetchImpl, stdin }) {
+  const { values, positionals } = parseArgs({
+    args,
+    allowPositionals: true,
+    options: {
+      file: { type: "string" },
+      "max-chars": { type: "string", default: "2000" },
+      offline: { type: "boolean", default: false },
+      model: { type: "string", default: "jev-latest" },
+      format: { type: "string", default: "text" },
+      output: { type: "string" },
+    },
+  });
+
+  if (!["text", "json"].includes(values.format)) {
+    stderr(`compact: unknown format "${values.format}" (expected text or json)`);
+    return EXIT.ERROR;
+  }
+
+  const maxChars = Number.parseInt(values["max-chars"], 10);
+  if (!Number.isFinite(maxChars) || maxChars <= 0) {
+    stderr(`compact: invalid --max-chars "${values["max-chars"]}"`);
+    return EXIT.ERROR;
+  }
+
+  let text = "";
+  const targetFile = values.file ?? positionals[0];
+  if (targetFile) {
+    try {
+      text = fs.readFileSync(targetFile, "utf8");
+    } catch (err) {
+      stderr(`compact: cannot read file "${targetFile}": ${err.message}`);
+      return EXIT.ERROR;
+    }
+  } else if (stdin !== undefined) {
+    text = typeof stdin === "string" ? stdin : await readStream(stdin);
+  } else if (!process.stdin.isTTY) {
+    text = await readStream(process.stdin);
+  } else {
+    stderr("compact: input file is required or pipe log into stdin");
+    return EXIT.ERROR;
+  }
+
+  const result = await compactLogs(text, {
+    maxChars,
+    offline: values.offline,
+    model: values.model,
+    fetchImpl,
+    env,
+  });
+
+  if (values.output) {
+    try {
+      fs.writeFileSync(values.output, result.compacted, "utf8");
+    } catch (err) {
+      stderr(`compact: failed to write output file "${values.output}": ${err.message}`);
+      return EXIT.ERROR;
+    }
+  }
+
+  if (values.format === "json") {
+    stdout(JSON.stringify(result, null, 2));
+  } else {
+    stdout(result.compacted);
+  }
+
+  return EXIT.OK;
+}
+
+async function readStream(stream) {
+  if (typeof stream === "string") return stream;
+  const MAX_STREAM_BYTES = 10 * 1024 * 1024; // 10 MiB
+  const chunks = [];
+  let totalBytes = 0;
+  for await (const chunk of stream) {
+    const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+    totalBytes += buf.length;
+    if (totalBytes > MAX_STREAM_BYTES) {
+      throw new Error(`stream exceeded maximum threshold of ${MAX_STREAM_BYTES} bytes`);
+    }
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }) {

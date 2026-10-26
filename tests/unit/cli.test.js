@@ -716,3 +716,66 @@ describe("cli project decoupling and spending", () => {
     assert.match(c2.err[0], /consumer project directory not found/);
   });
 });
+
+describe("cli compact", () => {
+  test("compacts log file in offline mode and outputs text", async () => {
+    const tmpLog = path.join(os.tmpdir(), `cp-test-log-${process.pid}.txt`);
+    const progressLines = Array.from({ length: 40 }, (_, i) => `build step ${i} compiling`).join("\n");
+    const rawContent = `Start compilation\n${progressLines}\nFatalError: syntax error at main.rs:12\n${progressLines}\nExit code: 1`;
+    fs.writeFileSync(tmpLog, rawContent, "utf8");
+
+    try {
+      const { out, io } = capture();
+      const code = await main(["compact", "--file", tmpLog, "--max-chars", "400", "--offline"], io);
+      assert.equal(code, EXIT.OK);
+      const text = out.join("\n");
+      assert.ok(text.length <= 400);
+      assert.match(text, /FatalError/);
+      assert.match(text, /Exit code: 1/);
+    } finally {
+      fs.unlinkSync(tmpLog);
+    }
+  });
+
+  test("compacts from stdin and formats report as json with --output", async () => {
+    const tmpOut = path.join(os.tmpdir(), `cp-compact-out-${process.pid}.txt`);
+    const progressLines = Array.from({ length: 30 }, (_, i) => `downloading pkg ${i}`).join("\n");
+    const stdinContent = `npm test start\n${progressLines}\nAssertionError: expected true but got false\n${progressLines}\nexited 1`;
+
+    try {
+      const { out, io } = capture();
+      io.stdin = stdinContent;
+      const code = await main([
+        "compact",
+        "--max-chars", "500",
+        "--offline",
+        "--format", "json",
+        "--output", tmpOut,
+      ], io);
+      assert.equal(code, EXIT.OK);
+      const parsed = JSON.parse(out.join("\n"));
+      assert.equal(parsed.method, "deterministic");
+      assert.ok(parsed.compactedChars <= 500);
+      assert.match(parsed.compacted, /AssertionError/);
+
+      const saved = fs.readFileSync(tmpOut, "utf8");
+      assert.equal(saved, parsed.compacted);
+    } finally {
+      if (fs.existsSync(tmpOut)) fs.unlinkSync(tmpOut);
+    }
+  });
+
+  test("compact validates arguments and inputs", async () => {
+    const c1 = capture();
+    assert.equal(await main(["compact", "--file", "nonexistent.txt", "--offline"], c1.io), EXIT.ERROR);
+    assert.match(c1.err[0], /cannot read file/);
+
+    const c2 = capture();
+    assert.equal(await main(["compact", "--max-chars", "bad-num", "--offline"], c2.io), EXIT.ERROR);
+    assert.match(c2.err[0], /invalid --max-chars/);
+
+    const c3 = capture();
+    assert.equal(await main(["compact", "--format", "yaml", "--offline"], c3.io), EXIT.ERROR);
+    assert.match(c3.err[0], /unknown format/);
+  });
+});
