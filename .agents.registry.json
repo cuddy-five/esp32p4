@@ -52,7 +52,8 @@
         "allowed_paths": [
           "src/**",
           "tests/**",
-          "docs/**"
+          "docs/**",
+          "*.md"
         ],
         "forbidden_paths": [
           ".env*",
@@ -117,11 +118,7 @@
         "max_concurrent_tasks": 1
       },
       "scope": {
-        "allowed_paths": [
-          "src/**",
-          "tests/**",
-          ".github/workflows/**"
-        ],
+        "allowed_paths": [],
         "forbidden_paths": [
           ".env*",
           "**/node_modules/**",
@@ -147,10 +144,7 @@
         "max_concurrent_tasks": 2
       },
       "scope": {
-        "allowed_paths": [
-          "tests/**",
-          "src/**"
-        ],
+        "allowed_paths": [],
         "forbidden_paths": [
           ".env*",
           ".github/control-plane/**",

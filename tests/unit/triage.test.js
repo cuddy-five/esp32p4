@@ -38,7 +38,7 @@ describe("synthesizeIntakeContract", () => {
     assert.equal(out.contract.contract, "task");
     assert.equal(out.contract.status, "proposed");
     assert.equal(out.contract.assigned_role, "implementer");
-    assert.deepEqual(out.contract.scope.allowed_paths, ["src/**", "tests/**", "docs/**"]);
+    assert.deepEqual(out.contract.scope.allowed_paths, ["src/**", "tests/**", "docs/**", "*.md"]);
     assert.equal(out.contract.source.kind, "issue");
     assert.equal(out.contract.source.issue.number, 12);
     assert.equal(out.contract.annotations.jev_skill, "tdd-guide");

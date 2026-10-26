@@ -70,3 +70,15 @@ test('the reviewer can be selected, cannot write, and is not the implementer fam
   assert.equal(reviewer.approval_rules.min_approval_level, 'owner');
   assert.notEqual(reviewer.model.split('-')[0], implementer.model.split('-')[0]);
 });
+
+test('security_auditor and verifier are non-writing roles and implementer allows root markdown', () => {
+  const auditor = registry.lookupAgent('security_auditor');
+  const verifier = registry.lookupAgent('verifier');
+  const implementer = registry.lookupAgent('implementer');
+
+  assert.equal(auditor.enabled, true);
+  assert.deepEqual(auditor.scope.allowed_paths, []);
+  assert.equal(verifier.enabled, true);
+  assert.deepEqual(verifier.scope.allowed_paths, []);
+  assert.ok(implementer.scope.allowed_paths.includes('*.md'));
+});
