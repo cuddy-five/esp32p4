@@ -4,7 +4,7 @@
     {
       "id": "planner",
       "name": "Planner",
-      "description": "Choose when the work needs a step-by-step plan with tests and rollback before any code changes, or the request is vague or large. Not for writing code or judging finished work.",
+      "description": "Choose when the request asks to design, architect, or write a step-by-step plan with tests and rollback before changing code, or when the request is vague. Not for writing code or reviewing.",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "high",
       "budget": {
@@ -40,7 +40,7 @@
     {
       "id": "implementer",
       "name": "Implementer",
-      "description": "Choose when an approved plan exists and the request is to make the code, test or doc changes inside its scope. Not for planning, reviewing or verifying its own work.",
+      "description": "Choose when the request is to write, fix, refactor, test, or document code or build errors (plan approval is enforced separately). Not for writing a plan, reviewing code, or re-verifying finished work.",
       "model": "gpt-6-luna",
       "reasoning_effort": "medium",
       "budget": {
@@ -76,7 +76,7 @@
     {
       "id": "reviewer",
       "name": "Reviewer",
-      "description": "Choose when a plan or a finished change must be judged for reasons not to merge. Not for writing the change, planning it, or re-running its tests.",
+      "description": "Choose when existing code, SQL migrations, style, or a written plan must be inspected for bugs, quality, or design flaws. Not for merge-readiness gate checks, security audits, or writing code.",
       "model": "kimi-k3",
       "reasoning_effort": "high",
       "budget": {
@@ -138,7 +138,7 @@
     {
       "id": "verifier",
       "name": "Verifier",
-      "description": "Choose when the request is to independently re-run tests or re-check that finished work really meets its acceptance criteria. Not for writing the change or for opinions on design.",
+      "description": "Choose when the request is to independently re-run tests, verify acceptance criteria, or check whether a pull request with passing reviews is ready to merge. Not for code review or writing code.",
       "model": "claude-haiku-4.5",
       "reasoning_effort": "medium",
       "budget": {
