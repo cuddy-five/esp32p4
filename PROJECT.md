@@ -45,16 +45,18 @@ This project builds a hardware wallet for Bitcoin on the ESP32-P4 microcontrolle
 - ✅ Settings reconciliation CLI for GitHub labels and rulesets.
 - ✅ Contract validation (closed shapes, size bounds, field requirements).
 - ✅ State machine definition with role transitions and approval rules.
-- ✅ Jev intake classification: `buildIntakeRequest()` for request intent routing.
-- ✅ 204/204 unit and security tests passing.
-- ✅ All contract examples validating.
+- ✅ Jev intake classification: `buildSelectionRequest()` and `interpretSelectionResponse()` for intent, workflow, agent, and skill routing.
+- ✅ Jev API integration: `requestJev()` with daily spending cap ($2.00) enforcement, atomic ledger writes, fail-closed corruption handling, and `TYPESAFE_API_KEY_FILE` resolution.
+- ✅ Context sieve log compaction: `src/compaction.js` and `control-plane compact` CLI command for diagnostic log preservation.
+- ✅ Evidence builder and review domains: `src/evidence.js` and `src/review-domains.js` with scope verification and checklist mapping.
+- ✅ 286/286 unit and security tests passing across 48 test suites.
+- ✅ All contract examples validating (7/7).
 
-### Not Yet Started
+### In Progress / Up Next
 
-- ⏳ Jev API integration (HTTP POST to TypeSafe, response handling, error cases).
-- ⏳ Coordinator automation (task intake, initial classification, routing to planner).
-- ⏳ Agent handoff orchestration (task → plan → review → implement → verify → merge).
-- ⏳ Hardware wallet crypto modules (Blake2b, ECDSA, BIP39).
+- 🔄 Agent definitions and role prompts (Coordinator, Planner, Implementer, Reviewer, Security Auditor, Verifier).
+- ⏳ Coordinator automation and agent handoff orchestration (task → plan → review → implement → verify → merge).
+- ⏳ Hardware wallet crypto modules (Blake2b, ECDSA, BIP39 in Rust `no_std`).
 - ⏳ ESP32 firmware (bootloader, key storage, transaction signing).
 - ⏳ Bitcoin protocol implementation (UTXO, segwit, coin selection, fees).
 - ⏳ Host communication (USB or BLE stack).
@@ -62,17 +64,16 @@ This project builds a hardware wallet for Bitcoin on the ESP32-P4 microcontrolle
 
 ## Known Unknowns / Open Questions
 
-1. **Jev Model Routing**: Which model alias should be pinned? (`jev-latest` vs. explicit version). Calibration data needed for intent thresholds.
-2. **Agent Deployment**: Will agents run locally (this machine), in GitHub Actions (CI), or via remote API? Affects secret management and tool integration.
-3. **Bitcoin Compliance**: Which standards (BIP32, BIP39, BIP44, BIP49, BIP84) must the wallet support? Does hardware support hardware-accelerated ECDSA?
-4. **ESP32 Toolchain**: Language is Rust and firmware will be no_std. ESP-IDF or esp-rs version and FreeRTOS configuration are still unknown.
-5. **Adversarial Coverage**: What ratio of agents to roles in each run? How are agents selected (cost-optimized model families)?
+1. **Agent Deployment**: Which model family powers each role in the multi-agent harness? (Current defaults: Implementer=gpt-6-luna / claude, Reviewer=kimi-k3 / deepseek, Auditor=gpt-5.6-luna, Verifier=claude-haiku).
+2. **Bitcoin Compliance**: Which standards (BIP32, BIP39, BIP44, BIP49, BIP84) must the wallet support for MVP?
+3. **ESP32 Toolchain**: Target is `riscv32imafc-unknown-none-elf` (ESP32-P4 dual-core RISC-V). Which `esp-hal` / `esp-rs` version?
+4. **Adversarial Ratio**: How many review/audit passes are required per risk tier (low, medium, high, critical)?
 
 ## Next Immediate Steps
 
-1. **Complete Jev integration**: Implement `callJev()` to POST requests and handle responses; add error handling and retry logic.
-2. **Create PROJECT.md sections** for Hardware & Bitcoin architecture (once open questions answered).
-3. **Bootstrap first task**: Write a task contract for "Implement Jev API integration" and follow it through the full loop.
+1. **Create concrete agent definitions**: Author system prompts, role boundaries, allowed action spaces, and invocation contracts for each role.
+2. **Implement coordinator automation**: Wire state machine transitions in code so tasks execute through the adversarial loop without manual handoff steps.
+3. **Initialize firmware core**: Create `firmware/` crate with Rust `no_std` for ESP32-P4 and implement on-device Blake2b hashing engine.
 4. **Set up Basic Memory**: Use ECC + Basic Memory for cross-session evidence and learned routing patterns.
 5. **Define coordinator automation**: Write state transitions for task → plan → implement → merge in code; currently manual.
 
