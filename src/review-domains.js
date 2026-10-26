@@ -32,7 +32,8 @@ function pathOk(value) {
   if (typeof value !== "string" || value.startsWith("/") || value.includes("\\") || value.includes("*")) {
     return false;
   }
-  return value.split("/").every((part) => part.length > 0 && part !== "." && part !== "..");
+  const clean = value.replace(/^\.\//, "");
+  return clean.length > 0 && clean.split("/").every((part) => part.length > 0 && part !== "." && part !== "..");
 }
 
 export function reviewDomainProblems(doc, { pathExists } = {}) {
@@ -100,10 +101,11 @@ export function selectReviewDomains(paths, domains) {
   if (!Array.isArray(paths) || paths.length === 0 || paths.some((file) => !pathOk(file))) {
     throw new TypeError("Review domain selection needs relative file paths.");
   }
+  const cleanPaths = paths.map((file) => file.replace(/^\.\//, ""));
   const enabled = domains.domains.filter((domain) => domain.enabled);
   const covered = [];
   const uncovered = [];
-  for (const file of paths) {
+  for (const file of cleanPaths) {
     const hits = enabled.filter((domain) => domain.paths.some((pattern) => globMatch(pattern, file)));
     if (hits.length === 0) {
       uncovered.push(file);

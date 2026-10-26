@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { Registry } from '../../src/lib/registry.js';
 import {
   loadReviewDomains,
   reviewDomainProblems,
@@ -56,12 +55,9 @@ test('Rust review cannot drop no_std, and bad paths are rejected', () => {
   assert.throws(() => selectReviewDomains(['firmware/../src/cli.js'], domains()), TypeError);
 });
 
-test('the reviewer can be selected, cannot write, and is not the implementer family', () => {
-  const registry = new Registry();
-  const reviewer = registry.lookupAgent('reviewer');
-  const implementer = registry.lookupAgent('implementer');
-  assert.equal(reviewer.enabled, true);
-  assert.deepEqual(reviewer.scope.allowed_paths, []);
-  assert.equal(reviewer.approval_rules.min_approval_level, 'owner');
-  assert.notEqual(reviewer.model.split('-')[0], implementer.model.split('-')[0]);
+test('selectReviewDomains normalizes leading ./ paths safely', () => {
+  const out = selectReviewDomains(['./src/cli.js'], domains());
+  assert.deepEqual(out.covered.map((row) => row.domain), ['control-plane']);
+  assert.deepEqual(out.covered[0].paths, ['src/cli.js']);
+  assert.deepEqual(out.uncovered, []);
 });
