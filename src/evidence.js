@@ -9,6 +9,7 @@
 import crypto from "node:crypto";
 import { ContractRegistry } from "./lib/contracts.js";
 import { globMatch } from "./lib/orchestration.js";
+import { loadReviewDomains, reviewDomainProblems, selectReviewDomains } from "./review-domains.js";
 
 function makeId(prefix) {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -72,9 +73,24 @@ export function evaluateBudget(budgetUsed = {}, budgetCeiling = {}) {
   return { withinBudget: true, details: summaries.join(", ") || "within ceiling" };
 }
 
-/**
- * Build and validate an `evidence` contract document for a given task and commit SHA.
- */
+/** Map paths to required checklists. This does not attest that reviews occurred. */
+export function evaluateReviewDomains(paths = [], domainsDoc = loadReviewDomains()) {
+  if (!Array.isArray(paths)) throw new TypeError("Review domain selection needs relative file paths.");
+  const problems = reviewDomainProblems(domainsDoc);
+  if (problems.length > 0) throw new Error(problems.join(" "));
+  const unique = [...new Set(paths)];
+  const { covered, uncovered } = unique.length === 0
+    ? { covered: [], uncovered: [] }
+    : selectReviewDomains(unique, domainsDoc);
+  return {
+    covered,
+    uncovered,
+    required_roles: [...new Set(covered.map((row) => row.role))],
+    required_security_roles: [...new Set(covered.map((row) => row.security_role).filter(Boolean))],
+  };
+}
+
+/** Build and validate an evidence contract and return its reporting envelope. */
 export function buildEvidenceContract(task, {
   sha,
   baseSha = undefined,
@@ -85,6 +101,7 @@ export function buildEvidenceContract(task, {
   tests = undefined,
   checks = undefined,
   budgetUsed = undefined,
+  reviewDomains = undefined,
   producerName = "collect-evidence",
   producerKind = "workflow",
   producerRole = undefined,
@@ -98,6 +115,7 @@ export function buildEvidenceContract(task, {
     throw new TypeError("buildEvidenceContract requires a 40-character lowercase hex commit sha.");
   }
 
+  const domainEval = evaluateReviewDomains(paths, reviewDomains);
   const uniquePaths = [...new Set(paths)];
   const outOfScope = findOutOfScopePaths(uniquePaths, task.scope);
   const withinScope = outOfScope.length === 0;
@@ -114,6 +132,19 @@ export function buildEvidenceContract(task, {
       policy: "budget.ceiling",
       outcome: budgetEval.withinBudget ? "pass" : "fail",
       details: budgetEval.details,
+      evaluated_by: producerName,
+    },
+    {
+      policy: "review.domains",
+      outcome: uniquePaths.length === 0 ? "skipped" : domainEval.uncovered.length > 0 ? "warn" : "pass",
+      ...(domainEval.uncovered.length > 0 ? { severity: "medium" } : {}),
+      details: uniquePaths.length === 0
+        ? "No changed paths to map. Mapping is not proof of completed reviews."
+        : [
+          `Covered: ${domainEval.covered.map((row) => `${row.domain} (role: ${row.role}${row.security_role ? `, security_role: ${row.security_role}` : ""})`).join("; ") || "none"}.`,
+          ...(domainEval.uncovered.length > 0 ? [`Uncovered paths: ${domainEval.uncovered.join(", ")}.`] : []),
+          "Mapping is not proof of completed reviews.",
+        ].join(" "),
       evaluated_by: producerName,
     },
   ];
@@ -158,6 +189,7 @@ export function buildEvidenceContract(task, {
 
   return {
     evidence,
+    review_domains: domainEval,
     gates: {
       evidence_collected: true,
       within_scope: withinScope,

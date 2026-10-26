@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import Ajv from "ajv";
 import { REPO_ROOT } from "./paths.js";
@@ -20,7 +20,10 @@ export class Registry {
 
   loadSchema() {
     if (this.schema) return this.schema;
-    const schemaPath = path.join(this.rootDir, "docs", "agents", "registry.schema.json");
+    const localSchema = path.join(this.rootDir, "docs", "agents", "registry.schema.json");
+    const schemaPath = existsSync(localSchema)
+      ? localSchema
+      : path.join(REPO_ROOT, "docs", "agents", "registry.schema.json");
     const schemaText = readFileSync(schemaPath, "utf8");
     this.schema = JSON.parse(schemaText);
     const ajv = new Ajv();

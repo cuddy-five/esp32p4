@@ -80,3 +80,57 @@ describe("buildEvidenceContract", () => {
     assert.equal(contracts.validate(out.evidence).ok, true);
   });
 });
+describe("review-domain evidence reporting", () => {
+  test("deduplicates paths and retains complete checklists and roles", async () => {
+    const { evaluateReviewDomains } = await import("../../src/evidence.js");
+    const { loadReviewDomains } = await import("../../src/review-domains.js");
+    const doc = loadReviewDomains();
+    const result = evaluateReviewDomains(["src/cli.js", "src/cli.js", "notes/a.txt"], doc);
+    assert.deepEqual(result.covered[0].paths, ["src/cli.js"]);
+    assert.deepEqual(result.covered[0].checks, doc.domains[0].checks);
+    assert.deepEqual(result.required_roles, ["reviewer"]);
+    assert.deepEqual(result.required_security_roles, []);
+    assert.deepEqual(result.uncovered, ["notes/a.txt"]);
+  });
+
+  test("handles empty paths and rejects malformed paths or domain documents", async () => {
+    const { evaluateReviewDomains } = await import("../../src/evidence.js");
+    assert.deepEqual(evaluateReviewDomains(), {
+      covered: [], uncovered: [], required_roles: [], required_security_roles: [],
+    });
+    for (const paths of [null, "src/cli.js", {}, ["/etc/passwd"], ["src/../a"], [null]]) {
+      assert.throws(() => evaluateReviewDomains(paths), TypeError);
+      assert.throws(() => buildEvidenceContract(taskExample, { sha: VALID_SHA, paths }), TypeError);
+    }
+    assert.throws(() => evaluateReviewDomains([], { domains: [] }), /schema_version/);
+  });
+
+  test("reports injected security requirements without activating firmware or adding gates", async () => {
+    const { loadReviewDomains } = await import("../../src/review-domains.js");
+    const doc = loadReviewDomains();
+    doc.domains.find((d) => d.id === "firmware").enabled = true;
+    const task = structuredClone(taskExample);
+    task.scope.allowed_paths = ["firmware/**", "notes/**"];
+    const result = buildEvidenceContract(task, {
+      sha: VALID_SHA, paths: ["firmware/src/lib.rs", "notes/a.txt"], reviewDomains: doc,
+    });
+    assert.deepEqual(result.review_domains.required_security_roles, ["security_auditor"]);
+    assert.deepEqual(result.gates, { evidence_collected: true, within_scope: true, within_budget: true });
+    const policy = result.evidence.policy_results.find((p) => p.policy === "review.domains");
+    assert.equal(policy.outcome, "warn");
+    assert.match(policy.details, /notes\/a.txt/);
+    assert.match(policy.details, /security_auditor/);
+    assert.equal(contracts.validate(result.evidence).ok, true);
+    assert.equal(Object.hasOwn(result.evidence, "review_domains"), false);
+    assert.equal(loadReviewDomains().domains.find((d) => d.id === "firmware").enabled, false);
+  });
+
+  test("records skipped or pass mapping outcomes independently of scope and budget", () => {
+    for (const [paths, expected] of [[[], "skipped"], [["src/cli.js"], "pass"]]) {
+      const result = buildEvidenceContract(taskExample, { sha: VALID_SHA, paths, budgetUsed: { tokens: 600000 } });
+      assert.equal(result.evidence.policy_results.find((p) => p.policy === "review.domains").outcome, expected);
+      assert.equal(result.gates.within_budget, false);
+      assert.equal(contracts.validate(result.evidence).ok, true);
+    }
+  });
+});

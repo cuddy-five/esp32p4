@@ -25,6 +25,7 @@ function formatTitle(text) {
 export function synthesizeIntakeContract(requestText, advice, {
   registry = defaultRegistry,
   contracts = new ContractRegistry(),
+  policies = {},
   now = new Date().toISOString(),
   issueNumber = undefined,
   requestedBy = "human",
@@ -114,7 +115,7 @@ export function synthesizeIntakeContract(requestText, advice, {
   }
   const riskTags = advice.guardrails?.risk_tags ?? [];
 
-  const { approvals } = checkPolicies();
+  const { approvals } = checkPolicies(policies);
   const stageInfo = requiredHumanStages(approvals, {
     risk: { level: riskLevel, tags: riskTags },
     paths: agentDef.scope.allowed_paths,
