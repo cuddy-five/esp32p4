@@ -1,67 +1,63 @@
 /*
  * Entry point: connect routing's question sheet to Jev's telephone.
  * To make a REAL call from the repository root:
- * node src/run-jev.js --yes --model YOUR_MODEL "Find why the build fails."
+ *   node src/run-jev.js --yes --model YOUR_MODEL "Find why the build fails."
  * Add --select to pick a registered workflow, agent and skill instead of an
  * intent (options come from the enabled .agents/.workflows/.skills registries).
- *
- * `node` runs JavaScript; src/run-jev.js selects this file.
- * --yes permits sending your supplied text to TypeSafe.
- * --model chooses a model available to your account (replace YOUR_MODEL).
- * The quoted final argument is the request text; no repository files are read.
- * --help prints usage without a call. TYPESAFE_MODEL can supply the model
- * instead of --model. The key comes from TYPESAFE_API_KEY when set, otherwise
- * from ~/.config/esp32p4/jev-api-key, a private file outside the repository.
- * Never put the key in this file or a command-line argument.
+ * Add --guardrails to include parallel Noul/Score risk and injection checks.
+ * Add --contract to synthesize a schema-validated `task` or `escalation` contract.
  */
 import { buildIntakeRequest, interpretIntakeResponse } from "./routing.js";
 import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
+import { synthesizeIntakeContract } from "./triage.js";
 import { requestJev } from "./jev.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const usage = 'Usage: node src/run-jev.js --yes [--select] [--model NAME] "request text"';
+const usage =
+  'Usage: node src/run-jev.js --yes [--select] [--guardrails] [--contract] [--model NAME] "request text"';
 
-/*
- * ELI5: The program knows where the locked drawer is; the key itself never
- * belongs in our source code. An environment variable takes priority so a
- * future GitHub workflow can supply its own secret without a local file.
- * Permission 600 means only your user can read or change the local file.
- */
 function loadApiKey() {
   if (process.env.TYPESAFE_API_KEY?.trim()) return process.env.TYPESAFE_API_KEY.trim();
   const keyPath = path.join(os.homedir(), ".config", "esp32p4", "jev-api-key");
   let fd;
   try {
-    // Open the actual file, not a symbolic link pointing somewhere else.
     fd = fs.openSync(keyPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
     const info = fs.fstatSync(fd);
-    if (!info.isFile() || (info.mode & 0o077) !== 0 ||
-        info.uid !== process.getuid() || info.size > 4096) {
+    if (
+      !info.isFile() ||
+      (info.mode & 0o077) !== 0 ||
+      info.uid !== process.getuid() ||
+      info.size > 4096
+    ) {
       throw new Error("Invalid private key file.");
     }
     const key = fs.readFileSync(fd, "utf8").trim();
     if (!key || /\s/.test(key)) throw new Error("Invalid key format.");
     return key;
   } catch {
-    // Fixed error text prevents accidentally printing the key or file contents.
-    throw new Error("Provide TYPESAFE_API_KEY or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).");
+    throw new Error(
+      "Provide TYPESAFE_API_KEY or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).",
+    );
   } finally {
     if (fd !== undefined) fs.closeSync(fd);
   }
 }
 
 async function main() {
-  // argv starts with Node's path and this file's path. Skip those two entries.
   const args = process.argv.slice(2);
   if (args.length === 1 && args[0] === "--help") {
-    console.log(`${usage}\nRequires --model or TYPESAFE_MODEL. Key: TYPESAFE_API_KEY or ~/.config/esp32p4/jev-api-key.`);
+    console.log(
+      `${usage}\nRequires --model or TYPESAFE_MODEL. Key: TYPESAFE_API_KEY or ~/.config/esp32p4/jev-api-key.`,
+    );
     return 0;
   }
   let model = process.env.TYPESAFE_MODEL;
   let confirmed = false;
   let select = false;
+  let guardrails = false;
+  let contractMode = false;
   let text;
   let request;
   try {
@@ -69,13 +65,20 @@ async function main() {
       const arg = args[i];
       if (arg === "--yes" && !confirmed) confirmed = true;
       else if (arg === "--select" && !select) select = true;
-      else if (arg === "--model" && args[i + 1] && !args[i + 1].startsWith("--")) {
+      else if (arg === "--guardrails" && !guardrails) guardrails = true;
+      else if (arg === "--contract" && !contractMode) {
+        contractMode = true;
+        select = true;
+        guardrails = true;
+      } else if (arg === "--model" && args[i + 1] && !args[i + 1].startsWith("--")) {
         model = args[++i];
       } else if (!arg.startsWith("--") && text === undefined) text = arg;
       else throw new Error(usage);
     }
     if (!confirmed) throw new Error(`A live call requires --yes. ${usage}`);
-    request = select ? buildSelectionRequest(text, model) : buildIntakeRequest(text, model);
+    request = select
+      ? buildSelectionRequest(text, model, undefined, { includeGuardrails: guardrails })
+      : buildIntakeRequest(text, model, { includeGuardrails: guardrails });
   } catch (error) {
     console.error(error.message);
     return 2; // Repository convention: invalid input or invocation.
@@ -86,8 +89,12 @@ async function main() {
     const advice = select
       ? interpretSelectionResponse(response, request)
       : interpretIntakeResponse(response, request);
-    // Show the actual model choice and usage. No agent is launched and no
-    // task state or approval changes. You inspect whether the answer fits.
+
+    if (contractMode) {
+      const synthesized = synthesizeIntakeContract(text, advice);
+      console.log(JSON.stringify({ advice, ...synthesized }, null, 2));
+      return 0;
+    }
     console.log(JSON.stringify(advice, null, 2));
     return 0;
   } catch (error) {
@@ -96,5 +103,4 @@ async function main() {
   }
 }
 
-// Let Node finish printing before it exits with the result code.
 process.exitCode = await main();
