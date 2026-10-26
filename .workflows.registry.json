@@ -4,7 +4,7 @@
     {
       "id": "intake",
       "name": "Request Intake",
-      "description": "Choose only when the request is vague, contradictory or missing what is wanted, so it must be clarified and risk-sorted first. Not when the request clearly states a concrete change to make.",
+      "description": "Choose only when the request is vague, contradictory or undecided about what outcome is wanted, so it must be clarified first. Not when a concrete plan, change, or review is requested.",
       "states": [
         "received",
         "classified",
@@ -26,7 +26,7 @@
     {
       "id": "plan-review",
       "name": "Plan Review",
-      "description": "Choose when the request needs a new or changed plan written and then adversarially reviewed before approval. Not when an approved plan already exists.",
+      "description": "Choose whenever the request asks to write a plan, design architecture, or decide how to structure a feature (including its test and rollback plan) before coding. Not when a plan is already approved.",
       "states": [
         "planning",
         "plan_ready",
@@ -61,7 +61,7 @@
     {
       "id": "implement",
       "name": "Implementation",
-      "description": "Choose when the request clearly states a concrete change to make (code, tests, docs, fixes, cleanup) or to independently re-run and re-verify finished work; a human-approved plan is enforced separately. Not for vague requests or plans.",
+      "description": "Choose when the request is to make a concrete change (write code, fix a build, add tests, update docs, remove dead code) or re-run test suites. Not for writing a plan or reviewing existing code/SQL.",
       "states": [
         "ready",
         "in_progress",
@@ -96,7 +96,7 @@
     {
       "id": "security-review",
       "name": "Security Review",
-      "description": "Choose when the request is a hostile security review of a change or area, or touches secrets, auth, untrusted input or permissions. Not for ordinary feature work.",
+      "description": "Choose when the request is a hostile security audit of a change or area, or checks for secret leaks, auth flaws, untrusted input or injection. Not for general code style or database index reviews.",
       "states": [
         "ready",
         "audit_in_progress",
@@ -129,7 +129,7 @@
     {
       "id": "merge-gate",
       "name": "Merge Gate",
-      "description": "Choose when the request is whether finished work may merge: confirms all reviews and verification already passed and a human decides. Not for re-running tests or making changes.",
+      "description": "Choose when the request asks whether finished work with passing reviews may merge into the branch. Not for re-running tests, reviewing code quality, or making changes.",
       "states": [
         "ready",
         "checking",
