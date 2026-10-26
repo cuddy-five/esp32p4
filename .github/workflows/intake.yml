@@ -1,0 +1,82 @@
+name: intake
+
+# Advisory System One intake triage using Jev.
+# - Evaluates newly opened issues or manual dispatch requests.
+# - Synthesizes a schema-validated `task` or `escalation` contract.
+# - Writes an Overseer summary table to $GITHUB_STEP_SUMMARY.
+# - Never mutates repository files, labels, or approvals.
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      request:
+        description: Request text to triage with Jev
+        type: string
+        required: true
+      model:
+        description: Jev model name or alias
+        type: string
+        default: jev-latest
+      issue:
+        description: Optional issue number to link in the contract
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: intake-${{ github.workflow }}-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: triage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Triage request with Jev
+        id: jev
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          CP_MODEL: ${{ inputs.model || 'jev-latest' }}
+          CP_ISSUE: ${{ inputs.issue || github.event.issue.number || '' }}
+          CP_ACTOR: ${{ github.actor }}
+          CP_TITLE: ${{ github.event.issue.title || '' }}
+          CP_BODY: ${{ inputs.request || github.event.issue.body || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TYPESAFE_API_KEY:-}" ]; then
+            echo "::notice::TYPESAFE_API_KEY secret is not configured; skipping live Jev triage."
+            echo "ran=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          text="${CP_TITLE:+$CP_TITLE. }${CP_BODY}"
+          out_file="${RUNNER_TEMP}/intake-contract.json"
+          args=(triage --yes --model "$CP_MODEL" --requested-by "$CP_ACTOR" --output "$out_file" --summary)
+          if [ -n "$CP_ISSUE" ]; then
+            args+=(--issue "$CP_ISSUE")
+          fi
+          node src/cli.js "${args[@]}" "$text"
+          {
+            echo "ran=true"
+            echo "contract_file=$out_file"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Validate synthesized contract
+        if: ${{ steps.jev.outputs.ran == 'true' }}
+        uses: ./.github/actions/validate-contract
+        with:
+          files: ${{ steps.jev.outputs.contract_file }}
