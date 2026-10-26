@@ -32,17 +32,17 @@ export const GUARDRAIL_TAG_QUESTIONS = {
   tag_secrets_auth: {
     tag: "secrets",
     instructions:
-      "Does `request` touch API keys, private keys, seeds, authentication, credentials, or secret handling?",
+      "Does `request` explicitly involve API keys, private keys, seeds, authentication, credentials, or secret storage?",
   },
   tag_ci_control_plane: {
     tag: "ci_cd",
     instructions:
-      "Does `request` modify GitHub Actions workflows, control-plane schemas, policies, or rulesets?",
+      "Does `request` explicitly ask to modify GitHub Actions workflows, control-plane schemas, policies, or rulesets?",
   },
   tag_dependencies: {
     tag: "dependencies",
     instructions:
-      "Does `request` add, remove, or update external dependencies or package lockfiles?",
+      "Does `request` explicitly ask to install, add, remove, or upgrade external third-party packages or lockfiles?",
   },
 };
 
@@ -143,7 +143,6 @@ export function buildSelectionRequest(
 }
 
 function riskFromBlastRadius(score, confidence, minConfidence) {
-  // If Jev is uncertain about the blast radius score, fail safe to "high" so plan stage is human-reviewed.
   if (confidence < minConfidence) return "high";
   if (score >= 2.5) return "critical";
   if (score >= 1.75) return "high";
@@ -193,12 +192,14 @@ export function interpretSelectionResponse(response, request, {
     const riskLevel = riskFromBlastRadius(scoreAns.score, scoreAns.confidence, minConfidence);
 
     const riskTags = [];
+    const uncertainTags = [];
     const tagSplits = {};
     for (const [qId, def] of Object.entries(GUARDRAIL_TAG_QUESTIONS)) {
       const noulAns = checkNoulAnswer(response?.answers?.[qId], qId);
       const split = splitNoul(noulAns.noul, { high: noulHigh, low: noulLow });
       tagSplits[def.tag] = split;
-      if (split.verdict !== "no") riskTags.push(def.tag);
+      if (split.verdict === "yes") riskTags.push(def.tag);
+      else if (split.verdict === "uncertain") uncertainTags.push(def.tag);
     }
 
     guardrails = {
@@ -209,6 +210,7 @@ export function interpretSelectionResponse(response, request, {
       },
       risk_level: riskLevel,
       risk_tags: riskTags,
+      ...(uncertainTags.length > 0 ? { uncertain_tags: uncertainTags } : {}),
       tag_evaluations: tagSplits,
     };
   }
