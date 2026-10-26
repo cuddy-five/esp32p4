@@ -122,3 +122,17 @@ Testing expectations:
   explicitly asks for it.
 - `actionlint` and `shellcheck` are not preinstalled; fetch binaries into
   `/tmp` when linting workflows.
+
+## Agent skills
+
+### Issue tracker
+
+Track plans and tickets in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five intake labels alongside existing control-plane labels. Labels do not grant approval. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use the root `GLOSSARY.md` and existing `docs/decisions/` directory as one domain context. See `docs/agents/domain.md`.
