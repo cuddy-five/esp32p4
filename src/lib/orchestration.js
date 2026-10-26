@@ -185,7 +185,9 @@ export function requiredHumanStages(approvals, { risk, paths = [] }) {
   if (stages.size) reasons.push(`risk level ${risk.level}`);
   for (const rule of asArray(approvals.always_human)) {
     const tagHit = asArray(rule.tags).some((t) => asArray(risk.tags).includes(t));
-    const pathHit = asArray(rule.paths).some((g) => paths.some((f) => globMatch(g, f)));
+    const pathHit = asArray(rule.paths).some((g) =>
+      paths.some((f) => globMatch(g, f) || globMatch(f, g)),
+    );
     if (tagHit || pathHit) {
       for (const s of asArray(rule.stages)) stages.add(s);
       reasons.push(rule.id);

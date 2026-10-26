@@ -274,6 +274,16 @@ describe("requiredHumanStages", () => {
     }
   });
 
+  test("wildcard allowed paths match specific always-human policy rules bidirectionally", () => {
+    const out = requiredHumanStages(approvals, { risk: { level: "low" }, paths: ["**"] });
+    assert.deepEqual(out.stages, ["plan", "merge"]);
+    assert.ok(out.reasons.includes("control_plane_self"));
+    assert.ok(out.reasons.includes("instructions_and_ownership"));
+
+    const mdScope = requiredHumanStages(approvals, { risk: { level: "low" }, paths: ["*.md"] });
+    assert.ok(mdScope.reasons.includes("instructions_and_ownership"));
+  });
+
   for (const [pattern, files] of [
     ["**/AGENTS.md", ["AGENTS.md", "src/AGENTS.md", "src/lib/AGENTS.md"]],
     ["src/**/*.js", ["src/cli.js", "src/lib/a.js", "src/lib/settings/a.js"]],
