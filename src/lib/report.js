@@ -114,6 +114,14 @@ export function formatTriageMarkdown(result) {
         `prompt_injection=\`${advice.guardrails.prompt_injection.verdict}\``,
     );
   }
+  if (result.spending || advice.spending) {
+    const sp = result.spending || advice.spending;
+    out.push(
+      `- **Spending (Daily Cap):** spent=\`$${Number(sp.total_spent_usd ?? 0).toFixed(4)}\` / ` +
+        `cap=\`$${Number(sp.daily_cap_usd ?? 0).toFixed(2)}\` ` +
+        `(\`${sp.calls_today ?? 0}\` call${sp.calls_today === 1 ? "" : "s"} today)`,
+    );
+  }
   out.push("");
   if (advice.selections) {
     out.push("| Dimension | Choice | Confidence |");
@@ -134,6 +142,64 @@ export function formatTriageMarkdown(result) {
   out.push("```");
   out.push("</details>");
   return out.join("\n");
+}
+
+/**
+ * Render review requirements, not completed review results.
+ * @param {ReturnType<import("../evidence.js").buildEvidenceContract>} result
+ */
+export function formatEvidenceMarkdown(result) {
+  const { evidence, gates, review_domains: domains } = result;
+  const out = [
+    `### Evidence & Review Domains (${escapeEvidenceText(evidence.id)})`,
+    "",
+    "Review-domain mapping reports requirements; it is not proof of completed reviews or permission to merge.",
+    "",
+    `- **Task ID:** ${escapeEvidenceText(evidence.task_id)}`,
+    `- **Subject SHA:** ${escapeEvidenceText(evidence.subject.sha)}`,
+    `- **Gates:** evidence_collected=${gates.evidence_collected}, within_scope=${gates.within_scope}, within_budget=${gates.within_budget}`,
+  ];
+  const policy = evidence.policy_results?.find((row) => row.policy === "review.domains");
+  if (policy) out.push(`- **Mapping outcome:** ${escapeEvidenceText(policy.outcome)}`);
+  if (!domains) {
+    out.push("", "Review-domain mapping is unavailable.");
+    return out.join("\n");
+  }
+  out.push(
+    `- **Required roles:** ${domains.required_roles.map(escapeEvidenceText).join(", ") || "none"}`,
+    `- **Required security roles:** ${domains.required_security_roles.map(escapeEvidenceText).join(", ") || "none"}`,
+  );
+  for (const row of domains.covered) {
+    out.push(
+      "",
+      `#### ${escapeEvidenceText(row.domain)}`,
+      "",
+      `- **Role:** ${escapeEvidenceText(row.role)}`,
+      `- **Security role:** ${escapeEvidenceText(row.security_role ?? "none")}`,
+      `- **Matched paths:** ${row.paths.map(escapeEvidenceText).join(", ")}`,
+      "",
+      "Checklist requirements (not evaluated):",
+      "",
+      ...row.checks.map((check) => `- ${escapeEvidenceText(check)}`),
+    );
+  }
+  if (domains.uncovered.length > 0) {
+    out.push("", "**Uncovered paths (no active review domain):**", "", ...domains.uncovered.map((p) => `- ${escapeEvidenceText(p)}`));
+  } else if (domains.covered.length === 0) {
+    out.push("", "No changed paths to map.");
+  }
+  return out.join("\n");
+}
+
+// Keep arbitrary paths and checklist text inside a single plain-text Markdown item.
+// Encode syntax characters as entities rather than trusting inline code fences.
+function escapeEvidenceText(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replace(/[\\`*_{}\[\]()#+.!|~-]/g, (char) => `&#${char.charCodeAt(0)};`)
+    .replace(/[\r\n\u2028\u2029]/g, " ");
 }
 
 function escapeCell(s) {

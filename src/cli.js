@@ -7,15 +7,25 @@ import { parseArgs } from "node:util";
 import { ContractRegistry, validateFile } from "./lib/contracts.js";
 import { GitHubClient, resolveRepo } from "./lib/github.js";
 import { checkPolicies, requiredHumanStages } from "./lib/orchestration.js";
+import { CONTRACTS_DIR, resolveProjectPaths } from "./lib/paths.js";
+import { Registry } from "./lib/registry.js";
 import { applyAll, exportResource, planAll, RESOURCE_NAMES, selectResources } from "./lib/settings/index.js";
 import {
   formatAnnotations,
+  formatEvidenceMarkdown,
   formatPlanMarkdown,
   formatPlanText,
   formatTriageMarkdown,
   writeStepSummary,
 } from "./lib/report.js";
-import { requestJev } from "./jev.js";
+import {
+  DEFAULT_DAILY_CAP_USD,
+  getLedgerPath,
+  loadApiKey,
+  loadJevLedger,
+  requestJev,
+} from "./jev.js";
+import { loadReviewDomains } from "./review-domains.js";
 import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
 import { synthesizeIntakeContract } from "./triage.js";
 import { buildEvidenceContract } from "./evidence.js";
@@ -33,22 +43,32 @@ Commands
   schema list                  List known contract kinds
   schema show <kind>           Print a contract schema
 
-  policy check                 Validate orchestration/state-machine.yaml and
+  policy check [--project <dir>]
+                               Validate orchestration/state-machine.yaml and
                                policies/approvals.yaml against the contracts
-  policy stages --risk <level> [--tag t]... [--path p]...
+  policy stages --risk <level> [--project <dir>] [--tag t]... [--path p]...
                                Show which stages require a human for a task
 
-  triage --yes [--model <name>] [--issue <num>] [--output <file>] <request>
+  triage --yes [--project <dir>] [--daily-cap <amount>] [--model <name>] [--issue <num>] [--output <file>] <request>
                                Route a request with Jev and emit a validated
                                task or escalation contract
 
-  evidence --task <file> --sha <sha> [--path <p>]... [--output <file>]
+  evidence --task <file> --sha <sha> [--project <dir>] [--path <p>]... [--output <file>]
                                Build and validate an evidence contract and
-                               evaluate within_scope and within_budget gates
+                               report scope, budget and review-domain mapping
+    --format json|markdown     Output format (default: json reporting envelope)
+    --summary                  Append Markdown to $GITHUB_STEP_SUMMARY when set
+    --output <file>            Save only the standalone evidence contract
 
-  settings plan                Show what would change to reach desired state
-  settings check               Like plan, exit 2 when drift exists
-  settings apply --yes         Reconcile the repository to desired state
+  spending [--ledger <file>] [--format text|json] [--daily-cap <amount>]
+                               Show daily Jev token consumption and budget cap
+
+  settings plan [--project <dir>]
+                               Show what would change to reach desired state
+  settings check [--project <dir>]
+                               Like plan, exit 2 when drift exists
+  settings apply --yes [--project <dir>]
+                               Reconcile the repository to desired state
   settings export <resource>   Print live state in desired-file format
     --repo <owner/name>        Target repository (default: GH_REPO, GITHUB_REPOSITORY, origin)
     --only <a,b>               Restrict to resources: ${RESOURCE_NAMES.join(", ")}
@@ -90,7 +110,9 @@ export async function main(argv, io = {}) {
       case "triage":
         return await cmdTriage(rest, { stdout, stderr, env, fetchImpl: io.jevFetch });
       case "evidence":
-        return cmdEvidence(rest, { stdout, stderr });
+        return cmdEvidence(rest, { stdout, stderr, env });
+      case "spending":
+        return cmdSpending(rest, { stdout, stderr, env });
       case undefined:
       case "help":
       case "--help":
@@ -167,8 +189,35 @@ function cmdSchema(args, { stdout, stderr }) {
 function cmdPolicy(args, { stdout, stderr }) {
   const [sub, ...subArgs] = args;
   if (sub === "check") {
-    const { values } = parseArgs({ args: subArgs, options: { format: { type: "string", default: "text" } } });
-    const { problems, stateMachine, approvals } = checkPolicies();
+    const { values } = parseArgs({
+      args: subArgs,
+      options: {
+        project: { type: "string" },
+        format: { type: "string", default: "text" },
+      },
+    });
+    let paths;
+    try {
+      paths = resolveProjectPaths(values.project);
+    } catch (err) {
+      stderr(`policy check: ${err.message}`);
+      return EXIT.ERROR;
+    }
+    if (paths.isExplicit) {
+      if (!fs.existsSync(paths.stateMachineFile)) {
+        stderr(`policy check: state machine not found at "${paths.stateMachineFile}"`);
+        return EXIT.ERROR;
+      }
+      if (!fs.existsSync(paths.approvalsFile)) {
+        stderr(`policy check: approvals policy not found at "${paths.approvalsFile}"`);
+        return EXIT.ERROR;
+      }
+    }
+    const { problems, stateMachine, approvals } = checkPolicies({
+      stateMachineFile: paths.stateMachineFile,
+      approvalsFile: paths.approvalsFile,
+      contractsDir: CONTRACTS_DIR,
+    });
     if (values.format === "json") {
       stdout(JSON.stringify({ ok: problems.length === 0, problems }, null, 2));
     } else {
@@ -189,6 +238,7 @@ function cmdPolicy(args, { stdout, stderr }) {
     const { values } = parseArgs({
       args: subArgs,
       options: {
+        project: { type: "string" },
         risk: { type: "string" },
         tag: { type: "string", multiple: true, default: [] },
         path: { type: "string", multiple: true, default: [] },
@@ -199,7 +249,22 @@ function cmdPolicy(args, { stdout, stderr }) {
       stderr("policy stages: --risk <low|medium|high|critical> is required");
       return EXIT.ERROR;
     }
-    const { approvals } = checkPolicies();
+    let paths;
+    try {
+      paths = resolveProjectPaths(values.project);
+    } catch (err) {
+      stderr(`policy stages: ${err.message}`);
+      return EXIT.ERROR;
+    }
+    if (paths.isExplicit && !fs.existsSync(paths.approvalsFile)) {
+      stderr(`policy stages: approvals policy not found at "${paths.approvalsFile}"`);
+      return EXIT.ERROR;
+    }
+    const { approvals } = checkPolicies({
+      stateMachineFile: paths.stateMachineFile,
+      approvalsFile: paths.approvalsFile,
+      contractsDir: CONTRACTS_DIR,
+    });
     if (!approvals.by_risk[values.risk]) {
       stderr(`policy stages: unknown risk level "${values.risk}"`);
       return EXIT.ERROR;
@@ -219,31 +284,13 @@ function cmdPolicy(args, { stdout, stderr }) {
   return EXIT.ERROR;
 }
 
-function resolveTypesafeKey(env) {
-  if (env.TYPESAFE_API_KEY?.trim()) return env.TYPESAFE_API_KEY.trim();
-  const keyPath = path.join(os.homedir(), ".config", "esp32p4", "jev-api-key");
-  let fd;
-  try {
-    fd = fs.openSync(keyPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-    const info = fs.fstatSync(fd);
-    if (!info.isFile() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid() || info.size > 4096) {
-      throw new Error("Invalid private key file.");
-    }
-    const key = fs.readFileSync(fd, "utf8").trim();
-    if (!key || /\s/.test(key)) throw new Error("Invalid key format.");
-    return key;
-  } catch {
-    throw new Error("Provide TYPESAFE_API_KEY or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).");
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
-}
-
 async function cmdTriage(args, { stdout, stderr, env, fetchImpl }) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
     options: {
+      project: { type: "string" },
+      "daily-cap": { type: "string" },
       yes: { type: "boolean", default: false },
       model: { type: "string" },
       issue: { type: "string" },
@@ -269,17 +316,57 @@ async function cmdTriage(args, { stdout, stderr, env, fetchImpl }) {
     return EXIT.ERROR;
   }
 
-  const request = buildSelectionRequest(text, model, undefined, { includeGuardrails: true });
+  const dailyCapUsd = values["daily-cap"] ? Number.parseFloat(values["daily-cap"]) : undefined;
+  if (values["daily-cap"] && (!Number.isFinite(dailyCapUsd) || dailyCapUsd <= 0)) {
+    stderr(`triage: invalid --daily-cap "${values["daily-cap"]}"`);
+    return EXIT.ERROR;
+  }
+
+  let paths;
+  try {
+    paths = resolveProjectPaths(values.project);
+  } catch (err) {
+    stderr(`triage: ${err.message}`);
+    return EXIT.ERROR;
+  }
+
+  let registry;
+  if (paths.isExplicit) {
+    if (!fs.existsSync(paths.approvalsFile)) {
+      stderr(`triage: approvals policy not found at "${paths.approvalsFile}"`);
+      return EXIT.ERROR;
+    }
+    try {
+      registry = new Registry({ rootDir: paths.projectDir });
+    } catch (err) {
+      stderr(`triage: failed to load project registry: ${err.message}`);
+      return EXIT.ERROR;
+    }
+  }
+
+  const request = buildSelectionRequest(text, model, registry, { includeGuardrails: true });
   const response = await requestJev(request, {
-    apiKey: resolveTypesafeKey(env),
+    apiKey: loadApiKey(env),
+    env,
+    ...(dailyCapUsd ? { dailyCapUsd } : {}),
     ...(fetchImpl ? { fetchImpl } : {}),
   });
   const advice = interpretSelectionResponse(response, request);
   const synthesized = synthesizeIntakeContract(text, advice, {
     issueNumber,
     requestedBy: values["requested-by"],
+    ...(registry ? { registry } : {}),
+    ...(paths.isExplicit
+      ? {
+          policies: {
+            stateMachineFile: paths.stateMachineFile,
+            approvalsFile: paths.approvalsFile,
+            contractsDir: CONTRACTS_DIR,
+          },
+        }
+      : {}),
   });
-  const full = { advice, ...synthesized };
+  const full = { advice, ...synthesized, ...(response.spending ? { spending: response.spending } : {}) };
 
   if (values.output) {
     fs.writeFileSync(values.output, `${JSON.stringify(synthesized.contract, null, 2)}\n`, "utf8");
@@ -295,10 +382,11 @@ async function cmdTriage(args, { stdout, stderr, env, fetchImpl }) {
   return EXIT.OK;
 }
 
-function cmdEvidence(args, { stdout, stderr }) {
+function cmdEvidence(args, { stdout, stderr, env }) {
   const { values } = parseArgs({
     args,
     options: {
+      project: { type: "string" },
       task: { type: "string" },
       sha: { type: "string" },
       "base-sha": { type: "string" },
@@ -309,12 +397,40 @@ function cmdEvidence(args, { stdout, stderr }) {
       "tokens-used": { type: "string" },
       output: { type: "string" },
       format: { type: "string", default: "json" },
+      summary: { type: "boolean", default: false },
     },
   });
+  if (!["json", "markdown"].includes(values.format)) {
+    stderr(`evidence: unknown format "${values.format}"`);
+    return EXIT.ERROR;
+  }
   if (!values.task || !values.sha) {
     stderr("evidence: --task <file> and --sha <40-hex-sha> are required");
     return EXIT.ERROR;
   }
+
+  let projectPaths;
+  try {
+    projectPaths = resolveProjectPaths(values.project);
+  } catch (err) {
+    stderr(`evidence: ${err.message}`);
+    return EXIT.ERROR;
+  }
+
+  let reviewDomains;
+  if (projectPaths.isExplicit) {
+    if (fs.existsSync(projectPaths.reviewDomainsFile)) {
+      try {
+        reviewDomains = loadReviewDomains(projectPaths.reviewDomainsFile);
+      } catch (err) {
+        stderr(`evidence: failed to load review domains at "${projectPaths.reviewDomainsFile}": ${err.message}`);
+        return EXIT.ERROR;
+      }
+    } else {
+      reviewDomains = { schema_version: 1, domains: [] };
+    }
+  }
+
   const task = JSON.parse(fs.readFileSync(values.task, "utf8"));
   const additions = Number.parseInt(values.additions, 10) || 0;
   const deletions = Number.parseInt(values.deletions, 10) || 0;
@@ -333,13 +449,62 @@ function cmdEvidence(args, { stdout, stderr }) {
     additions,
     deletions,
     budgetUsed,
+    ...(reviewDomains ? { reviewDomains } : {}),
   });
 
   if (values.output) {
     fs.writeFileSync(values.output, `${JSON.stringify(result.evidence, null, 2)}\n`, "utf8");
   }
-  stdout(JSON.stringify(result, null, 2));
+  const markdown = values.summary || values.format === "markdown" ? formatEvidenceMarkdown(result) : undefined;
+  if (values.summary) writeStepSummary(markdown, env);
+  stdout(values.format === "markdown" ? markdown : JSON.stringify(result, null, 2));
   return result.gates.within_scope && result.gates.within_budget ? EXIT.OK : EXIT.FAILED;
+}
+
+function cmdSpending(args, { stdout, stderr, env }) {
+  const { values } = parseArgs({
+    args,
+    options: {
+      ledger: { type: "string" },
+      format: { type: "string", default: "text" },
+      "daily-cap": { type: "string" },
+    },
+  });
+  if (!["text", "json"].includes(values.format)) {
+    stderr(`spending: unknown format "${values.format}" (expected text or json)`);
+    return EXIT.ERROR;
+  }
+  const dailyCapUsd = values["daily-cap"] ? Number.parseFloat(values["daily-cap"]) : undefined;
+  if (values["daily-cap"] && (!Number.isFinite(dailyCapUsd) || dailyCapUsd <= 0)) {
+    stderr(`spending: invalid --daily-cap "${values["daily-cap"]}"`);
+    return EXIT.ERROR;
+  }
+  const ledgerPath = values.ledger ?? getLedgerPath(env);
+  const cap = dailyCapUsd ?? (env.JEV_DAILY_CAP_USD ? Number.parseFloat(env.JEV_DAILY_CAP_USD) : DEFAULT_DAILY_CAP_USD);
+  const ledger = loadJevLedger({ ledgerPath, dailyCapUsd: cap });
+  if (dailyCapUsd !== undefined) {
+    ledger.daily_cap_usd = dailyCapUsd;
+  }
+  const remaining = Math.max(0, ledger.daily_cap_usd - ledger.total_spent_usd);
+
+  if (values.format === "json") {
+    stdout(JSON.stringify({
+      ...ledger,
+      remaining_budget_usd: Number(remaining.toFixed(6)),
+      ledger_file: ledgerPath,
+    }, null, 2));
+    return EXIT.OK;
+  }
+
+  stdout(`date:             ${ledger.date}`);
+  stdout(`daily cap:        $${ledger.daily_cap_usd.toFixed(2)}`);
+  stdout(`total spent:      $${ledger.total_spent_usd.toFixed(4)}`);
+  stdout(`remaining:        $${remaining.toFixed(4)}`);
+  stdout(`calls today:      ${ledger.calls}`);
+  stdout(`input tokens:     ${ledger.total_input_tokens}`);
+  stdout(`output tokens:    ${ledger.total_output_tokens}`);
+  stdout(`ledger file:      ${ledgerPath}`);
+  return EXIT.OK;
 }
 
 async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }) {
@@ -347,6 +512,7 @@ async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }
     args,
     allowPositionals: true,
     options: {
+      project: { type: "string" },
       repo: { type: "string" },
       only: { type: "string" },
       format: { type: "string", default: "text" },
@@ -362,6 +528,18 @@ async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }
   }
   if (!["text", "json", "markdown"].includes(values.format)) {
     stderr(`settings: unknown format "${values.format}"`);
+    return EXIT.ERROR;
+  }
+
+  let paths;
+  try {
+    paths = resolveProjectPaths(values.project);
+  } catch (err) {
+    stderr(`settings: ${err.message}`);
+    return EXIT.ERROR;
+  }
+  if (paths.isExplicit && !fs.existsSync(paths.settingsDir)) {
+    stderr(`settings: consumer settings directory not found at "${paths.settingsDir}"`);
     return EXIT.ERROR;
   }
 
@@ -386,7 +564,9 @@ async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }
     return EXIT.ERROR;
   }
 
-  const report = sub === "apply" ? await applyAll({ client, repo, only }) : await planAll({ client, repo, only });
+  const report = sub === "apply"
+    ? await applyAll({ client, repo, only, settingsDir: paths.settingsDir })
+    : await planAll({ client, repo, only, settingsDir: paths.settingsDir });
 
   const title = sub === "apply" ? "Settings applied" : "Settings plan";
   if (values.format === "json") {

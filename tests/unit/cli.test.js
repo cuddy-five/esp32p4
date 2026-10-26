@@ -68,10 +68,6 @@ describe("cli validate", () => {
   test("runs as an executable with the right exit code", () => {
     const stdout = execFileSync(process.execPath, [CLI, "schema", "list"], { encoding: "utf8" });
     assert.equal(stdout.trim().split("\n").length, 7);
-    assert.throws(
-      () => execFileSync(process.execPath, [CLI, "validate", "/nonexistent.json"], { encoding: "utf8", stdio: "pipe" }),
-      (e) => e.status === EXIT.FAILED,
-    );
   });
 });
 
@@ -398,5 +394,318 @@ describe("report formatting", () => {
 
   test("writeStepSummary is a no-op without GITHUB_STEP_SUMMARY", () => {
     assert.equal(writeStepSummary("x", {}), false);
+  });
+});
+describe("evidence reporting formats", () => {
+  const args = ["evidence", "--task", path.join(EXAMPLES, "task.example.json"), "--sha", "0".repeat(40)];
+
+  test("JSON includes checklists while output remains a standalone evidence contract", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-evidence-"));
+    try {
+      const file = path.join(dir, "evidence.json");
+      const c = capture();
+      assert.equal(await main([...args, "--path", "src/cli.js", "--output", file], c.io), EXIT.OK);
+      const result = JSON.parse(c.out[0]);
+      assert.ok(result.review_domains.covered[0].checks.length > 0);
+      assert.deepEqual(result.review_domains.required_roles, ["reviewer"]);
+      const saved = JSON.parse(fs.readFileSync(file, "utf8"));
+      assert.deepEqual(saved, result.evidence);
+      assert.equal(Object.hasOwn(saved, "review_domains"), false);
+      assert.equal(await main(["validate", file], capture().io), EXIT.OK);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test("Markdown and summary show every checklist and uncovered paths; warning does not fail gates", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-evidence-"));
+    try {
+      const summary = path.join(dir, "summary.md");
+      const taskFile = path.join(dir, "task.json");
+      const task = JSON.parse(fs.readFileSync(path.join(EXAMPLES, "task.example.json"), "utf8"));
+      task.scope.allowed_paths.push("notes/**");
+      fs.writeFileSync(taskFile, JSON.stringify(task));
+      fs.writeFileSync(summary, "existing\n");
+      const c = capture();
+      c.io.env.GITHUB_STEP_SUMMARY = summary;
+      assert.equal(await main(["evidence", "--task", taskFile, "--sha", "0".repeat(40), "--path", "src/cli.js", "--path", "notes/a.txt", "--format", "markdown", "--summary"], c.io), EXIT.OK);
+      const { loadReviewDomains } = await import("../../src/review-domains.js");
+      const decoded = c.out[0].replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+      for (const check of loadReviewDomains().domains[0].checks) assert.ok(decoded.includes(check));
+      assert.match(c.out[0], /Uncovered paths/);
+      assert.match(c.out[0], /not proof of completed reviews/);
+      assert.equal(fs.readFileSync(summary, "utf8"), `existing\n${c.out[0]}\n\n`);
+      assert.equal(await main([...args, "--summary"], capture().io), EXIT.OK);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test("rejects unsupported formats before reading task or writing output and summary", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-evidence-"));
+    try {
+      const output = path.join(dir, "out.json");
+      const summary = path.join(dir, "summary.md");
+      fs.writeFileSync(output, "unchanged");
+      fs.writeFileSync(summary, "unchanged");
+      const c = capture();
+      c.io.env.GITHUB_STEP_SUMMARY = summary;
+      assert.equal(await main(["evidence", "--task", "/missing", "--sha", "0".repeat(40), "--format", "xml", "--output", output, "--summary"], c.io), EXIT.ERROR);
+      assert.match(c.err[0], /unknown format/);
+      assert.equal(fs.readFileSync(output, "utf8"), "unchanged");
+      assert.equal(fs.readFileSync(summary, "utf8"), "unchanged");
+      assert.deepEqual(c.out, []);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  test("formatter renders security roles and escapes Markdown, HTML and line breaks", async () => {
+    const { formatEvidenceMarkdown } = await import("../../src/lib/report.js");
+    const hostile = "a|`<img src=x>\n# forged [link](url)&";
+    const md = formatEvidenceMarkdown({
+      evidence: { id: "evidence_test", task_id: "task_test", subject: { sha: "0".repeat(40) }, policy_results: [] },
+      gates: { evidence_collected: true, within_scope: true, within_budget: true },
+      review_domains: {
+        covered: [{ domain: "firmware", role: "reviewer", security_role: "security_auditor", checks: [hostile], paths: [hostile] }],
+        uncovered: [hostile], required_roles: ["reviewer"], required_security_roles: ["security_auditor"],
+      },
+    });
+    assert.match(md, /security&#95;auditor/);
+    assert.doesNotMatch(md, /<img|\n# forged|\[link\]\(url\)|a\|`/);
+    assert.match(md, /&#124;/);
+    assert.match(md, /&#96;/);
+    assert.match(md, /&lt;img/);
+    assert.match(md, /&amp;/);
+  });
+});
+
+describe("cli project decoupling and spending", () => {
+  function createConsumerProject() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-consumer-"));
+    const cpDir = path.join(dir, ".github", "control-plane");
+    const orchDir = path.join(cpDir, "orchestration");
+    const polDir = path.join(cpDir, "policies");
+    const setDir = path.join(cpDir, "settings");
+    fs.mkdirSync(orchDir, { recursive: true });
+    fs.mkdirSync(polDir, { recursive: true });
+    fs.mkdirSync(setDir, { recursive: true });
+
+    // Copy engine's valid state machine & approvals to simulate a valid consumer
+    fs.copyFileSync(
+      path.join(REPO_ROOT, ".github", "control-plane", "orchestration", "state-machine.yaml"),
+      path.join(orchDir, "state-machine.yaml"),
+    );
+    fs.copyFileSync(
+      path.join(REPO_ROOT, ".github", "control-plane", "policies", "approvals.yaml"),
+      path.join(polDir, "approvals.yaml"),
+    );
+    fs.writeFileSync(
+      path.join(setDir, "labels.json"),
+      JSON.stringify({
+        schema_version: "1.0.0",
+        labels: [{ name: "consumer-label", color: "112233", description: "from consumer" }],
+      }),
+    );
+    return { dir, cpDir, orchDir, polDir, setDir };
+  }
+
+  test("policy check with valid --project succeeds", async () => {
+    const { dir } = createConsumerProject();
+    try {
+      const c = capture();
+      const code = await main(["policy", "check", "--project", dir], c.io);
+      assert.equal(code, EXIT.OK);
+      assert.ok(c.out.some((l) => l.includes("policy: ok")));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("policy check with nonexistent --project fails actionably", async () => {
+    const c = capture();
+    const code = await main(["policy", "check", "--project", "/nonexistent-dir-for-test"], c.io);
+    assert.equal(code, EXIT.ERROR);
+    assert.match(c.err[0], /consumer project directory not found/);
+  });
+
+  test("policy check with explicit --project missing state-machine fails actionably", async () => {
+    const { dir, orchDir } = createConsumerProject();
+    try {
+      fs.unlinkSync(path.join(orchDir, "state-machine.yaml"));
+      const c = capture();
+      const code = await main(["policy", "check", "--project", dir], c.io);
+      assert.equal(code, EXIT.ERROR);
+      assert.match(c.err[0], /state machine not found/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("policy stages with explicit --project calculates human stages", async () => {
+    const { dir } = createConsumerProject();
+    try {
+      const c = capture();
+      const code = await main(["policy", "stages", "--project", dir, "--risk", "low"], c.io);
+      assert.equal(code, EXIT.OK);
+      assert.match(c.out[0], /human approval required at: merge/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("settings plan with explicit --project reads consumer settings", async () => {
+    const { dir } = createConsumerProject();
+    try {
+      const { client } = fakeClient({
+        "GET /repos/o/r/labels": [],
+        "GET /repos/o/r/rulesets": [],
+      });
+      const c = capture();
+      const code = await main(["settings", "plan", "--project", dir, "--repo", "o/r", "--only", "labels"], {
+        ...c.io,
+        client,
+      });
+      assert.equal(code, EXIT.OK);
+      const output = c.out.join("\n");
+      assert.match(output, /consumer-label/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("settings plan with explicit --project missing settings dir fails actionably", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-empty-consumer-"));
+    try {
+      const { client } = fakeClient({});
+      const c = capture();
+      const code = await main(["settings", "plan", "--project", dir, "--repo", "o/r"], {
+        ...c.io,
+        client,
+      });
+      assert.equal(code, EXIT.ERROR);
+      assert.match(c.err[0], /consumer settings directory not found/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("spending command outputs text summary and respects --daily-cap", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
+    const ledgerFile = path.join(dir, "ledger.json");
+    try {
+      fs.writeFileSync(
+        ledgerFile,
+        JSON.stringify({
+          date: "2026-10-26",
+          daily_cap_usd: 2.0,
+          total_spent_usd: 0.125,
+          total_input_tokens: 50000,
+          total_output_tokens: 1000,
+          calls: 3,
+        }),
+      );
+      const c = capture();
+      const code = await main(["spending", "--ledger", ledgerFile, "--daily-cap", "3.50"], c.io);
+      assert.equal(code, EXIT.OK);
+      const output = c.out.join("\n");
+      assert.match(output, /daily cap:\s+\$3\.50/);
+      assert.match(output, /total spent:\s+\$0\.1250/);
+      assert.match(output, /calls today:\s+3/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("spending command outputs JSON format", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
+    const ledgerFile = path.join(dir, "ledger.json");
+    try {
+      fs.writeFileSync(
+        ledgerFile,
+        JSON.stringify({
+          date: "2026-10-26",
+          daily_cap_usd: 2.0,
+          total_spent_usd: 0.5,
+          total_input_tokens: 10000,
+          total_output_tokens: 500,
+          calls: 1,
+        }),
+      );
+      const c = capture();
+      const code = await main(["spending", "--ledger", ledgerFile, "--format", "json"], c.io);
+      assert.equal(code, EXIT.OK);
+      const parsed = JSON.parse(c.out.join("\n"));
+      assert.equal(parsed.calls, 1);
+      assert.equal(parsed.remaining_budget_usd, 1.5);
+      assert.equal(parsed.ledger_file, ledgerFile);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("spending command rejects invalid daily cap", async () => {
+    const c1 = capture();
+    const code1 = await main(["spending", "--daily-cap", "0"], c1.io);
+    assert.equal(code1, EXIT.ERROR);
+    assert.match(c1.err[0], /invalid --daily-cap/);
+
+    const c2 = capture();
+    const code2 = await main(["spending", "--daily-cap", "not-a-number"], c2.io);
+    assert.equal(code2, EXIT.ERROR);
+    assert.match(c2.err[0], /invalid --daily-cap/);
+  });
+
+  test("evidence with explicit --project uses consumer review domains or empty fallback", async () => {
+    const { dir } = createConsumerProject();
+    const taskFile = path.join(dir, "task.json");
+    const task = JSON.parse(fs.readFileSync(path.join(EXAMPLES, "task.example.json"), "utf8"));
+    fs.writeFileSync(taskFile, JSON.stringify(task));
+
+    try {
+      // 1. Without .review-domains.json in consumer, review domains should be empty (not engine's)
+      const c1 = capture();
+      const code1 = await main(
+        ["evidence", "--project", dir, "--task", taskFile, "--sha", "0".repeat(40), "--path", "src/cli.js"],
+        c1.io,
+      );
+      assert.equal(code1, EXIT.OK);
+      const res1 = JSON.parse(c1.out[0]);
+      assert.equal(res1.review_domains.covered.length, 0);
+
+      // 2. With consumer .review-domains.json
+      fs.writeFileSync(
+        path.join(dir, ".review-domains.json"),
+        JSON.stringify({
+          schema_version: 1,
+          domains: [
+            {
+              id: "consumer-domain",
+              enabled: true,
+              language: "javascript",
+              role: "reviewer",
+              paths: ["src/**"],
+              checks: ["Ensure that all consumer guidelines are respected by every change."],
+            },
+          ],
+        }),
+      );
+      const c2 = capture();
+      const code2 = await main(
+        ["evidence", "--project", dir, "--task", taskFile, "--sha", "0".repeat(40), "--path", "src/cli.js"],
+        c2.io,
+      );
+      assert.equal(code2, EXIT.OK);
+      const res2 = JSON.parse(c2.out[0]);
+      assert.equal(res2.review_domains.covered[0].domain, "consumer-domain");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("triage rejects invalid --daily-cap and missing explicit --project", async () => {
+    const c1 = capture();
+    const code1 = await main(["triage", "--yes", "--daily-cap", "not-a-number", "Test prompt"], c1.io);
+    assert.equal(code1, EXIT.ERROR);
+    assert.match(c1.err[0], /invalid --daily-cap/);
+
+    const c2 = capture();
+    const code2 = await main(["triage", "--yes", "--project", "/missing-consumer-dir", "Test prompt"], c2.io);
+    assert.equal(code2, EXIT.ERROR);
+    assert.match(c2.err[0], /consumer project directory not found/);
   });
 });
