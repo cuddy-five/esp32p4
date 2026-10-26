@@ -47,22 +47,25 @@ export function loadJevLedger({
   dateStr = new Date().toISOString().slice(0, 10),
   dailyCapUsd = DEFAULT_DAILY_CAP_USD,
 } = {}) {
-  try {
-    if (fs.existsSync(ledgerPath)) {
-      const data = JSON.parse(fs.readFileSync(ledgerPath, "utf8"));
-      if (data && data.date === dateStr) {
-        return {
-          date: dateStr,
-          daily_cap_usd: Number(data.daily_cap_usd ?? dailyCapUsd),
-          total_spent_usd: Number(data.total_spent_usd ?? 0),
-          total_input_tokens: Number(data.total_input_tokens ?? 0),
-          total_output_tokens: Number(data.total_output_tokens ?? 0),
-          calls: Number(data.calls ?? 0),
-        };
-      }
+  if (fs.existsSync(ledgerPath)) {
+    let data;
+    try {
+      data = JSON.parse(fs.readFileSync(ledgerPath, "utf8"));
+    } catch (err) {
+      throw new Error(
+        `Jev ledger at "${ledgerPath}" is corrupted: ${err.message}. Manual review required before calling Jev.`,
+      );
     }
-  } catch {
-    // If missing or unreadable, fall through to fresh record
+    if (data && data.date === dateStr) {
+      return {
+        date: dateStr,
+        daily_cap_usd: Number(data.daily_cap_usd ?? dailyCapUsd),
+        total_spent_usd: Number(data.total_spent_usd ?? 0),
+        total_input_tokens: Number(data.total_input_tokens ?? 0),
+        total_output_tokens: Number(data.total_output_tokens ?? 0),
+        calls: Number(data.calls ?? 0),
+      };
+    }
   }
   return {
     date: dateStr,
@@ -129,10 +132,15 @@ export function recordJevUsage(usage, {
   ledger.total_output_tokens += outputTokens;
   ledger.calls += 1;
 
+  const tmpPath = `${ledgerPath}.tmp.${process.pid}.${Date.now()}`;
   try {
     fs.mkdirSync(path.dirname(ledgerPath), { recursive: true });
-    fs.writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+    fs.writeFileSync(tmpPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+    fs.renameSync(tmpPath, ledgerPath);
   } catch {
+    try {
+      if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+    } catch {}
     // If non-writable filesystem or mock environment, keep in-memory ledger
   }
   return ledger;
@@ -146,7 +154,9 @@ export function recordJevUsage(usage, {
  */
 export function loadApiKey(env = process.env) {
   if (env.TYPESAFE_API_KEY?.trim()) return env.TYPESAFE_API_KEY.trim();
-  const keyPath = path.join(os.homedir(), ".config", "esp32p4", "jev-api-key");
+  const keyPath =
+    env.TYPESAFE_API_KEY_FILE?.trim() ||
+    path.join(os.homedir(), ".config", "esp32p4", "jev-api-key");
   let fd;
   try {
     fd = fs.openSync(keyPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
@@ -164,7 +174,7 @@ export function loadApiKey(env = process.env) {
     return key;
   } catch {
     throw new Error(
-      "Provide TYPESAFE_API_KEY or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).",
+      "Provide TYPESAFE_API_KEY, TYPESAFE_API_KEY_FILE, or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).",
     );
   } finally {
     if (fd !== undefined) fs.closeSync(fd);

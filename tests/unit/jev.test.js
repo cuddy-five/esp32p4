@@ -176,4 +176,29 @@ describe("Jev daily spending cap & ledger", () => {
     const key = loadApiKey({ TYPESAFE_API_KEY: "secret-key-123" });
     assert.equal(key, "secret-key-123");
   });
+
+  test("loadApiKey resolves from TYPESAFE_API_KEY_FILE with mode 0600", () => {
+    const keyPath = path.join(os.homedir(), ".config", "esp32p4", `test-key-${process.pid}`);
+    try {
+      fs.mkdirSync(path.dirname(keyPath), { recursive: true });
+      fs.writeFileSync(keyPath, "custom-file-key-456\n", { mode: 0o600 });
+      const key = loadApiKey({ TYPESAFE_API_KEY_FILE: keyPath });
+      assert.equal(key, "custom-file-key-456");
+    } finally {
+      if (fs.existsSync(keyPath)) fs.unlinkSync(keyPath);
+    }
+  });
+
+  test("loadJevLedger throws clear error on corrupted JSON instead of resetting to $0", () => {
+    const tmp = path.join(os.tmpdir(), `jev-led-corrupt-${process.pid}.json`);
+    try {
+      fs.writeFileSync(tmp, "NOT_VALID_JSON{foo:", "utf8");
+      assert.throws(
+        () => loadJevLedger({ ledgerPath: tmp }),
+        /Jev ledger at .* is corrupted/,
+      );
+    } finally {
+      if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+    }
+  });
 });
