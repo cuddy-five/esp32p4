@@ -6,7 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { EXIT, main } from "../../src/cli.js";
 import { planAll, applyAll, readDesiredFile, selectResources, summarize } from "../../src/lib/settings/index.js";
-import { formatPlanMarkdown, formatPlanText, writeStepSummary } from "../../src/lib/report.js";
+import { formatPlanMarkdown, formatPlanText, formatTriageMarkdown, writeStepSummary } from "../../src/lib/report.js";
 import { CONTRACTS_DIR, REPO_ROOT } from "../../src/lib/paths.js";
 import { fakeClient } from "../helpers/fake-github.js";
 
@@ -99,6 +99,76 @@ describe("cli top level", () => {
     const { err, io } = capture();
     assert.equal(await main(["frobnicate"], io), EXIT.ERROR);
     assert.match(err[0], /unknown command/);
+  });
+});
+
+describe("cli triage and evidence", () => {
+  test("triage requires --yes and synthesizes a validated contract with mocked Jev", async () => {
+    const denied = capture();
+    assert.equal(await main(["triage", "Fix build"], denied.io), EXIT.ERROR);
+    assert.match(denied.err[0], /without --yes/);
+
+    const fakeJevFetch = async (_url, init) => {
+      const req = JSON.parse(init.body);
+      const makeChoice = (qName, pick) => {
+        const opts = Object.keys(req.questions[qName].criteria);
+        const probs = Object.fromEntries(opts.map((o) => [o, o === pick ? 0.91 : 0.09 / (opts.length - 1)]));
+        return { type: "choice", choice: pick, confidence: 0.91, probabilities: probs };
+      };
+      const body = {
+        model: "jev-1.14.0",
+        usage: { input_tokens: 100, output_tokens: 20 },
+        answers: {
+          workflow: makeChoice("workflow", "implement"),
+          agent: makeChoice("agent", "implementer"),
+          skill: makeChoice("skill", "tdd-guide"),
+          prompt_injection: { type: "noul", noul: 0.02 },
+          blast_radius: { type: "score", score: 1.0, confidence: 0.9, probabilities: [0.1, 0.8, 0.1, 0] },
+          tag_secrets_auth: { type: "noul", noul: 0.05 },
+          tag_ci_control_plane: { type: "noul", noul: 0.05 },
+          tag_dependencies: { type: "noul", noul: 0.05 },
+        },
+      };
+      return new Response(JSON.stringify(body), { status: 200 });
+    };
+
+    const outFile = path.join(os.tmpdir(), `cp-triage-${process.pid}.json`);
+    const summaryFile = path.join(os.tmpdir(), `cp-triage-sum-${process.pid}.md`);
+    fs.writeFileSync(summaryFile, "");
+    try {
+      const c = capture();
+      c.io.env = { TYPESAFE_API_KEY: "test-key", GITHUB_STEP_SUMMARY: summaryFile };
+      c.io.jevFetch = fakeJevFetch;
+      const code = await main(
+        ["triage", "--yes", "--issue", "7", "--output", outFile, "--summary", "Add hash unit tests"],
+        c.io,
+      );
+      assert.equal(code, EXIT.OK);
+      const saved = JSON.parse(fs.readFileSync(outFile, "utf8"));
+      assert.equal(saved.contract, "task");
+      assert.equal(saved.assigned_role, "implementer");
+      assert.match(fs.readFileSync(summaryFile, "utf8"), /Jev System One Intake Triage/);
+    } finally {
+      if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+      if (fs.existsSync(summaryFile)) fs.unlinkSync(summaryFile);
+    }
+  });
+
+  test("evidence command returns 0 when in scope and 2 when out of scope", async () => {
+    const taskPath = path.join(EXAMPLES, "task.example.json");
+    const sha = "0123456789abcdef0123456789abcdef01234567";
+
+    const okRun = capture();
+    assert.equal(
+      await main(["evidence", "--task", taskPath, "--sha", sha, "--path", "src/cli.js"], okRun.io),
+      EXIT.OK,
+    );
+
+    const badRun = capture();
+    assert.equal(
+      await main(["evidence", "--task", taskPath, "--sha", sha, "--path", ".github/workflows/ci.yml"], badRun.io),
+      EXIT.FAILED,
+    );
   });
 });
 
@@ -309,6 +379,21 @@ describe("report formatting", () => {
     assert.match(md, /\\\|/);
     assert.match(md, /`bug → kind:bug`/);
     assert.doesNotMatch(md, /`\/name`/);
+  });
+
+  test("formatTriageMarkdown formats Jev advice and contract summary", () => {
+    const md = formatTriageMarkdown({
+      advice: {
+        resolved_model: "jev-1.14.0",
+        disposition: "human_review",
+        selections: { workflow: { choice: "implement", confidence: 1 } },
+      },
+      kind: "task",
+      contract: { id: "task_1234", contract: "task" },
+      human_stages: ["merge"],
+    });
+    assert.match(md, /Jev System One Intake Triage/);
+    assert.match(md, /`task_1234`/);
   });
 
   test("writeStepSummary is a no-op without GITHUB_STEP_SUMMARY", () => {

@@ -95,6 +95,47 @@ export function formatPlanMarkdown(report, { title = "Settings plan" } = {}) {
   return out.join("\n");
 }
 
+/**
+ * Format Jev triage + synthesized contract as GitHub Step Summary Markdown.
+ * @param {{ advice: any, kind: "task" | "escalation", contract: any, human_stages: string[] }} result
+ */
+export function formatTriageMarkdown(result) {
+  const { advice, kind, contract, human_stages: stages = [] } = result;
+  const out = [];
+  out.push(`### Jev System One Intake Triage (\`${advice.resolved_model}\`)`);
+  out.push("");
+  out.push(`- **Disposition:** \`${advice.disposition}\``);
+  out.push(`- **Emitted Contract:** \`${kind}\` (\`${contract.id}\`)`);
+  out.push(`- **Required Human Stages:** \`${stages.join(", ") || "merge"}\``);
+  if (advice.guardrails) {
+    out.push(
+      `- **Guardrails:** risk=\`${advice.guardrails.risk_level}\`, ` +
+        `blast_radius=\`${advice.guardrails.blast_radius.score}\`, ` +
+        `prompt_injection=\`${advice.guardrails.prompt_injection.verdict}\``,
+    );
+  }
+  out.push("");
+  if (advice.selections) {
+    out.push("| Dimension | Choice | Confidence |");
+    out.push("|---|---|---|");
+    for (const [name, sel] of Object.entries(advice.selections)) {
+      out.push(`| ${name} | \`${sel.choice ?? "none"}\` | ${sel.confidence} |`);
+    }
+    out.push("");
+  }
+  if (contract.overseer_note) {
+    out.push(`> **Overseer Note:** ${contract.overseer_note}`);
+    out.push("");
+  }
+  out.push("<details><summary>Validated Contract JSON</summary>");
+  out.push("");
+  out.push("```json");
+  out.push(JSON.stringify(contract, null, 2));
+  out.push("```");
+  out.push("</details>");
+  return out.join("\n");
+}
+
 function escapeCell(s) {
   return String(s).replaceAll("|", "\\|");
 }
