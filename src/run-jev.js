@@ -10,40 +10,10 @@
 import { buildIntakeRequest, interpretIntakeResponse } from "./routing.js";
 import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
 import { synthesizeIntakeContract } from "./triage.js";
-import { requestJev } from "./jev.js";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { loadApiKey, requestJev } from "./jev.js";
 
 const usage =
   'Usage: node src/run-jev.js --yes [--select] [--guardrails] [--contract] [--model NAME] "request text"';
-
-function loadApiKey() {
-  if (process.env.TYPESAFE_API_KEY?.trim()) return process.env.TYPESAFE_API_KEY.trim();
-  const keyPath = path.join(os.homedir(), ".config", "esp32p4", "jev-api-key");
-  let fd;
-  try {
-    fd = fs.openSync(keyPath, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
-    const info = fs.fstatSync(fd);
-    if (
-      !info.isFile() ||
-      (info.mode & 0o077) !== 0 ||
-      info.uid !== process.getuid() ||
-      info.size > 4096
-    ) {
-      throw new Error("Invalid private key file.");
-    }
-    const key = fs.readFileSync(fd, "utf8").trim();
-    if (!key || /\s/.test(key)) throw new Error("Invalid key format.");
-    return key;
-  } catch {
-    throw new Error(
-      "Provide TYPESAFE_API_KEY or an owner-only ~/.config/esp32p4/jev-api-key file (mode 600).",
-    );
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
-}
 
 async function main() {
   const args = process.argv.slice(2);
