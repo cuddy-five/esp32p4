@@ -74,6 +74,38 @@
       "enabled": true
     },
     {
+      "id": "reviewer",
+      "name": "Reviewer",
+      "description": "Choose when a plan or a finished change must be judged for reasons not to merge. Not for writing the change, planning it, or re-running its tests.",
+      "model": "kimi-k3",
+      "reasoning_effort": "high",
+      "budget": {
+        "max_ai_credits": 4000,
+        "max_tokens_per_request": 8000,
+        "max_concurrent_tasks": 1
+      },
+      "scope": {
+        "allowed_paths": [],
+        "forbidden_paths": [
+          ".env*",
+          "**/node_modules/**",
+          "**/dist/**",
+          "**/.git/**"
+        ]
+      },
+      "approval_rules": {
+        "requires_approval_for_paths": [
+          ".github/control-plane/**",
+          ".github/workflows/**",
+          ".github/actions/**",
+          ".github/agents/**"
+        ],
+        "min_approval_level": "owner"
+      },
+      "timeout_ms": 300000,
+      "enabled": true
+    },
+    {
       "id": "security_auditor",
       "name": "Security Auditor",
       "description": "Choose when the request involves secrets, credentials, auth, input handling, untrusted data, dependencies or any attack surface, or asks for a security check. Not for general code quality.",

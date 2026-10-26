@@ -43,6 +43,19 @@ Two deployment rules reinforce the structure:
   see the implementer's reasoning, only its outputs and evidence. Rationale
   is persuasive; artefacts are checkable.
 
+## Review domains
+
+The reviewer role stays the same when the language changes. What it is
+qualified to judge does not. `.review-domains.json` lists those checklists.
+`src/review-domains.js` maps changed files to the enabled ones. It does not
+launch an agent or approve a merge.
+
+The control-plane checklist is on. The firmware checklist is declared for
+no_std Rust, names the security auditor for crypto judgement, and stays off
+until a `firmware/` tree exists. A file with no enabled checklist is
+uncovered. Do not review it with the control-plane checks. The registered
+reviewer has no write paths: judging a change is not permission to edit it.
+
 ## Lifecycle
 
 ```text

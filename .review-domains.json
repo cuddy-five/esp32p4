@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "domains": [
+    {
+      "id": "control-plane",
+      "enabled": true,
+      "language": "javascript",
+      "role": "reviewer",
+      "paths": [
+        "src/**",
+        "tests/**",
+        "docs/**",
+        ".github/**",
+        "package.json",
+        "package-lock.json",
+        "AGENTS.md",
+        "PROJECT.md",
+        "README.md",
+        "CONTRIBUTING.md",
+        "NEXT-AGENT.md",
+        ".agents.registry.json",
+        ".workflows.registry.json",
+        ".skills.registry.json",
+        ".review-domains.json"
+      ],
+      "checks": [
+        "The change stays inside the task scope. A reviewer cannot waive scope.",
+        "Check each acceptance criterion. Do not approve while one is unmet.",
+        "The producer of the change must not be its reviewer.",
+        "A new contract field needs a schema, an example, and a negative test.",
+        "Mutating commands require --yes. Exit codes stay 0, 1, and 2.",
+        "No secrets in contracts, logs, tests, or notes.",
+        "A Jev answer is advice, not permission to merge."
+      ]
+    },
+    {
+      "id": "firmware",
+      "enabled": false,
+      "language": "rust",
+      "constraint": "no_std",
+      "requires_root": "firmware",
+      "role": "reviewer",
+      "security_role": "security_auditor",
+      "paths": [
+        "firmware/**"
+      ],
+      "checks": [
+        "This is no_std Rust. A surprise heap or std import is a reason not to merge.",
+        "A signing or key path must not panic.",
+        "Keys and seeds must not appear in logs, Debug output, or committed tests.",
+        "The reviewer does not write firmware. Crypto judgement stays with the security auditor."
+      ]
+    }
+  ]
+}

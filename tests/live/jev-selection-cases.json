@@ -67,7 +67,7 @@
     "request": "Review this Python helper for PEP 8 and type hint problems.",
     "expected": {
       "workflow": null,
-      "agent": null,
+      "agent": "reviewer",
       "skill": "python-reviewer"
     }
   },
@@ -76,7 +76,7 @@
     "request": "Look over this PostgreSQL migration for slow queries and missing indexes.",
     "expected": {
       "workflow": null,
-      "agent": null,
+      "agent": "reviewer",
       "skill": "database-reviewer"
     }
   },

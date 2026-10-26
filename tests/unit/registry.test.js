@@ -95,7 +95,7 @@ test('Registry - List enabled agents', async (t) => {
   assert.ok(Array.isArray(agents), 'listAgents returns array');
   assert.ok(agents.length > 0, 'at least one agent listed');
   assert.ok(agents.every(a => a.id && a.name), 'all agents have id and name');
-  assert.ok(agents.every(a => a.id === 'planner' || a.id === 'implementer' || a.id === 'security_auditor' || a.id === 'verifier'), 'agents are expected ones');
+  assert.ok(agents.every(a => a.id === 'planner' || a.id === 'implementer' || a.id === 'reviewer' || a.id === 'security_auditor' || a.id === 'verifier'), 'agents are expected ones');
 });
 
 test('Registry - List enabled workflows', async (t) => {

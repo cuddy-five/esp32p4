@@ -28,6 +28,7 @@ This project builds a hardware wallet for Bitcoin on the ESP32-P4 microcontrolle
 - **Bitcoin Support**: UTXO model, segwit v0 & v1, fee estimation, coin selection, transaction signing.
 - **Storage**: Secure element or eFuse protection for private keys; NVS (non-volatile storage) for watch-only data.
 - **Communication**: USB or BLE for host tethering; no direct internet connectivity in MVP.
+- **Firmware language**: Rust, no_std, when firmware work starts. Not started. Toolchain version is still unknown.
 
 ### Build & Test Model
 
@@ -64,7 +65,7 @@ This project builds a hardware wallet for Bitcoin on the ESP32-P4 microcontrolle
 1. **Jev Model Routing**: Which model alias should be pinned? (`jev-latest` vs. explicit version). Calibration data needed for intent thresholds.
 2. **Agent Deployment**: Will agents run locally (this machine), in GitHub Actions (CI), or via remote API? Affects secret management and tool integration.
 3. **Bitcoin Compliance**: Which standards (BIP32, BIP39, BIP44, BIP49, BIP84) must the wallet support? Does hardware support hardware-accelerated ECDSA?
-4. **ESP32 Toolchain**: ESP-IDF version? Rust (`esp-rs`) or C? FreeRTOS configuration?
+4. **ESP32 Toolchain**: Language is Rust and firmware will be no_std. ESP-IDF or esp-rs version and FreeRTOS configuration are still unknown.
 5. **Adversarial Coverage**: What ratio of agents to roles in each run? How are agents selected (cost-optimized model families)?
 
 ## Next Immediate Steps
