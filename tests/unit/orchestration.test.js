@@ -313,16 +313,18 @@ describe("globMatch", () => {
     assert.ok(!globMatch("package.json", "package.json.bak"));
   });
 
-  for (const [pattern, files] of [
-    ["**/AGENTS.md", ["AGENTS.md", "src/AGENTS.md", "src/lib/AGENTS.md"]],
-    ["src/**/*.js", ["src/cli.js", "src/lib/a.js", "src/lib/settings/a.js"]],
-    ["**/**/a.js", ["a.js", "lib/a.js", "src/lib/a.js"]],
-    ["src/**/**/a.js", ["src/a.js", "src/lib/a.js", "src/lib/settings/a.js"]],
-  ]) {
-    for (const file of files) {
-      test(`${pattern} matches ${file}`, () => assert.ok(globMatch(pattern, file)));
+  test("nested patterns and multi-directory wildcards match expected files", () => {
+    for (const [pattern, files] of [
+      ["**/AGENTS.md", ["AGENTS.md", "src/AGENTS.md", "src/lib/AGENTS.md"]],
+      ["src/**/*.js", ["src/cli.js", "src/lib/a.js", "src/lib/settings/a.js"]],
+      ["**/**/a.js", ["a.js", "lib/a.js", "src/lib/a.js"]],
+      ["src/**/**/a.js", ["src/a.js", "src/lib/a.js", "src/lib/settings/a.js"]],
+    ]) {
+      for (const file of files) {
+        assert.ok(globMatch(pattern, file), `${pattern} should match ${file}`);
+      }
     }
-  }
+  });
 
   test("single stars match zero or more characters without crossing slash", () => {
     assert.ok(globMatch("src/a*.js", "src/a.js"));
