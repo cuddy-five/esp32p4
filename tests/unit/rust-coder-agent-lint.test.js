@@ -23,8 +23,13 @@ describe("Rust Coder Agent Specification Integrity & Bug Diagnostics", () => {
 
   test("Check 1: Frontmatter schema & MCP configuration", () => {
     assert.equal(parsedYaml.name, "rust-coder", "Agent name must be rust-coder");
-    assert.equal(parsedYaml.target, "github-copilot", "Target must be github-copilot");
+    assert.ok(
+      parsedYaml.target === undefined || parsedYaml.target === "github-copilot",
+      "Target must support Copilot; an omitted target supports both environments"
+    );
+    assert.equal(parsedYaml["include-custom-instructions"], true, "Delegated agents must receive repository instructions");
     assert.ok(Array.isArray(parsedYaml.tools), "tools must be an array");
+    assert.ok(parsedYaml.tools.includes("execute"), "Rust agent needs a command tool for builds and tests");
 
     // Must not have VS Code explicit sub-namespace tool entitlement paths
     for (const tool of parsedYaml.tools) {
@@ -61,6 +66,11 @@ describe("Rust Coder Agent Specification Integrity & Bug Diagnostics", () => {
       0,
       `Found hardcoded machine-local home paths in agent prompt: ${matches.map(m => m[0]).join(", ")}. Use repo-relative links.`
     );
+    for (const [, target] of content.matchAll(/\]\(([^)]+)\)/g)) {
+      if (/^(?:https?:|mailto:|#)/.test(target)) continue;
+      const resolved = path.resolve(path.dirname(AGENT_PATH), target.split("#")[0]);
+      assert.ok(fs.existsSync(resolved), `Agent link does not resolve: ${target}`);
+    }
   });
 
   test("Check 3: #![no_std] Embedded Purity (No unqualified or std types prescribed)", () => {

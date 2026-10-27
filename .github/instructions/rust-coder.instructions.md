@@ -1,59 +1,47 @@
 ---
 description: 'no_std Rust firmware conventions for the Waveshare ESP32-P4 air-gapped, stateless Blake2b Bitcoin hardware wallet'
-applyTo: '**/*.rs'
+applyTo: 'firmware/**/*.rs'
 ---
 
 # Rust Firmware Conventions: ESP32-P4 Stateless Blake2b Bitcoin Hardware Wallet
+
+**Current status:** Hardware details and isolation methods below are research candidates, not verified board facts or approved requirements. Check the exact board revision, peripherals, protocol and trusted sources before relying on them. Do not assume disabling radios in software proves physical isolation. Wallet firmware implementation remains later work. Follow the current manual mode in AGENTS.md for ordinary requests.
 
 Follow idiomatic `#![no_std]` embedded Rust practices, strict cryptographic hygiene, and hardware-specific constraints for an air-gapped, stateless Bitcoin hardware wallet (modeled after `privkeyio` Shrike / SeedSigner architecture) targeting the **Blake2b PoW Bitcoin hardfork**.
 
 ## 1. Target Hardware & Peripheral Architecture
 
-All firmware targets the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** (`ESP32-P4NRW32X`, 32-bit dual-core HP + single-core LP RISC-V, target `riscv32imafc-unknown-none-elf`).
+Research input names the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** and target `riscv32imafc-unknown-none-elf` as candidates. Verify the exact board revision and toolchain before treating them as requirements.
 
-- **Compute & Memory Hierarchy**:
-  - **768KB HP L2MEM (Internal SRAM)**: Reserved for the call stack, execution state, and **all cryptographic secrets** (entropy, BIP-39 seeds, BIP-32 `Xpriv` keys, signing nonces). Never place secrets in external PSRAM.
-  - **32MB Stacked PSRAM**: Use via `esp-alloc` exclusively for untrusted, high-volume buffers: MIPI-CSI camera framebuffers, QR decode matrices, untrusted raw PSBTs prior to parsing, and LCD framebuffers.
-  - **16MB External Nor Flash**: Holds immutable firmware code and UI assets only. **Stateless invariant**: Never write user seeds, private keys, PINs, or wallet descriptors to Nor Flash or the onboard TF card slot.
-- **Fixed Peripheral Map**:
-  - **Display**: 3.5-inch 320x480 IPS LCD driven by **ST7796** over **SPI**. Use `embedded-graphics` and offload scaling/rotation/blending to the ESP32-P4 **Pixel Processing Accelerator (PPA)** and DMA.
-  - **Touch Input**: **FT6336** capacitive touch controller over **I2C**.
-  - **Optical Air-Gap (Camera)**: **OV5647** 5MP camera over 2-lane **MIPI-CSI**, piped through the hardware **Image Signal Processor (ISP)** for QR code ingestion (UR / animated QR frames).
-  - **Power Management**: **AXP2101** PMIC over **I2C** for rail control, battery telemetry (3.7V MX1.25 LiPo), and immediate power-off/wipe triggers via the onboard PWR button.
-  - **Hardware Security**: Use the ESP32-P4 hardware **RNG (TRNG)** combined with camera sensor noise for entropy generation. Leverage Secure Boot, Flash Encryption, and Access Permission Management (APM).
+- **Memory:** Verify actual memory types and sizes. Plan secret placement and zeroization using the verified memory map; do not persist private keys or seeds in a stateless wallet.
+- **Peripherals:** ST7796 display, FT6336 touch, OV5647 camera and AXP2101 power management are unverified candidates from research. Confirm the actual components, interfaces and wiring before writing drivers.
+- **Hardware security:** Verify the device's entropy source and security peripherals before choosing how to use them. Do not assume camera noise improves entropy without evidence.
 
 ## 2. Strict Air-Gap & Radio Quarantine Rules
 
-- **ESP32-C6H8 Co-Processor Lockdown**: The board includes an onboard ESP32-C6H8 Wi-Fi 6 / BLE 5 chip wired over SDIO.
-  - **NEVER** import `esp-wifi`, `bleps`, or initialize SDIO host drivers connected to the ESP32-C6.
-  - During boot (`main.rs` initialization), explicitly drive the ESP32-C6 reset/enable GPIO pins low and disable its power domain via the AXP2101 PMIC if wired to a switchable rail.
-- **Data Port Lockdown**:
-  - Production builds (`--release`) must disable USB OTG 2.0 High Speed data descriptors, USB-to-UART console output, and SDIO TF card mounting unless explicitly gated behind a compile-time debug feature (`#[cfg(feature = "dev-uart")]`).
-  - The sole production I/O channels are the **OV5647 camera** (inbound QR) and **ST7796 LCD** (outbound QR).
+- Verify whether the actual board contains radios and how they are connected. The research proposes ESP32-C6 and GPIO/PMIC shutdown; these are candidates, not approved facts or an approved isolation method.
+- Compare physical and software isolation with evidence and obtain the owner's decision before choosing a method. Omitting drivers or powering a component down in software does not by itself prove physical isolation.
+- Verify and decide which external data ports and optical interfaces are appropriate before prescribing a production configuration.
 
 ## 3. Bitcoin, BIP-32, and Blake2b Fork Rules
 
-- **Core Bitcoin Stack**:
-  - Use **`rust-bitcoin`** (`bitcoin` crate with `default-features = false`, `no-std`) and `secp256k1` (`default-features = false`).
-  - **NEVER** use or suggest `bdk` (Bitcoin Development Kit).
-  - Use strict **BIP-32** hierarchical deterministic key derivation (`bitcoin::bip32`).
+- **Core Bitcoin Stack**: Evaluate `rust-bitcoin`, `secp256k1`, BIP-32 and other candidate libraries against the verified fork specification, `no_std` support and the owner's choices. No library has been ruled out solely by this research note.
 - **Blake2b PoW Consensus Overrides**:
   - This wallet targets the **Blake2b Proof-of-Work hardfork** of Bitcoin.
-  - Never use `sha256d` (`bitcoin::hashes::sha256d`) to compute or verify block Proof-of-Work hashes.
-  - Use the `blake2` crate (`default-features = false`) configured for the fork's exact Blake2b personalization/digest parameters when verifying block headers, compact block filters, or SPV proofs.
+  - Verify the fork's exact proof-of-work and signing specifications before choosing algorithms or library parameters.
+  - Evaluate the `blake2` crate against independently sourced fork test vectors; do not assume it matches the fork without verification.
   - Clearly separate standard SHA256/hash160 operations (used in scripts, taproot tree hashes, and legacy txids unless overridden by fork spec) from `Blake2bBlockHash` PoW verification using distinct newtypes.
 
 ## 4. `#![no_std]` Patterns to Follow
 
 - Start every crate and binary with `#![no_std]` (and `#![no_main]` for firmware binaries).
-- **Concurrency & Async**: Use `embassy-executor` and `esp-hal` async drivers for non-blocking SPI (LCD), I2C (FT6336/AXP2101), and MIPI-CSI DMA transfers. Use `embassy_sync::mutex::Mutex` or `critical_section::Mutex` instead of `std::sync`.
+- **Concurrency & Async**: Evaluate `embassy-executor`, `esp-hal` and their synchronization options against the verified hardware and selected toolchain. Avoid `std::sync` in `no_std` firmware.
 - **Memory & Collections**:
   - Prefer fixed-capacity stack collections from `heapless` (`heapless::Vec<T, N>`, `heapless::String<N>`) with explicit compile-time bounds.
   - Prefer zero-copy parsing (`&[u8]`, `&str`) over owned allocations when decoding PSBTs and QR payloads.
-- **Serialization**: Use `serde` with `default-features = false` (`serde_core`) or `minicbor` / `postcard` for `no_std` binary encoding (e.g., UR / BC-UR multipart QR payloads).
+- **Serialization**: Evaluate `serde`, `minicbor` or `postcard` for `no_std` encoding against the selected protocol and dependency constraints.
 - **Architecture Separation**:
-  - Split hardware-independent consensus, Blake2b validation, BIP-32 derivation, and PSBT signing into a pure `#![no_std]` library crate (`wallet-core`) that runs host-side `cargo test` on x86_64/ARM.
-  - Keep ESP32-P4 register setup, DMA buffers, ST7796/FT6336/OV5647 drivers, and AXP2101 management in the firmware crate (`wallet-fw`).
+  - A separate `wallet-core` library and `wallet-fw` hardware crate are a possible future design. Evaluate that split when the owner chooses the wallet architecture; do not assume those crates or particular drivers already exist.
 
 ## 5. Cryptographic Hygiene & Memory Safety
 
@@ -78,9 +66,9 @@ All firmware targets the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** (`ESP32-P4NR
 
 Before completing or reviewing any Rust code, verify:
 
-- [ ] **`#![no_std]` Compliance**: Zero `std` imports; compiles cleanly for `riscv32imafc-unknown-none-elf`.
-- [ ] **Air-Gap Integrity**: No initialization of ESP32-C6 SDIO, Wi-Fi, BLE, or production USB data links.
-- [ ] **Stateless Invariant**: Zero writes of seeds, keys, or signing history to the 16MB Nor Flash or TF card.
+- [ ] **`#![no_std]` Compliance**: No unintended `std` dependencies; check the verified target when available.
+- [ ] **Air-Gap Integrity**: Check the owner's chosen isolation method against the verified hardware; report gaps and unrun device checks.
+- [ ] **Stateless Invariant**: No persistent writes of seeds, keys, or signing history to the verified storage devices.
 - [ ] **SRAM Isolation & Zeroization**: Secrets reside only in internal SRAM, implement `ZeroizeOnDrop`, and never implement `Copy`, `Clone`, or leaky `Debug`.
-- [ ] **Blake2b & BIP-32 Accuracy**: Uses `rust-bitcoin` (`no-std`) + BIP-32 (no `bdk`), and validates block PoW exclusively with Blake2b (`blake2`), never `sha256d`.
+- [ ] **Fork Accuracy**: Verify signing and hashing against the actual fork specification and independent test vectors. Record unavailable vectors rather than assuming a library is correct.
 - [ ] **Panic-Free Parsing**: Zero `unwrap()`, `expect()`, or direct slice indexing `[i]` on camera/QR/PSBT inputs; all arithmetic on amounts/fees uses `checked_*`.

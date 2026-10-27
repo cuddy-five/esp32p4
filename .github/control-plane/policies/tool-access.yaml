@@ -1,0 +1,80 @@
+# Proposed role-scoped tool and MCP access for future automated operation.
+# This document is not consumed or enforced by the current runtime. In
+# particular, shell access can write files even if an edit tool is excluded.
+# Do not treat these declarations as isolation or turn on enforcement now.
+
+version: 1
+
+default_agent:
+  excluded_tools:
+    - edit
+    - execute
+
+roles:
+  coordinator:
+    allowed_tools:
+      - read
+      - search
+      - execute
+      - github/*
+      - agent
+      - todo
+    forbidden_tools:
+      - edit
+    mcp_servers: [github, safeoutputs]
+
+  planner:
+    allowed_tools:
+      - search
+      - read
+      - web
+      - github/*
+      - context7/*
+      - edit
+      - execute # Shell access is not a write restriction.
+      - todo
+    forbidden_tools: []
+    mcp_servers: [github, context7]
+
+  implementer:
+    allowed_tools:
+      - read
+      - edit
+      - search
+      - execute
+      - context7/*
+      - rust-mcp/*
+      - todo
+    forbidden_tools: []
+    mcp_servers: [context7, rust-mcp]
+
+  reviewer:
+    allowed_tools:
+      - read
+      - search
+      - github/*
+    forbidden_tools:
+      - edit
+      - execute
+    mcp_servers: [github]
+
+  security_auditor:
+    allowed_tools:
+      - read
+      - search
+      - execute # Intended for scans; shell can also write files.
+      - github/*
+      - context7/*
+    forbidden_tools:
+      - edit
+    mcp_servers: [github, context7]
+
+  verifier:
+    allowed_tools:
+      - read
+      - search
+      - execute
+      - github/*
+    forbidden_tools:
+      - edit
+    mcp_servers: [github]
