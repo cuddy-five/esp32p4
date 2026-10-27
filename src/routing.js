@@ -129,7 +129,7 @@ export function checkChoiceAnswer(answer, options, label) {
   }
   const values = options.map((option) => probabilities[option]);
   const total = values.reduce((sum, value) => sum + value, 0);
-  if (Math.abs(total - 1) > 0.02 || probabilities[answer.choice] < Math.max(...values) - 1e-6) {
+  if (Math.abs(total - 1) > 0.02 + 1e-6 || probabilities[answer.choice] < Math.max(...values) - 1e-6) {
     throw new Error(`Jev returned inconsistent ${label} probabilities; use manual intake.`);
   }
   return answer;
@@ -187,7 +187,7 @@ export function checkScoreAnswer(answer, criteria, label) {
     throw new Error(`Jev returned an invalid ${label} answer; use manual intake.`);
   }
   const total = values.reduce((sum, value) => sum + value, 0);
-  if (Math.abs(total - 1) > 0.02) {
+  if (Math.abs(total - 1) > 0.02 + 1e-6) {
     throw new Error(`Jev returned inconsistent ${label} probabilities; use manual intake.`);
   }
   return answer;
