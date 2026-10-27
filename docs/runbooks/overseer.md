@@ -1,5 +1,9 @@
 # Runbook: being the overseer
 
+**Current mode:** the owner has paused Jev and automated controls while building
+the repository. Ordinary edits and commits do not require the formal process
+below. See [the current manual-development instructions](agent-team.md#current-mode-build-the-repository-manually).
+
 You own a repository that a team of AI agents builds for you. You are not
 expected to write or read the code. You are expected to read what the team
 tells you, decide a small number of things, and stop everything if it feels

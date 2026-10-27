@@ -4,8 +4,10 @@ This repository is a control plane for an adversarial agentic team loop.
 It will use TypeSafe.ai's Jev model as a "system-one" routing and decision
 making tool, which helps determine which agent, instruction, or workflow to follow.
 The rules that apply to every agent, including Copilot, live in
-[`AGENTS.md`](../AGENTS.md). Read the Non-negotiables section before doing
-anything else.
+[`AGENTS.md`](../AGENTS.md). Read its current-mode section first: Jev and
+automated control-plane enforcement are paused during owner-directed
+development. The formal process below is for the future automated team,
+not a paperwork requirement for ordinary edits and commits now.
 
 For task intake, handoff, or resumption, follow the
 [manual team runbook](../docs/runbooks/agent-team.md). For project constraints

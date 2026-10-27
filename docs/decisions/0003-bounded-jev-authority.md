@@ -2,6 +2,11 @@
 
 Status: accepted by the owner during the design interview; implementation pending.
 
+Current deployment choice: the owner has paused Jev and automated control-plane
+enforcement while building the repository manually. Ordinary owner-directed
+edits and commits do not require the full team process. This ADR remains the
+target for later automation; it does not authorize turning that automation on.
+
 Jev may drive automatic actions within owner-approved boundaries, while deterministic policy enforces permissions, scope, budgets, mandatory reviews, and approval requirements. Its delegated authority grows by decision category through measured evaluations and explicit owner approval; Jev cannot grant itself permissions or waive required checks. This enables progressively less routine supervision while the overseer retains control over authority changes, major exceptions, merges, and releases.
 
 ## Consequences

@@ -1,14 +1,13 @@
 name: intake
 
 # Advisory System One intake triage using Jev.
-# - Evaluates newly opened issues or manual dispatch requests.
+# - Manual requests only; opening an issue must not make a paid call.
+# - Paused in GitHub during owner-directed development. Re-enable only on request.
 # - Synthesizes a schema-validated `task` or `escalation` contract.
 # - Writes an Overseer summary table to $GITHUB_STEP_SUMMARY and uploads the contract artifact.
 # - Never mutates repository files, labels, or approvals.
 
 on:
-  issues:
-    types: [opened]
   workflow_dispatch:
     inputs:
       request:

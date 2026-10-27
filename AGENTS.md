@@ -3,6 +3,20 @@
 Rules for any agent that works in this repository or under a control plane
 built from it. Humans may read this too; it is written so they can.
 
+## Current mode: owner-directed development
+
+The owner has paused Jev and automated control-plane enforcement while this
+repository is being built. Ordinary owner-directed edits and commits do not
+require the full task/plan/approval contract process below. Use small changes,
+appropriate checks and plain-language progress notes. Keep secrets private,
+preserve unrelated work, and leave commits and merges to the owner unless
+explicitly authorized. Independent review can still help without the full
+team ceremony.
+
+The formal process below describes the future automated team. Do not enable
+Jev workflows, scheduled agent jobs or repository protection rules without
+the owner's instruction. See the current-mode note in the manual team runbook.
+
 ## What this is
 
 A template for an adversarial agentic team loop. Agents plan, implement,

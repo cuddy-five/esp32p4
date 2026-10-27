@@ -1,5 +1,25 @@
 # Runbook: a human-directed agent team
 
+## Current mode: build the repository manually
+
+The owner has paused Jev and automated control-plane enforcement. For ordinary
+owner-directed work, make small changes, run relevant checks, and let the owner
+commit or merge. The formal contracts and approval stages below are preparation
+for the future automated team, not required paperwork for every edit now.
+
+The GitHub workflows `intake`, `merge-gate`, `settings-sync`, `agent-evals`, and
+`repo-status.lock.yml` are paused through GitHub's workflow settings. Keep their
+files for later. Ordinary CI remains available; its tests do not call paid Jev.
+The declared branch/tag rulesets are disabled. No local commit hook was active
+when this mode was recorded. Do not treat this note as proof of future live
+settings: check GitHub if someone changes them.
+
+To resume automation, the owner must request it. Review the workflow, access,
+spending and protection settings before enabling the relevant pieces. Do not
+turn everything back on merely because the files are present.
+
+## Future team process
+
 Use this process to start, hand off, or resume one task. The owner describes
 the outcome; agents prepare the records and work; the owner decides every
 merge. [CONTRIBUTING.md](../../CONTRIBUTING.md) connects the GitHub entry
