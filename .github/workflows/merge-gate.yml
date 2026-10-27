@@ -79,10 +79,10 @@ jobs:
               const task = {
                 contract: "task",
                 schema_version: "1.0.0",
-                id: `task_pr_${prNum}_${sha.slice(0, 12)}`,
+                id: ["task", "pr", prNum, sha.slice(0, 12)].join("_"),
                 created_at: new Date().toISOString(),
                 producer: { kind: "workflow", name: "merge-gate", role: "coordinator" },
-                title: `PR #${prNum} merge-gate inspection`,
+                title: "PR #" + prNum + " merge-gate inspection",
                 intent: "Verify review domain coverage, policy stages, and scope compliance for the PR diff.",
                 acceptance_criteria: [
                   { id: "ac-1", statement: "All changed files map to enabled review domains", verification: "review" }
@@ -112,6 +112,7 @@ jobs:
           node src/cli.js "${ev_args[@]}" > "${RUNNER_TEMP}/evidence-envelope.json"
           stages_json="$(node src/cli.js "${stage_args[@]}")"
 
+          # shellcheck disable=SC2016
           node --input-type=module -e '
             import fs from "node:fs";
             const stages = JSON.parse(process.argv[1]);
@@ -119,16 +120,16 @@ jobs:
             const md = [
               "### Merge Gate: Overseer Decision Packet",
               "",
-              `- **Reviewed Commit (HEAD):** \`${env.evidence.subject.sha}\``,
-              `- **Changed Files:** \`${env.evidence.diff.files_changed}\``,
-              `- **Required Human Approval Stages:** \`${stages.stages.join(", ") || "merge"}\``,
-              `- **Policy Triggers:** ${stages.reasons.join(", ") || "baseline merge rule"}`,
-              `- **Scope Gate (\`within_scope\`):** \`${env.gates.within_scope ? "PASS" : "FAIL"}\``,
-              `- **Uncovered Review Domain Paths:** \`${env.review_domains.uncovered.length}\``,
+              "- **Reviewed Commit (HEAD):** `" + env.evidence.subject.sha + "`",
+              "- **Changed Files:** `" + env.evidence.diff.files_changed + "`",
+              "- **Required Human Approval Stages:** `" + (stages.stages.join(", ") || "merge") + "`",
+              "- **Policy Triggers:** " + (stages.reasons.join(", ") || "baseline merge rule"),
+              "- **Scope Gate (`within_scope`):** `" + (env.gates.within_scope ? "PASS" : "FAIL") + "`",
+              "- **Uncovered Review Domain Paths:** `" + env.review_domains.uncovered.length + "`",
               "",
               "> **Overseer Reminder:** Every merge requires an explicit human decision at the exact reviewed commit (`approvals.yaml`). Check CI status, independent reviews, and any `always_human` path triggers above before merging.",
             ].join("\n");
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${md}\n\n`);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + "\n\n");
           ' "$stages_json" "${RUNNER_TEMP}/evidence-envelope.json"
 
           echo "evidence-file=$evidence_file" >> "$GITHUB_OUTPUT"
