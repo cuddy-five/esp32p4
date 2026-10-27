@@ -3,7 +3,7 @@ name: intake
 # Advisory System One intake triage using Jev.
 # - Evaluates newly opened issues or manual dispatch requests.
 # - Synthesizes a schema-validated `task` or `escalation` contract.
-# - Writes an Overseer summary table to $GITHUB_STEP_SUMMARY.
+# - Writes an Overseer summary table to $GITHUB_STEP_SUMMARY and uploads the contract artifact.
 # - Never mutates repository files, labels, or approvals.
 
 on:
@@ -38,14 +38,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
 
-      - run: npm ci --omit=dev --no-audit --no-fund
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
 
       - name: Triage request with Jev
         id: jev
@@ -69,7 +72,7 @@ jobs:
           if [ -n "$CP_ISSUE" ]; then
             args+=(--issue "$CP_ISSUE")
           fi
-          node src/cli.js "${args[@]}" "$text"
+          node src/cli.js "${args[@]}" "$text" > "${RUNNER_TEMP}/triage-envelope.json"
           {
             echo "ran=true"
             echo "contract_file=$out_file"
@@ -80,3 +83,14 @@ jobs:
         uses: ./.github/actions/validate-contract
         with:
           files: ${{ steps.jev.outputs.contract_file }}
+
+      - name: Upload intake contract artifact
+        if: ${{ steps.jev.outputs.ran == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: intake-contract-${{ github.event.issue.number || github.run_id }}
+          path: |
+            ${{ steps.jev.outputs.contract_file }}
+            ${{ runner.temp }}/triage-envelope.json
+          retention-days: 30
+          if-no-files-found: error

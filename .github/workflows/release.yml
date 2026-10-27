@@ -1,0 +1,95 @@
+name: release
+
+# Verifies release tags (v*), generates an SPDX Software Bill of Materials (SBOM),
+# and signs SLSA build provenance attestations via GitHub OIDC.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git tag or ref to package and verify
+        type: string
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package-and-attest:
+    name: package-sbom-and-attest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install and verify all tests and policies
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run validate:examples
+          node src/cli.js policy check
+
+      - name: Generate SPDX SBOM and release archive
+        id: package
+        env:
+          CP_REF_NAME: ${{ inputs.ref || github.ref_name }}
+        run: |
+          set -euo pipefail
+          out_dir="${RUNNER_TEMP}/release-dist"
+          mkdir -p "$out_dir"
+
+          sbom_file="${out_dir}/sbom.spdx.json"
+          npm sbom --omit=dev --sbom-format=spdx > "$sbom_file"
+
+          tarball="$(npm pack --pack-destination "$out_dir" | tail -n 1)"
+          tarball_path="${out_dir}/${tarball}"
+
+          sha256sum "$tarball_path" "$sbom_file" > "${out_dir}/SHA256SUMS.txt"
+
+          {
+            echo "### Release Package & SBOM (\`${CP_REF_NAME}\`)"
+            echo
+            echo '```text'
+            cat "${out_dir}/SHA256SUMS.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo "dist-dir=$out_dir"
+            echo "tarball-path=$tarball_path"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance with OIDC
+        if: ${{ github.event_name == 'push' }}
+        uses: actions/attest-build-provenance@c07444ef71dc1d06d2c1b3ed69d1a0a77174d3d5 # v2.2.3
+        with:
+          subject-path: ${{ steps.package.outputs.tarball-path }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: control-plane-release-${{ github.run_id }}
+          path: ${{ steps.package.outputs.dist-dir }}/*
+          retention-days: 90
+          if-no-files-found: error

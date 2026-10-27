@@ -19,22 +19,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm test
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run unit and security suites with log compaction on failure
+        run: |
+          set -euo pipefail
+          log_file="${RUNNER_TEMP}/test.log"
+          if npm test > "$log_file" 2>&1; then
+            cat "$log_file"
+          else
+            code=$?
+            cat "$log_file"
+            {
+              echo "### Compacted Test Failure Diagnostics"
+              echo
+              echo '```text'
+              node src/cli.js compact --file "$log_file" --offline --max-chars 2000 || true
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$code"
+          fi
+
       - name: State machine and approvals agree with contracts
         run: node src/cli.js policy check
+
+      - name: Check whitespace errors
+        run: git diff --check
 
   validate-examples:
     name: validate-examples
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: Validate contract examples with the composite action
         uses: ./.github/actions/validate-contract
         with:
@@ -45,32 +74,54 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: actionlint
         uses: docker://rhysd/actionlint:1.7.7
         with:
           args: -color
 
+  dependency-review:
+    name: dependency-review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@3b139cfc5fae8b618d3eae3675e383bb1769c019 # v4.5.0
+        with:
+          fail-on-severity: high
+
   settings-check:
     name: settings-check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Only this read-only report needs access to repository labels.
     permissions:
       contents: read
       issues: read
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
+
       - name: Report drift
         env:
           GH_TOKEN: ${{ github.token }}
-        # Desired settings are applied after merge by an approved manual dispatch.
-        # Pending drift is expected here; API/validation errors still fail the job.
         run: |
           status=0
           node src/cli.js settings check --summary || status=$?

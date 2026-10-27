@@ -1,61 +1,28 @@
 ---
-description: |
-  This workflow creates daily repo status reports. It gathers recent repository
-  activity (issues, PRs, discussions, releases, code changes) and generates
-  engaging GitHub issues with productivity insights, community highlights,
-  and project recommendations.
-
 on:
-  schedule: daily
+  schedule:
+    - cron: "0 13 * * 1,4"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  issues: read
-  pull-requests: read
+permissions: read-all
 
-network: defaults
-
-tools:
-  bash: ["cat", "ls", "find", "grep", "head", "tail", "wc"]
-  github:
-    # If in a public repo, setting `lockdown: false` allows
-    # reading issues, pull requests and comments from 3rd-parties
-    # If in a private repo this has no particular effect.
-    lockdown: false
-    min-integrity: none # This workflow is allowed to examine and comment on any issues
+engine: copilot
 
 safe-outputs:
-  mentions: false
-  allowed-github-references: []
   create-issue:
-    title-prefix: "[repo-status] "
-    labels: [report, daily-status]
-    close-older-issues: true
-engine: agy
-
-source: githubnext/agentics/workflows/repo-status.md@139fa09ef17cde4135e696ff8e7af09bc5ddfa6e
+    title-prefix: "[Overseer Digest] "
+    labels: ["cp:task", "kind:docs"]
+    max: 1
 ---
 
-# Repo Status
+# Overseer Control-Plane Digest & Status Report
 
-Create an upbeat daily status report for the repo as a GitHub issue.
+Generate a concise, plain-language status digest for the Human Overseer following the rules in `AGENTS.md` and `docs/runbooks/overseer.md`:
 
-## What to include
-
-- Recent repository activity (issues, PRs, discussions, releases, code changes)
-- Progress tracking, goal reminders and highlights
-- Project status and recommendations
-- Actionable next steps for maintainers
-
-## Style
-
-- Be positive, encouraging, and helpful 🌟
-- Use emojis moderately for engagement
-- Keep it concise - adjust length based on actual activity
-
-## Process
-
-1. Gather recent activity from the repository
-2. Study the repository, its issues and its pull requests
-3. Create a new GitHub issue with your findings and insights
+1. **Inspect Current State**:
+   - Check open issues and pull requests, especially any carrying `cp:escalation`, `cp:blocked`, `cp:needs-approval`, or `agent-fallback:local` labels.
+   - Run `node src/cli.js policy check` and `npm test` to confirm control-plane guardrails are intact.
+2. **Write for the Overseer (`overseer_note` style)**:
+   - Summarize what merged recently, which tasks or PRs are waiting on a human `plan` or `merge` decision under `.github/control-plane/policies/approvals.yaml`, and any open escalations or settings drift.
+   - Use plain, concrete language with direct links to issues and PRs. Never include secrets or raw stack traces.
+   - Do not modify code, labels, or approvals.

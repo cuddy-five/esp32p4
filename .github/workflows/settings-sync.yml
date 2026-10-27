@@ -2,15 +2,8 @@ name: settings-sync
 
 # Reconciles repository settings (labels, rulesets) with the desired state
 # declared under .github/control-plane/settings/.
-#
 # - Pull requests touching desired state get a plan posted to the step summary.
-# - Mutations only happen on manual dispatch with apply=true. Nothing is applied
-#   automatically on merge; promoting a plan to live settings is an explicit
-#   operator decision.
-#
-# Token: `github.token` can read labels/rulesets and write labels, but cannot
-# write rulesets. Provide CONTROL_PLANE_TOKEN (fine-grained PAT or GitHub App
-# token with Administration: write) to apply rulesets.
+# - Mutations only happen on manual dispatch with apply=true behind `settings-admin`.
 
 on:
   pull_request:
@@ -48,15 +41,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
+
       - name: Plan
         env:
-          # PR code gets a read-only token, never the administration secret.
           GH_TOKEN: ${{ github.token }}
           CP_ONLY: ${{ inputs.only }}
           CP_REPO: ${{ inputs.repo }}
@@ -76,12 +74,18 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
+
       - name: Apply
         env:
           GH_TOKEN: ${{ secrets.CONTROL_PLANE_TOKEN || github.token }}
