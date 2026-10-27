@@ -1,29 +1,27 @@
 name: merge-gate
 
-# Evaluates the actual Pull Request diff against control-plane policies:
-# 1. Maps changed files against .review-domains.json checklists.
-# 2. Computes required human approval stages (plan, merge, step) from policies/approvals.yaml.
-# 3. Validates any contract JSON files added or modified in the PR.
-# 4. Emits an Overseer Merge Decision Packet to $GITHUB_STEP_SUMMARY.
-# Never auto-merges: every merge requires a human decision at the reviewed commit.
-
+# Informational only. Success means the report ran, not that admission,
+# reviews, human approval, or merge permission were established.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       task-file:
-        description: Optional task contract path to verify strict scope against
+        description: Optional untrusted task declaration path
         type: string
         default: ""
       base-ref:
-        description: Base ref for manual diff comparison
+        description: Base ref for manual comparison
         type: string
         default: "origin/main"
+      head-ref:
+        description: Head ref for manual comparison
+        type: string
+        default: "HEAD"
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: merge-gate-${{ github.workflow }}-${{ github.ref }}
@@ -39,113 +37,19 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
-
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: npm
-
       - name: Install dependencies
         run: npm ci --omit=dev --no-audit --no-fund
-
-      - name: Evaluate PR diff against review domains, scope, and approval policies
-        id: gate
+      - name: Produce informational comparison
         env:
+          CP_EVENT: ${{ github.event_name }}
           CP_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          CP_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
           CP_BASE_REF: ${{ inputs.base-ref || 'origin/main' }}
+          CP_HEAD_REF: ${{ inputs.head-ref || 'HEAD' }}
           CP_TASK_FILE: ${{ inputs.task-file || '' }}
-          CP_PR_NUM: ${{ github.event.pull_request.number || '' }}
-        run: |
-          set -euo pipefail
-          head_sha="$(git rev-parse HEAD)"
-          if [ -n "$CP_BASE_SHA" ] && git cat-file -e "${CP_BASE_SHA}^{commit}" 2>/dev/null; then
-            base_sha="$CP_BASE_SHA"
-          else
-            base_sha="$(git rev-parse "$CP_BASE_REF")"
-          fi
-
-          mapfile -t changed_files < <(git diff --name-only "$base_sha" "$head_sha")
-
-          # If a specific task contract isn't supplied, synthesize an inspection task
-          # covering the repo so `cli.js evidence` can map review domains and emit a valid evidence contract.
-          task_file="$CP_TASK_FILE"
-          if [ -z "$task_file" ]; then
-            task_file="${RUNNER_TEMP}/pr-inspection-task.json"
-            node --input-type=module -e '
-              import fs from "node:fs";
-              const sha = process.argv[1];
-              const prNum = Number.parseInt(process.env.CP_PR_NUM || "1", 10) || 1;
-              const task = {
-                contract: "task",
-                schema_version: "1.0.0",
-                id: ["task", "pr", prNum, sha.slice(0, 12)].join("_"),
-                created_at: new Date().toISOString(),
-                producer: { kind: "workflow", name: "merge-gate", role: "coordinator" },
-                title: "PR #" + prNum + " merge-gate inspection",
-                intent: "Verify review domain coverage, policy stages, and scope compliance for the PR diff.",
-                acceptance_criteria: [
-                  { id: "ac-1", statement: "All changed files map to enabled review domains", verification: "review" }
-                ],
-                scope: {
-                  allowed_paths: ["**"],
-                  forbidden_paths: [".env*"]
-                },
-                risk: { level: "low", requires_human_approval: true },
-                status: "verifying"
-              };
-              fs.writeFileSync(process.argv[2], JSON.stringify(task, null, 2) + "\n");
-            ' "$head_sha" "$task_file"
-          fi
-
-          evidence_file="${RUNNER_TEMP}/pr-evidence.json"
-          ev_args=(evidence --task "$task_file" --sha "$head_sha" --base-sha "$base_sha" --output "$evidence_file" --summary)
-          stage_args=(policy stages --risk low --format json)
-
-          for f in "${changed_files[@]}"; do
-            if [ -n "$f" ]; then
-              ev_args+=(--path "$f")
-              stage_args+=(--path "$f")
-            fi
-          done
-
-          node src/cli.js "${ev_args[@]}" > "${RUNNER_TEMP}/evidence-envelope.json"
-          stages_json="$(node src/cli.js "${stage_args[@]}")"
-
-          # shellcheck disable=SC2016
-          node --input-type=module -e '
-            import fs from "node:fs";
-            const stages = JSON.parse(process.argv[1]);
-            const env = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-            const md = [
-              "### Merge Gate: Overseer Decision Packet",
-              "",
-              "- **Reviewed Commit (HEAD):** `" + env.evidence.subject.sha + "`",
-              "- **Changed Files:** `" + env.evidence.diff.files_changed + "`",
-              "- **Required Human Approval Stages:** `" + (stages.stages.join(", ") || "merge") + "`",
-              "- **Policy Triggers:** " + (stages.reasons.join(", ") || "baseline merge rule"),
-              "- **Scope Gate (`within_scope`):** `" + (env.gates.within_scope ? "PASS" : "FAIL") + "`",
-              "- **Uncovered Review Domain Paths:** `" + env.review_domains.uncovered.length + "`",
-              "",
-              "> **Overseer Reminder:** Every merge requires an explicit human decision at the exact reviewed commit (`approvals.yaml`). Check CI status, independent reviews, and any `always_human` path triggers above before merging.",
-            ].join("\n");
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + "\n\n");
-          ' "$stages_json" "${RUNNER_TEMP}/evidence-envelope.json"
-
-          echo "evidence-file=$evidence_file" >> "$GITHUB_OUTPUT"
-
-      - name: Validate generated PR evidence contract
-        uses: ./.github/actions/validate-contract
-        with:
-          files: ${{ steps.gate.outputs.evidence-file }}
-          kind: evidence
-
-      - name: Upload PR evidence artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: pr-evidence-${{ github.sha }}
-          path: |
-            ${{ steps.gate.outputs.evidence-file }}
-            ${{ runner.temp }}/evidence-envelope.json
-          retention-days: 30
-          if-no-files-found: error
+        run: node src/lib/workflow-gate.js

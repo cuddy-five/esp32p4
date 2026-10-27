@@ -5,8 +5,17 @@ the outcome; agents prepare the records and work; the owner decides every
 merge. [CONTRIBUTING.md](../../CONTRIBUTING.md) connects the GitHub entry
 points. This runbook uses the existing [contracts](../architecture/contracts.md)
 and [approval policy](../../.github/control-plane/policies/approvals.yaml).
-There is no running dispatcher, approval authenticator, evidence collector,
-or merge gate. People and agents must uphold these working agreements.
+There is no running dispatcher or approval authenticator. People and agents
+must uphold these working agreements.
+
+The `merge-gate` workflow is informational: on a pull request it compares
+the event's base and head commits and reports task scope and approval stages
+as unknown. A successful status only confirms the report ran, even if it is a
+required branch-protection check. A manually supplied task is a declaration;
+its provenance, relationship to a PR, completed reviews, and human approval
+remain unverified. Human oversight and an exact-commit merge decision remain
+necessary. Hosted paid Jev evaluation is unavailable pending durable shared
+accounting across runs; the owner-run evaluator remains opt-in.
 
 ## 1. Establish the project and task
 

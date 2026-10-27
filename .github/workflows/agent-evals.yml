@@ -1,23 +1,14 @@
 name: agent-evals
 
-# Scheduled guardrail audit & on-demand live Jev System One evaluation suite.
-# - Weekly schedule audits policies, dependency vulnerabilities, and live settings drift.
-# - Manual dispatch optionally runs live Jev evaluations (`npm run evaluate:jev`)
-#   under the ADR 0003 daily spending ceiling.
+# Scheduled and manual guardrail audit; dependency and settings checks use network.
+# Hosted paid Jev evaluation is unavailable until spending can be accounted for
+# across runs. The owner-run evaluator remains opt-in and requires --yes and a
+# model via --model or TYPESAFE_MODEL.
 
 on:
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
-    inputs:
-      run-live-jev:
-        description: Run live Jev API evaluation suite (consumes prepaid credits within cap)
-        type: boolean
-        default: false
-      daily-cap-usd:
-        description: Daily Jev spending cap in USD (ADR 0003)
-        type: string
-        default: "2.00"
 
 permissions:
   contents: read
@@ -67,42 +58,3 @@ jobs:
           elif [ "$status" -ne 0 ]; then
             exit "$status"
           fi
-
-  live-jev-benchmark:
-    name: live-jev-benchmark
-    needs: [guardrail-and-registry-audit]
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run-live-jev == true }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --omit=dev --no-audit --no-fund
-
-      - name: Run live Jev evaluation within spending cap
-        env:
-          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-          JEV_DAILY_CAP_USD: ${{ inputs.daily-cap-usd }}
-          JEV_LEDGER_FILE: ${{ runner.temp }}/jev-ledger.json
-        run: |
-          set -euo pipefail
-          if [ -z "${TYPESAFE_API_KEY:-}" ]; then
-            echo "::error::TYPESAFE_API_KEY secret is required for live Jev evaluation."
-            exit 1
-          fi
-          npm run evaluate:jev
-          {
-            echo "### Live Jev Benchmark Spending Report"
-            echo
-            echo '```json'
-            node src/cli.js spending --daily-cap "$JEV_DAILY_CAP_USD" --format json
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
