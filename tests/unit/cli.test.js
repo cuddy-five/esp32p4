@@ -592,13 +592,14 @@ describe("cli project decoupling and spending", () => {
   });
 
   test("spending command outputs text summary and respects --daily-cap", async () => {
+    const today = new Date().toISOString().slice(0, 10);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
     const ledgerFile = path.join(dir, "ledger.json");
     try {
       fs.writeFileSync(
         ledgerFile,
         JSON.stringify({
-          date: "2026-10-26",
+          date: today,
           daily_cap_usd: 2.0,
           total_spent_usd: 0.125,
           total_input_tokens: 50000,
@@ -619,13 +620,14 @@ describe("cli project decoupling and spending", () => {
   });
 
   test("spending command outputs JSON format", async () => {
+    const today = new Date().toISOString().slice(0, 10);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
     const ledgerFile = path.join(dir, "ledger.json");
     try {
       fs.writeFileSync(
         ledgerFile,
         JSON.stringify({
-          date: "2026-10-26",
+          date: today,
           daily_cap_usd: 2.0,
           total_spent_usd: 0.5,
           total_input_tokens: 10000,
