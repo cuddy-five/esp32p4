@@ -38,6 +38,16 @@ describe("isPathInScope / findOutOfScopePaths", () => {
       ["src/a.js", "docs/b.md"],
     );
   });
+
+  test("normalizes leading ./ paths and enforces forbidden_paths", () => {
+    assert.equal(isPathInScope("./src/cli.js", scope), true);
+    assert.equal(isPathInScope("./.env.local", scope), false);
+    assert.equal(isPathInScope("./src/secret/key.js", scope), false);
+    assert.deepEqual(
+      findOutOfScopePaths(["./src/cli.js", "./.env.local"], scope),
+      [".env.local"],
+    );
+  });
 });
 
 describe("evaluateBudget", () => {

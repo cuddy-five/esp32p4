@@ -8,6 +8,7 @@
  */
 import crypto from "node:crypto";
 import { ContractRegistry } from "./lib/contracts.js";
+import { normalizeRepoPath } from "./lib/paths.js";
 import { globMatch } from "./lib/orchestration.js";
 import { loadReviewDomains, reviewDomainProblems, selectReviewDomains } from "./review-domains.js";
 
@@ -25,13 +26,14 @@ function makeId(prefix) {
  * @returns {boolean}
  */
 export function isPathInScope(filePath, scope = {}) {
+  const normalized = normalizeRepoPath(filePath);
   const forbidden = Array.isArray(scope?.forbidden_paths) ? scope.forbidden_paths : [];
-  if (forbidden.some((pattern) => globMatch(pattern, filePath))) {
+  if (forbidden.some((pattern) => globMatch(pattern, normalized))) {
     return false;
   }
   if (Array.isArray(scope?.allowed_paths)) {
     if (scope.allowed_paths.length === 0) return false;
-    return scope.allowed_paths.some((pattern) => globMatch(pattern, filePath));
+    return scope.allowed_paths.some((pattern) => globMatch(pattern, normalized));
   }
   return true;
 }
@@ -43,7 +45,7 @@ export function isPathInScope(filePath, scope = {}) {
  * @returns {string[]}
  */
 export function findOutOfScopePaths(paths, scope = {}) {
-  const unique = [...new Set(paths)];
+  const unique = [...new Set(paths.map(normalizeRepoPath))];
   return unique.filter((p) => !isPathInScope(p, scope));
 }
 
@@ -115,8 +117,8 @@ export function buildEvidenceContract(task, {
     throw new TypeError("buildEvidenceContract requires a 40-character lowercase hex commit sha.");
   }
 
-  const domainEval = evaluateReviewDomains(paths, reviewDomains);
-  const uniquePaths = [...new Set(paths)];
+  const uniquePaths = [...new Set(paths.map(normalizeRepoPath))];
+  const domainEval = evaluateReviewDomains(uniquePaths, reviewDomains);
   const outOfScope = findOutOfScopePaths(uniquePaths, task.scope);
   const withinScope = outOfScope.length === 0;
   const budgetEval = evaluateBudget(budgetUsed, task.budget);

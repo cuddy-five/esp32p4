@@ -242,6 +242,12 @@ describe("requiredHumanStages", () => {
     assert.deepEqual(out.reasons, ["risk level low", "control_plane_self"]);
   });
 
+  test("always-human path rules normalize leading ./ paths", () => {
+    const out = requiredHumanStages(approvals, { risk: { level: "low" }, paths: ["./.github/workflows/ci.yml"] });
+    assert.deepEqual(out.stages, ["plan", "merge"]);
+    assert.deepEqual(out.reasons, ["risk level low", "control_plane_self"]);
+  });
+
   test("instruction and ownership changes need a human at plan and merge", () => {
     for (const file of ["AGENTS.md", "src/AGENTS.md", "src/lib/AGENTS.md", "CLAUDE.md", "app/CLAUDE.md", "app/lib/CLAUDE.md", "PROJECT.md",
       ".github/CODEOWNERS", ".github/copilot-instructions.md", ".github/instructions/build.instructions.md",

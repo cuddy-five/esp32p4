@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
-import { CONTROL_PLANE_DIR, CONTRACTS_DIR } from "./paths.js";
+import { CONTROL_PLANE_DIR, CONTRACTS_DIR, normalizeRepoPath } from "./paths.js";
 
 export const STATE_MACHINE_FILE = path.join(CONTROL_PLANE_DIR, "orchestration", "state-machine.yaml");
 export const APPROVALS_FILE = path.join(CONTROL_PLANE_DIR, "policies", "approvals.yaml");
@@ -183,10 +183,11 @@ export function requiredHumanStages(approvals, { risk, paths = [] }) {
   const stages = new Set(asArray(approvals.by_risk?.[risk.level]?.human_stages));
   const reasons = [];
   if (stages.size) reasons.push(`risk level ${risk.level}`);
+  const cleanPaths = paths.map(normalizeRepoPath);
   for (const rule of asArray(approvals.always_human)) {
     const tagHit = asArray(rule.tags).some((t) => asArray(risk.tags).includes(t));
     const pathHit = asArray(rule.paths).some((g) =>
-      paths.some((f) => globMatch(g, f) || globMatch(f, g)),
+      cleanPaths.some((f) => globMatch(g, f) || globMatch(f, g)),
     );
     if (tagHit || pathHit) {
       for (const s of asArray(rule.stages)) stages.add(s);

@@ -12,6 +12,19 @@ export const CONTRACTS_DIR = path.join(CONTROL_PLANE_DIR, "contracts");
 export const SETTINGS_DIR = path.join(CONTROL_PLANE_DIR, "settings");
 
 /**
+ * Normalize repository-relative paths:
+ * Strips leading `./` or duplicate `./` sequences so that relative paths match
+ * standard repository-relative contract globs and policy rules.
+ *
+ * @param {string} filePath
+ * @returns {string}
+ */
+export function normalizeRepoPath(filePath) {
+  if (typeof filePath !== "string") return "";
+  return filePath.replace(/^(\.\/)+/, "");
+}
+
+/**
  * Resolve project-root directories and declarations for consumer repository adoption.
  * When an explicit `--project <dir>` is passed, verifies that the directory exists
  * and locates consumer declarations without silently falling back to the engine repository.
