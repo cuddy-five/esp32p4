@@ -84,6 +84,7 @@ describe("labels.plan", () => {
     assert.equal(ops[0].from, "bug");
     assert.equal(ops[0].name, "kind:bug");
     assert.ok(ops[0].changes.some((c) => c.path === "/name" && c.to === "kind:bug"));
+    assert.equal(ops[0].changes.filter((c) => c.path === "/name").length, 1);
   });
 
   test("prefers an exact match over an alias and does not consume the alias twice", () => {

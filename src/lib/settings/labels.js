@@ -129,7 +129,7 @@ export function plan(desired, actual) {
         from: source.name,
         before: comparable(source),
         after: comparable(d),
-        changes: [{ path: "/name", from: source.name, to: d.name }, ...diff(comparable(d), comparable(source))],
+        changes: diff(comparable(d), comparable(source)),
       });
       continue;
     }
