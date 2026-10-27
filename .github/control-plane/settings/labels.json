@@ -2,6 +2,11 @@
   "version": 1,
   "prune": false,
   "labels": [
+    { "name": "wayfinder:map", "color": "5319e7", "description": "The overall roadmap and where to start" },
+    { "name": "wayfinder:task", "color": "1d76db", "description": "A large piece of work linked to the roadmap" },
+    { "name": "area:agents", "color": "0e8a16", "description": "The agent team, its tools and shared working process" },
+    { "name": "area:jev", "color": "d4c5f9", "description": "Jev suggestions and permitted decisions; later work" },
+    { "name": "needs-triage", "color": "fbca04", "description": "Check the scope and choose the next small step" },
     { "name": "cp:task", "color": "0e8a16", "description": "Accepted into the control plane as a task" },
     { "name": "cp:plan", "color": "1d76db", "description": "Carries or awaits a plan document" },
     { "name": "cp:needs-approval", "color": "fbca04", "description": "Plan or action requires human approval before execution" },
