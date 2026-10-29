@@ -1,6 +1,6 @@
 # Runbook: being the overseer
 
-**Current mode:** the owner has paused Jev and automated controls while building
+**Current mode:** the owner has paused Automated controls while building
 the repository. Ordinary edits and commits do not require the formal process
 below. See [the current manual-development instructions](agent-team.md#current-mode-build-the-repository-manually).
 

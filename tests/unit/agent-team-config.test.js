@@ -58,9 +58,9 @@ describe("Owner-directed agent team configuration", () => {
     assert.ok(!tools("reviewer").includes("edit") && !tools("reviewer").includes("execute"));
   });
 
-  test("the coordinator does not instruct a paid Jev intake during the pause", () => {
+  test("the coordinator preserves manual mode without invoking intake", () => {
     const { body } = readProfile(path.join(agentsDir, "coordinator.agent.md"));
-    assert.match(body, /Jev and automated control-plane enforcement are paused/i);
+    assert.match(body, /Automated control-plane enforcement is paused/i);
     assert.doesNotMatch(body, /node\s+src\/cli\.js\s+triage\b/);
   });
 

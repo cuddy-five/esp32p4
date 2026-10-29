@@ -1,9 +1,6 @@
 name: agent-evals
 
 # Scheduled and manual guardrail audit; dependency and settings checks use network.
-# Hosted paid Jev evaluation is unavailable until spending can be accounted for
-# across runs. The owner-run evaluator remains opt-in and requires --yes and a
-# model via --model or TYPESAFE_MODEL.
 
 on:
   schedule:

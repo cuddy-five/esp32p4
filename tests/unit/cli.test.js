@@ -6,7 +6,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { EXIT, main } from "../../src/cli.js";
 import { planAll, applyAll, readDesiredFile, selectResources, summarize } from "../../src/lib/settings/index.js";
-import { formatPlanMarkdown, formatPlanText, formatTriageMarkdown, writeStepSummary } from "../../src/lib/report.js";
+import { formatPlanMarkdown, formatPlanText, writeStepSummary } from "../../src/lib/report.js";
 import { CONTRACTS_DIR, REPO_ROOT } from "../../src/lib/paths.js";
 import { fakeClient } from "../helpers/fake-github.js";
 
@@ -98,57 +98,7 @@ describe("cli top level", () => {
   });
 });
 
-describe("cli triage and evidence", () => {
-  test("triage requires --yes and synthesizes a validated contract with mocked Jev", async () => {
-    const denied = capture();
-    assert.equal(await main(["triage", "Fix build"], denied.io), EXIT.ERROR);
-    assert.match(denied.err[0], /without --yes/);
-
-    const fakeJevFetch = async (_url, init) => {
-      const req = JSON.parse(init.body);
-      const makeChoice = (qName, pick) => {
-        const opts = Object.keys(req.questions[qName].criteria);
-        const probs = Object.fromEntries(opts.map((o) => [o, o === pick ? 0.91 : 0.09 / (opts.length - 1)]));
-        return { type: "choice", choice: pick, confidence: 0.91, probabilities: probs };
-      };
-      const body = {
-        model: "jev-1.14.0",
-        usage: { input_tokens: 100, output_tokens: 20 },
-        answers: {
-          workflow: makeChoice("workflow", "implement"),
-          agent: makeChoice("agent", "implementer"),
-          skill: makeChoice("skill", "tdd-guide"),
-          prompt_injection: { type: "noul", noul: 0.02 },
-          blast_radius: { type: "score", score: 1.0, confidence: 0.9, probabilities: [0.1, 0.8, 0.1, 0] },
-          tag_secrets_auth: { type: "noul", noul: 0.05 },
-          tag_ci_control_plane: { type: "noul", noul: 0.05 },
-          tag_dependencies: { type: "noul", noul: 0.05 },
-        },
-      };
-      return new Response(JSON.stringify(body), { status: 200 });
-    };
-
-    const outFile = path.join(os.tmpdir(), `cp-triage-${process.pid}.json`);
-    const summaryFile = path.join(os.tmpdir(), `cp-triage-sum-${process.pid}.md`);
-    fs.writeFileSync(summaryFile, "");
-    try {
-      const c = capture();
-      c.io.env = { TYPESAFE_API_KEY: "test-key", GITHUB_STEP_SUMMARY: summaryFile };
-      c.io.jevFetch = fakeJevFetch;
-      const code = await main(
-        ["triage", "--yes", "--issue", "7", "--output", outFile, "--summary", "Add hash unit tests"],
-        c.io,
-      );
-      assert.equal(code, EXIT.OK);
-      const saved = JSON.parse(fs.readFileSync(outFile, "utf8"));
-      assert.equal(saved.contract, "task");
-      assert.equal(saved.assigned_role, "implementer");
-      assert.match(fs.readFileSync(summaryFile, "utf8"), /Jev System One Intake Triage/);
-    } finally {
-      if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
-      if (fs.existsSync(summaryFile)) fs.unlinkSync(summaryFile);
-    }
-  });
+describe("cli evidence", () => {
 
   test("evidence command returns 0 when in scope and 2 when out of scope", async () => {
     const taskPath = path.join(EXAMPLES, "task.example.json");
@@ -384,20 +334,6 @@ describe("report formatting", () => {
     assert.doesNotMatch(md, /`\/name`/);
   });
 
-  test("formatTriageMarkdown formats Jev advice and contract summary", () => {
-    const md = formatTriageMarkdown({
-      advice: {
-        resolved_model: "jev-1.14.0",
-        disposition: "human_review",
-        selections: { workflow: { choice: "implement", confidence: 1 } },
-      },
-      kind: "task",
-      contract: { id: "task_1234", contract: "task" },
-      human_stages: ["merge"],
-    });
-    assert.match(md, /Jev System One Intake Triage/);
-    assert.match(md, /`task_1234`/);
-  });
 
   test("writeStepSummary is a no-op without GITHUB_STEP_SUMMARY", () => {
     assert.equal(writeStepSummary("x", {}), false);
@@ -591,73 +527,8 @@ describe("cli project decoupling and spending", () => {
     }
   });
 
-  test("spending command outputs text summary and respects --daily-cap", async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
-    const ledgerFile = path.join(dir, "ledger.json");
-    try {
-      fs.writeFileSync(
-        ledgerFile,
-        JSON.stringify({
-          date: today,
-          daily_cap_usd: 2.0,
-          total_spent_usd: 0.125,
-          total_input_tokens: 50000,
-          total_output_tokens: 1000,
-          calls: 3,
-        }),
-      );
-      const c = capture();
-      const code = await main(["spending", "--ledger", ledgerFile, "--daily-cap", "3.50"], c.io);
-      assert.equal(code, EXIT.OK);
-      const output = c.out.join("\n");
-      assert.match(output, /daily cap:\s+\$3\.50/);
-      assert.match(output, /total spent:\s+\$0\.1250/);
-      assert.match(output, /calls today:\s+3/);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
 
-  test("spending command outputs JSON format", async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-spending-"));
-    const ledgerFile = path.join(dir, "ledger.json");
-    try {
-      fs.writeFileSync(
-        ledgerFile,
-        JSON.stringify({
-          date: today,
-          daily_cap_usd: 2.0,
-          total_spent_usd: 0.5,
-          total_input_tokens: 10000,
-          total_output_tokens: 500,
-          calls: 1,
-        }),
-      );
-      const c = capture();
-      const code = await main(["spending", "--ledger", ledgerFile, "--format", "json"], c.io);
-      assert.equal(code, EXIT.OK);
-      const parsed = JSON.parse(c.out.join("\n"));
-      assert.equal(parsed.calls, 1);
-      assert.equal(parsed.remaining_budget_usd, 1.5);
-      assert.equal(parsed.ledger_file, ledgerFile);
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
-    }
-  });
 
-  test("spending command rejects invalid daily cap", async () => {
-    const c1 = capture();
-    const code1 = await main(["spending", "--daily-cap", "0"], c1.io);
-    assert.equal(code1, EXIT.ERROR);
-    assert.match(c1.err[0], /invalid --daily-cap/);
-
-    const c2 = capture();
-    const code2 = await main(["spending", "--daily-cap", "not-a-number"], c2.io);
-    assert.equal(code2, EXIT.ERROR);
-    assert.match(c2.err[0], /invalid --daily-cap/);
-  });
 
   test("evidence with explicit --project uses consumer review domains or empty fallback", async () => {
     const { dir } = createConsumerProject();
@@ -706,17 +577,6 @@ describe("cli project decoupling and spending", () => {
     }
   });
 
-  test("triage rejects invalid --daily-cap and missing explicit --project", async () => {
-    const c1 = capture();
-    const code1 = await main(["triage", "--yes", "--daily-cap", "not-a-number", "Test prompt"], c1.io);
-    assert.equal(code1, EXIT.ERROR);
-    assert.match(c1.err[0], /invalid --daily-cap/);
-
-    const c2 = capture();
-    const code2 = await main(["triage", "--yes", "--project", "/missing-consumer-dir", "Test prompt"], c2.io);
-    assert.equal(code2, EXIT.ERROR);
-    assert.match(c2.err[0], /consumer project directory not found/);
-  });
 });
 
 describe("cli compact", () => {
@@ -780,4 +640,12 @@ describe("cli compact", () => {
     assert.equal(await main(["compact", "--format", "yaml", "--offline"], c3.io), EXIT.ERROR);
     assert.match(c3.err[0], /unknown format/);
   });
+});
+
+test("removed provider commands are rejected", async () => {
+  for (const command of ["triage", "spending"]) {
+    const c = capture();
+    assert.equal(await main([command], c.io), EXIT.ERROR);
+    assert.match(c.err.join("\n"), /unknown command/);
+  }
 });

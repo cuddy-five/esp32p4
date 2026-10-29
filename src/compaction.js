@@ -1,23 +1,3 @@
-/*
- * Jev-powered context sieve and log compaction module.
- *
- * Implements the fast-jev-compaction pattern: scores execution logs, compiler
- * traces, and test output to prune repetitive progress while preserving critical
- * failure diagnostics, stack traces, and exit status VERBATIM.
- *
- * Falls back to deterministic heuristics when offline, when the daily spending
- * cap is reached, or when the Jev endpoint is unreachable.
- */
-import { checkScoreAnswer } from "./routing.js";
-import { loadApiKey, requestJev } from "./jev.js";
-
-export const COMPACTION_CRITERIA = Object.freeze([
-  "Level 0: Redundant progress, heartbeat, repetitive downloading, or compiler noise with no error context.",
-  "Level 1: Informational log, build step, environment description, or non-critical trace.",
-  "Level 2: Warning, test status line, configuration detail, or diagnostic context.",
-  "Level 3: Critical assertion failure, error message, compiler diagnostic, exception, or exit summary.",
-]);
-
 const ERROR_PATTERNS = /(?:error|fail|exception|assert|traceback|panic|reject|fatal)/i;
 const EXIT_PATTERNS = /(?:exit(?:ed)?\s+(?:with\s+code\s+)?\d+|process\s+exited|finished\s+with\s+exit\s+code)/i;
 const WARNING_PATTERNS = /(?:warn|warning|caution|deprecated|unhandled)/i;
@@ -118,63 +98,7 @@ export function deterministicScoreChunk(chunkText, index, totalChunks) {
 }
 
 /**
- * Build a Jev System One request to score chunk utility in a single parallel batch.
- *
- * @param {Array<{ id: string, text: string }>} chunks
- * @param {{ model?: string }} [opts]
- * @returns {object} Jev request payload
- */
-export function buildCompactionRequest(chunks, { model = "jev-latest" } = {}) {
-  const questions = {};
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    questions[`score_${chunk.id}`] = {
-      type: "score",
-      instructions: "Rate the diagnostic utility of this execution log segment for root-cause analysis.",
-      criteria: COMPACTION_CRITERIA,
-    };
-  }
-  return {
-    model,
-    state: {
-      log_segments: chunks.map((c) => ({
-        id: c.id,
-        content: c.text.slice(0, 800),
-      })),
-    },
-    questions,
-  };
-}
-
-/**
- * Interpret Jev response into a map of chunk ID -> utility score (0..3).
- *
- * @param {object} response
- * @param {Array<{ id: string }>} chunks
- * @returns {Map<string, number>}
- */
-export function interpretCompactionResponse(response, chunks) {
-  const scores = new Map();
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    const qKey = `score_${chunk.id}`;
-    const ans = response?.answers?.[qKey];
-    if (ans) {
-      try {
-        const validated = checkScoreAnswer(ans, COMPACTION_CRITERIA, qKey);
-        scores.set(chunk.id, validated.score);
-        continue;
-      } catch {
-        // Fall back to heuristic if individual answer was invalid
-      }
-    }
-    scores.set(chunk.id, deterministicScoreChunk(chunk.text, i, chunks.length));
-  }
-  return scores;
-}
-
-/**
- * Compact raw log text using Jev scoring with deterministic fallback.
+ * Compact raw log text using deterministic local scoring.
  *
  * Guarantees:
  * 1. Never returns empty string if text has content.
@@ -186,28 +110,18 @@ export function interpretCompactionResponse(response, chunks) {
  * @param {string} text - Raw terminal or test log text
  * @param {{
  *   maxChars?: number,
- *   offline?: boolean,
- *   model?: string,
- *   apiKey?: string,
- *   fetchImpl?: typeof globalThis.fetch,
- *   env?: NodeJS.ProcessEnv,
  * }} [opts]
  * @returns {Promise<{
  *   compacted: string,
  *   originalChars: number,
  *   compactedChars: number,
  *   reductionPercent: number,
- *   method: "jev" | "deterministic",
+ *   method: "deterministic",
  *   prunedChunks: number,
  * }>}
  */
 export async function compactLogs(text, {
   maxChars = 2000,
-  offline = false,
-  model = "jev-latest",
-  apiKey,
-  fetchImpl,
-  env = process.env,
 } = {}) {
   if (typeof text !== "string" || text.length === 0) {
     return {
@@ -279,40 +193,12 @@ export async function compactLogs(text, {
     scores.set(chunks[i].id, deterministicScoreChunk(chunks[i].text, i, chunks.length));
   }
 
-  // Try Jev scoring unless offline requested
-  if (!offline) {
-    try {
-      const resolvedKey = apiKey ?? loadApiKey(env);
-      // Cap batch to 20 chunks to stay well inside 64 KiB request limit
-      const scoredChunks = chunks.length > 20
-        ? [chunks[0], ...chunks.slice(1, -1).slice(0, 18), chunks[chunks.length - 1]]
-        : chunks;
-
-      const request = buildCompactionRequest(scoredChunks, { model });
-      const response = await requestJev(request, {
-        apiKey: resolvedKey,
-        fetchImpl,
-        env,
-        timeoutMs: 8000,
-      });
-
-      const jevScores = interpretCompactionResponse(response, scoredChunks);
-      for (const [id, score] of jevScores.entries()) {
-        scores.set(id, score);
-      }
-      method = "jev";
-    } catch {
-      // Automatic fallback on cap reached, network timeout, or offline environment
-      method = "deterministic";
-    }
-  }
-
   // Budget allocation:
   // Reserve up to 20% for head (invocation)
   // Reserve up to 25% for tail (exit status/summary)
   const headBudget = Math.floor(maxChars * 0.20);
   const tailBudget = Math.floor(maxChars * 0.25);
-  const PRUNE_NOTICE = "[... non-critical output pruned by Jev context compaction ...]";
+  const PRUNE_NOTICE = "[... non-critical output pruned by context compaction ...]";
 
   // 1. Fit head chunk
   const headChunk = chunks[0];

@@ -10,7 +10,7 @@ The human owner who grants delegated authority and retains decisions about its e
 **Delegated authority**:
 Permission to make specified operational decisions within owner-approved limits. Expansion requires evidence of reliability and explicit owner approval.
 
-**Jev judgment**:
+**Agent judgment**:
 A probabilistic assessment used to select or trigger an action within delegated authority. It does not itself grant permission or waive a required check.
 
 **Mandatory gate**:

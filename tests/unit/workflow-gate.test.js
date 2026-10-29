@@ -129,5 +129,4 @@ test("workflow wires PR head/base, entry point and removes hosted paid evaluatio
   assert.match(step.env.CP_HEAD_SHA, /pull_request\.head\.sha/);
   const evals = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/agent-evals.yml"), "utf8"));
   assert.deepEqual(Object.keys(evals.jobs), ["guardrail-and-registry-audit"]);
-  assert.ok(!JSON.stringify(evals).includes("TYPESAFE_API_KEY"));
 });

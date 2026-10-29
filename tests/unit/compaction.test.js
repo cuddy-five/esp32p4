@@ -1,12 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
-  COMPACTION_CRITERIA,
-  buildCompactionRequest,
   chunkLog,
   compactLogs,
   deterministicScoreChunk,
-  interpretCompactionResponse,
 } from "../../src/compaction.js";
 
 describe("chunkLog", () => {
@@ -46,44 +43,6 @@ describe("deterministicScoreChunk", () => {
   });
 });
 
-describe("buildCompactionRequest & interpretCompactionResponse", () => {
-  test("builds valid Jev questions for chunk batch", () => {
-    const chunks = [
-      { id: "c_0", text: "header" },
-      { id: "c_1", text: "AssertionError: boom" },
-    ];
-    const req = buildCompactionRequest(chunks, { model: "jev-fast" });
-    assert.equal(req.model, "jev-fast");
-    assert.equal(req.state.log_segments.length, 2);
-    assert.ok(req.questions.score_c_0);
-    assert.ok(req.questions.score_c_1);
-    assert.equal(req.questions.score_c_0.type, "score");
-    assert.deepEqual(req.questions.score_c_0.criteria, COMPACTION_CRITERIA);
-  });
-
-  test("interprets Jev score answers", () => {
-    const chunks = [{ id: "c_0" }, { id: "c_1" }];
-    const response = {
-      answers: {
-        score_c_0: {
-          type: "score",
-          score: 1.2,
-          confidence: 0.85,
-          probabilities: [0.1, 0.7, 0.1, 0.1],
-        },
-        score_c_1: {
-          type: "score",
-          score: 3.0,
-          confidence: 0.95,
-          probabilities: [0.01, 0.02, 0.07, 0.9],
-        },
-      },
-    };
-    const scores = interpretCompactionResponse(response, chunks);
-    assert.equal(scores.get("c_0"), 1.2);
-    assert.equal(scores.get("c_1"), 3.0);
-  });
-});
 
 describe("compactLogs", () => {
   test("returns unchanged when text is within maxChars", async () => {
@@ -111,7 +70,7 @@ describe("compactLogs", () => {
     assert.match(res.compacted, /Invocation: npm run test:e2e/);
     assert.match(res.compacted, /AssertionError: expected status 200/);
     assert.match(res.compacted, /Process exited with code 1/);
-    assert.match(res.compacted, /pruned by Jev context compaction/);
+    assert.match(res.compacted, /pruned by context compaction/);
     assert.ok(res.reductionPercent > 50);
     assert.equal(res.method, "deterministic");
   });
@@ -125,60 +84,6 @@ describe("compactLogs", () => {
     assert.match(res.compacted, /\[truncated\]/);
   });
 
-  test("calls Jev when online and falls back cleanly on error", async () => {
-    const text = [
-      "Head command invocation",
-      ...Array.from({ length: 30 }, (_, i) => `Info step ${i} running`),
-      "CriticalError: database schema mismatch in migration 0004",
-      ...Array.from({ length: 30 }, (_, i) => `Info step ${i + 30} running`),
-      "Tail: exited 1",
-    ].join("\n");
-
-    let fetchCalled = false;
-    const fakeFetch = async (_url, options) => {
-      fetchCalled = true;
-      const body = JSON.parse(options.body);
-      const answers = {};
-      for (const key of Object.keys(body.questions)) {
-        const id = key.replace("score_", "");
-        const seg = body.state.log_segments.find((s) => s.id === id);
-        const isCritical = /CriticalError/.test(seg?.content ?? "");
-        answers[key] = {
-          type: "score",
-          score: isCritical ? 3.0 : 0.2,
-          confidence: 0.95,
-          probabilities: isCritical ? [0, 0, 0, 1] : [0.8, 0.2, 0, 0],
-        };
-      }
-      return new Response(JSON.stringify({
-        model: "jev-1.14.0",
-        usage: { input_tokens: 200, output_tokens: 20 },
-        answers,
-      }), { status: 200 });
-    };
-
-    const onlineRes = await compactLogs(text, {
-      maxChars: 500,
-      apiKey: "test-key",
-      fetchImpl: fakeFetch,
-    });
-
-    assert.equal(fetchCalled, true);
-    assert.equal(onlineRes.method, "jev");
-    assert.ok(onlineRes.compactedChars <= 500);
-    assert.match(onlineRes.compacted, /CriticalError/);
-
-    // Simulated network failure falls back to deterministic
-    const failFetch = async () => { throw new Error("Network unreachable"); };
-    const fallbackRes = await compactLogs(text, {
-      maxChars: 500,
-      apiKey: "test-key",
-      fetchImpl: failFetch,
-    });
-    assert.equal(fallbackRes.method, "deterministic");
-    assert.ok(fallbackRes.compactedChars <= 500);
-    assert.match(fallbackRes.compacted, /CriticalError/);
-  });
 
   test("strictly respects maxChars when maxChars < 15 and never expands", async () => {
     const long = "abcdefghijklmnopqrstuvwxyz".repeat(10);
@@ -202,7 +107,23 @@ describe("compactLogs", () => {
     const res = await compactLogs(text, { maxChars: 300, offline: true });
     assert.match(res.compacted, /Invocation: test-runner/);
     assert.match(res.compacted, /Exit code: 0/);
-    assert.match(res.compacted, /pruned by Jev context compaction/);
+    assert.match(res.compacted, /pruned by context compaction/);
     assert.ok(res.compactedChars <= 300);
   });
+});
+
+test("default compaction is local and does not access the network", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; throw new Error("Network access forbidden"); };
+  try {
+    const text = "Invocation: build\n" + "building module\n".repeat(100) + "Process exited with code 1";
+    const result = await compactLogs(text, { maxChars: 400 });
+    assert.equal(calls, 0);
+    assert.equal(result.method, "deterministic");
+    assert.ok(result.compacted.length <= 400);
+    assert.match(result.compacted, /Process exited with code 1/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

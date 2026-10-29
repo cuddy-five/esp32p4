@@ -96,55 +96,6 @@ export function formatPlanMarkdown(report, { title = "Settings plan" } = {}) {
 }
 
 /**
- * Format Jev triage + synthesized contract as GitHub Step Summary Markdown.
- * @param {{ advice: any, kind: "task" | "escalation", contract: any, human_stages: string[] }} result
- */
-export function formatTriageMarkdown(result) {
-  const { advice, kind, contract, human_stages: stages = [] } = result;
-  const out = [];
-  out.push(`### Jev System One Intake Triage (\`${advice.resolved_model}\`)`);
-  out.push("");
-  out.push(`- **Disposition:** \`${advice.disposition}\``);
-  out.push(`- **Emitted Contract:** \`${kind}\` (\`${contract.id}\`)`);
-  out.push(`- **Required Human Stages:** \`${stages.join(", ") || "merge"}\``);
-  if (advice.guardrails) {
-    out.push(
-      `- **Guardrails:** risk=\`${advice.guardrails.risk_level}\`, ` +
-        `blast_radius=\`${advice.guardrails.blast_radius.score}\`, ` +
-        `prompt_injection=\`${advice.guardrails.prompt_injection.verdict}\``,
-    );
-  }
-  if (result.spending || advice.spending) {
-    const sp = result.spending || advice.spending;
-    out.push(
-      `- **Spending (Daily Cap):** spent=\`$${Number(sp.total_spent_usd ?? 0).toFixed(4)}\` / ` +
-        `cap=\`$${Number(sp.daily_cap_usd ?? 0).toFixed(2)}\` ` +
-        `(\`${sp.calls_today ?? 0}\` call${sp.calls_today === 1 ? "" : "s"} today)`,
-    );
-  }
-  out.push("");
-  if (advice.selections) {
-    out.push("| Dimension | Choice | Confidence |");
-    out.push("|---|---|---|");
-    for (const [name, sel] of Object.entries(advice.selections)) {
-      out.push(`| ${name} | \`${sel.choice ?? "none"}\` | ${sel.confidence} |`);
-    }
-    out.push("");
-  }
-  if (contract.overseer_note) {
-    out.push(`> **Overseer Note:** ${contract.overseer_note}`);
-    out.push("");
-  }
-  out.push("<details><summary>Validated Contract JSON</summary>");
-  out.push("");
-  out.push("```json");
-  out.push(JSON.stringify(contract, null, 2));
-  out.push("```");
-  out.push("</details>");
-  return out.join("\n");
-}
-
-/**
  * Render review requirements, not completed review results.
  * @param {ReturnType<import("../evidence.js").buildEvidenceContract>} result
  */

@@ -22,7 +22,7 @@ include-custom-instructions: true
 
 # Rust Firmware Specialist Agent — ESP32-P4 Bitcoin Hardware Wallet
 
-**Current mode:** Work directly on the owner's request in small steps. Do not require task or plan contracts for ordinary work. Jev and automated control-plane enforcement are paused; do not call or enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
+**Current mode:** Work directly on the owner's request in small steps. Do not require task or plan contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
 **Skills:** For relevant work, use the discovered project skill(s) implementation. A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
 

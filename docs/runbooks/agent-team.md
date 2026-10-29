@@ -2,17 +2,10 @@
 
 ## Current mode: build the repository manually
 
-The owner has paused Jev and automated control-plane enforcement. For ordinary
+The owner has paused automated control-plane enforcement. For ordinary
 owner-directed work, make small changes, run relevant checks, and let the owner
 commit or merge. The formal contracts and approval stages below are preparation
 for the future automated team, not required paperwork for every edit now.
-
-The GitHub workflows `intake`, `merge-gate`, `settings-sync`, `agent-evals`, and
-`repo-status.lock.yml` are paused through GitHub's workflow settings. Keep their
-files for later. Ordinary CI remains available; its tests do not call paid Jev.
-The declared branch/tag rulesets are disabled. No local commit hook was active
-when this mode was recorded. Do not treat this note as proof of future live
-settings: check GitHub if someone changes them.
 
 To resume automation, the owner must request it. Review the workflow, access,
 spending and protection settings before enabling the relevant pieces. Do not
@@ -28,14 +21,7 @@ and [approval policy](../../.github/control-plane/policies/approvals.yaml).
 There is no running dispatcher or approval authenticator. People and agents
 must uphold these working agreements.
 
-The `merge-gate` workflow is informational: on a pull request it compares
-the event's base and head commits and reports task scope and approval stages
-as unknown. A successful status only confirms the report ran, even if it is a
-required branch-protection check. A manually supplied task is a declaration;
-its provenance, relationship to a PR, completed reviews, and human approval
-remain unverified. Human oversight and an exact-commit merge decision remain
-necessary. Hosted paid Jev evaluation is unavailable pending durable shared
-accounting across runs; the owner-run evaluator remains opt-in.
+The merge-gate workflow is informational. A successful report is not proof of task scope, completed reviews or human approval. There is no authenticated automatic approval gate.
 
 ## 1. Establish the project and task
 

@@ -5,7 +5,7 @@ built from it. Humans may read this too; it is written so they can.
 
 ## Current mode: owner-directed development
 
-The owner has paused Jev and automated control-plane enforcement while this
+The owner has paused automated control-plane enforcement while this
 repository is being built. Ordinary owner-directed edits and commits do not
 require the full task/plan/approval contract process below. Use small changes,
 appropriate checks and plain-language progress notes. Keep secrets private,
@@ -14,8 +14,20 @@ explicitly authorized. Independent review can still help without the full
 team ceremony.
 
 The formal process below describes the future automated team. Do not enable
-Jev workflows, scheduled agent jobs or repository protection rules without
+scheduled agent jobs or repository protection rules without
 the owner's instruction. See the current-mode note in the manual team runbook.
+
+## Read-only tasks and truthful reporting
+
+An explicit read-only or no-edit request prohibits persistent writes anywhere,
+including Basic Memory, handoff notes, issue comments and external services.
+Automatic lesson capture does not override that request. Return findings in the
+conversation; defer saving them until a write is authorized.
+
+Report observed tool and MCP failures even when they do not block the task.
+Distinguish configured, available and successfully used capabilities. A file
+mention or explicit profile read does not prove the client selected that agent.
+Distinguish automatically supplied instructions from explicitly read files.
 
 ## What this is
 

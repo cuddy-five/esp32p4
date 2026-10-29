@@ -7,7 +7,7 @@ description: 'Conduct adversarial plan, code, and security reviews mapped to .re
 
 ## Current manual mode
 
-Independently review the requested change without fixing it. Report concrete findings and checks in plain language; no review contract is required. Jev and automated control-plane enforcement stay paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Independently review the requested change without fixing it. Report concrete findings and checks in plain language; no review contract is required. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team When to Use
 Load this skill when inspecting a `plan` (`review_kind: "plan"`) or an implementation diff + `evidence` (`review_kind: "code"` or `"security"`) in the `planning` or `in_review` states.

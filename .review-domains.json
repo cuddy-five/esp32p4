@@ -30,7 +30,7 @@
         "A new contract field needs a schema, an example, and a negative test.",
         "Mutating commands require --yes. Exit codes stay 0, 1, and 2.",
         "No secrets in contracts, logs, tests, or notes.",
-        "A Jev answer is advice, not permission to merge."
+        "Agent advice is not permission to merge."
       ]
     },
     {

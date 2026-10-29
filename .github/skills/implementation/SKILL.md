@@ -7,7 +7,7 @@ description: 'Execute approved plan steps using TDD Red-Green-Refactor for Node 
 
 ## Current manual mode
 
-Carry out the owner-requested change in small steps, preserve unrelated work, and run useful checks. Use test-first work when it fits; no formal contract is required. Jev and automated control-plane enforcement stay paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Carry out the owner-requested change in small steps, preserve unrelated work, and run useful checks. Use test-first work when it fits; no formal contract is required. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team When to Use
 Load this skill when executing an approved `plan` contract in the `in_progress` state.

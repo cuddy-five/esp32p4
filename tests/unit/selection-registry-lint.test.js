@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { readFileSync } from 'node:fs';
 import { Registry } from '../../src/lib/registry.js';
 
 const registry = new Registry();
@@ -18,23 +17,6 @@ test('descriptions are decision rules: bounded, unique, with Choose/Not', () => 
   }
 });
 
-test('evaluation cases only expect ids that exist in the registry', () => {
-  const cases = JSON.parse(readFileSync(new URL('../live/jev-selection-cases.json', import.meta.url)));
-  assert.ok(cases.length >= 10);
-  const ids = new Set();
-  for (const c of cases) {
-    assert.ok(!ids.has(c.id), `duplicate case ${c.id}`);
-    ids.add(c.id);
-    for (const [kind, key] of Object.entries(kinds)) {
-      const want = c.expected[kind];
-      if (want == null) continue;
-      assert.ok(
-        registry.loadRegistry(key)[key].some((e) => e.id === want && e.enabled),
-        `${c.id}: ${kind} ${want} not in registry`,
-      );
-    }
-  }
-});
 
 test('agents declare required budgets and scopes', () => {
   const agents = registry.loadRegistry('agents').agents;

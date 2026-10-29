@@ -10,7 +10,7 @@ argument-hint: 'Describe the interrupted work or link its handoff'
 
 ## Current manual mode
 
-Inspect the current checkout and existing handoff. Explain what finished, what remains, and what to do next. Do not replay an external action whose result is unknown. Jev and automated control-plane enforcement stay paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Inspect the current checkout and existing handoff. Explain what finished, what remains, and what to do next. Do not replay an external action whose result is unknown. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team Mission
 Inspect an interrupted or halted checkout against durable control-plane contracts (`task`, `plan`, `handoff`, `evidence`, `review`, `escalation`), verify snapshot integrity and approval freshness, and emit a validated resume `handoff` or `escalation` contract.

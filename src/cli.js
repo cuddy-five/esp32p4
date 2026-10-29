@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
@@ -8,26 +7,15 @@ import { ContractRegistry, validateFile } from "./lib/contracts.js";
 import { GitHubClient, resolveRepo } from "./lib/github.js";
 import { checkPolicies, requiredHumanStages } from "./lib/orchestration.js";
 import { CONTRACTS_DIR, resolveProjectPaths } from "./lib/paths.js";
-import { Registry } from "./lib/registry.js";
 import { applyAll, exportResource, planAll, RESOURCE_NAMES, selectResources } from "./lib/settings/index.js";
 import {
   formatAnnotations,
   formatEvidenceMarkdown,
   formatPlanMarkdown,
   formatPlanText,
-  formatTriageMarkdown,
   writeStepSummary,
 } from "./lib/report.js";
-import {
-  DEFAULT_DAILY_CAP_USD,
-  getLedgerPath,
-  loadApiKey,
-  loadJevLedger,
-  requestJev,
-} from "./jev.js";
 import { loadReviewDomains } from "./review-domains.js";
-import { buildSelectionRequest, interpretSelectionResponse } from "./selection.js";
-import { synthesizeIntakeContract } from "./triage.js";
 import { buildEvidenceContract } from "./evidence.js";
 import { compactLogs } from "./compaction.js";
 
@@ -50,10 +38,6 @@ Commands
   policy stages --risk <level> [--project <dir>] [--tag t]... [--path p]...
                                Show which stages require a human for a task
 
-  triage --yes [--project <dir>] [--daily-cap <amount>] [--model <name>] [--issue <num>] [--output <file>] <request>
-                               Route a request with Jev and emit a validated
-                               task or escalation contract
-
   evidence --task <file> --sha <sha> [--project <dir>] [--path <p>]... [--output <file>]
                                Build and validate an evidence contract and
                                report scope, budget and review-domain mapping
@@ -61,12 +45,8 @@ Commands
     --summary                  Append Markdown to $GITHUB_STEP_SUMMARY when set
     --output <file>            Save only the standalone evidence contract
 
-  spending [--ledger <file>] [--format text|json] [--daily-cap <amount>]
-                               Show daily Jev token consumption and budget cap
-
   compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
-                               Compact execution/test logs using Jev System One scoring
-                               with deterministic fallback
+                               Compact execution/test logs using deterministic local scoring
 
   settings plan [--project <dir>]
                                Show what would change to reach desired state
@@ -92,7 +72,6 @@ Exit codes
  *   stderr?: (s: string) => void,
  *   env?: NodeJS.ProcessEnv,
  *   client?: GitHubClient,
- *   jevFetch?: typeof fetch,
  * }} [io]
  * @returns {Promise<number>} exit code
  */
@@ -112,14 +91,10 @@ export async function main(argv, io = {}) {
         return await cmdSettings(rest, { stdout, stderr, env, client: io.client });
       case "policy":
         return cmdPolicy(rest, { stdout, stderr });
-      case "triage":
-        return await cmdTriage(rest, { stdout, stderr, env, fetchImpl: io.jevFetch });
       case "evidence":
         return cmdEvidence(rest, { stdout, stderr, env });
-      case "spending":
-        return cmdSpending(rest, { stdout, stderr, env });
       case "compact":
-        return await cmdCompact(rest, { stdout, stderr, env, fetchImpl: io.jevFetch, stdin: io.stdin });
+        return await cmdCompact(rest, { stdout, stderr, stdin: io.stdin });
       case undefined:
       case "help":
       case "--help":
@@ -291,104 +266,6 @@ function cmdPolicy(args, { stdout, stderr }) {
   return EXIT.ERROR;
 }
 
-async function cmdTriage(args, { stdout, stderr, env, fetchImpl }) {
-  const { values, positionals } = parseArgs({
-    args,
-    allowPositionals: true,
-    options: {
-      project: { type: "string" },
-      "daily-cap": { type: "string" },
-      yes: { type: "boolean", default: false },
-      model: { type: "string" },
-      issue: { type: "string" },
-      "requested-by": { type: "string", default: "human" },
-      output: { type: "string" },
-      format: { type: "string", default: "json" },
-      summary: { type: "boolean", default: false },
-    },
-  });
-  if (!values.yes) {
-    stderr("triage: refusing to call Jev without --yes");
-    return EXIT.ERROR;
-  }
-  const text = positionals.join(" ").trim();
-  if (!text) {
-    stderr("triage: request text is required");
-    return EXIT.ERROR;
-  }
-  const model = values.model ?? env.TYPESAFE_MODEL ?? "jev-latest";
-  const issueNumber = values.issue ? Number.parseInt(values.issue, 10) : undefined;
-  if (values.issue && (!Number.isInteger(issueNumber) || issueNumber < 1)) {
-    stderr(`triage: invalid --issue "${values.issue}"`);
-    return EXIT.ERROR;
-  }
-
-  const dailyCapUsd = values["daily-cap"] ? Number.parseFloat(values["daily-cap"]) : undefined;
-  if (values["daily-cap"] && (!Number.isFinite(dailyCapUsd) || dailyCapUsd <= 0)) {
-    stderr(`triage: invalid --daily-cap "${values["daily-cap"]}"`);
-    return EXIT.ERROR;
-  }
-
-  let paths;
-  try {
-    paths = resolveProjectPaths(values.project);
-  } catch (err) {
-    stderr(`triage: ${err.message}`);
-    return EXIT.ERROR;
-  }
-
-  let registry;
-  if (paths.isExplicit) {
-    if (!fs.existsSync(paths.approvalsFile)) {
-      stderr(`triage: approvals policy not found at "${paths.approvalsFile}"`);
-      return EXIT.ERROR;
-    }
-    try {
-      registry = new Registry({ rootDir: paths.projectDir });
-    } catch (err) {
-      stderr(`triage: failed to load project registry: ${err.message}`);
-      return EXIT.ERROR;
-    }
-  }
-
-  const request = buildSelectionRequest(text, model, registry, { includeGuardrails: true });
-  const response = await requestJev(request, {
-    apiKey: loadApiKey(env),
-    env,
-    ...(dailyCapUsd ? { dailyCapUsd } : {}),
-    ...(fetchImpl ? { fetchImpl } : {}),
-  });
-  const advice = interpretSelectionResponse(response, request);
-  const synthesized = synthesizeIntakeContract(text, advice, {
-    issueNumber,
-    requestedBy: values["requested-by"],
-    ...(registry ? { registry } : {}),
-    ...(paths.isExplicit
-      ? {
-          policies: {
-            stateMachineFile: paths.stateMachineFile,
-            approvalsFile: paths.approvalsFile,
-            contractsDir: CONTRACTS_DIR,
-          },
-        }
-      : {}),
-  });
-  const full = { advice, ...synthesized, ...(response.spending ? { spending: response.spending } : {}) };
-
-  if (values.output) {
-    fs.writeFileSync(values.output, `${JSON.stringify(synthesized.contract, null, 2)}\n`, "utf8");
-  }
-  if (values.summary) {
-    writeStepSummary(formatTriageMarkdown(full), env);
-  }
-  if (values.format === "markdown") {
-    stdout(formatTriageMarkdown(full));
-  } else {
-    stdout(JSON.stringify(full, null, 2));
-  }
-  return EXIT.OK;
-}
-
 function cmdEvidence(args, { stdout, stderr, env }) {
   const { values } = parseArgs({
     args,
@@ -480,53 +357,7 @@ function cmdEvidence(args, { stdout, stderr, env }) {
   return result.gates.within_scope && result.gates.within_budget ? EXIT.OK : EXIT.FAILED;
 }
 
-function cmdSpending(args, { stdout, stderr, env }) {
-  const { values } = parseArgs({
-    args,
-    options: {
-      ledger: { type: "string" },
-      format: { type: "string", default: "text" },
-      "daily-cap": { type: "string" },
-    },
-  });
-  if (!["text", "json"].includes(values.format)) {
-    stderr(`spending: unknown format "${values.format}" (expected text or json)`);
-    return EXIT.ERROR;
-  }
-  const dailyCapUsd = values["daily-cap"] ? Number.parseFloat(values["daily-cap"]) : undefined;
-  if (values["daily-cap"] && (!Number.isFinite(dailyCapUsd) || dailyCapUsd <= 0)) {
-    stderr(`spending: invalid --daily-cap "${values["daily-cap"]}"`);
-    return EXIT.ERROR;
-  }
-  const ledgerPath = values.ledger ?? getLedgerPath(env);
-  const cap = dailyCapUsd ?? (env.JEV_DAILY_CAP_USD ? Number.parseFloat(env.JEV_DAILY_CAP_USD) : DEFAULT_DAILY_CAP_USD);
-  const ledger = loadJevLedger({ ledgerPath, dailyCapUsd: cap });
-  if (dailyCapUsd !== undefined) {
-    ledger.daily_cap_usd = dailyCapUsd;
-  }
-  const remaining = Math.max(0, ledger.daily_cap_usd - ledger.total_spent_usd);
-
-  if (values.format === "json") {
-    stdout(JSON.stringify({
-      ...ledger,
-      remaining_budget_usd: Number(remaining.toFixed(6)),
-      ledger_file: ledgerPath,
-    }, null, 2));
-    return EXIT.OK;
-  }
-
-  stdout(`date:             ${ledger.date}`);
-  stdout(`daily cap:        $${ledger.daily_cap_usd.toFixed(2)}`);
-  stdout(`total spent:      $${ledger.total_spent_usd.toFixed(4)}`);
-  stdout(`remaining:        $${remaining.toFixed(4)}`);
-  stdout(`calls today:      ${ledger.calls}`);
-  stdout(`input tokens:     ${ledger.total_input_tokens}`);
-  stdout(`output tokens:    ${ledger.total_output_tokens}`);
-  stdout(`ledger file:      ${ledgerPath}`);
-  return EXIT.OK;
-}
-
-async function cmdCompact(args, { stdout, stderr, env, fetchImpl, stdin }) {
+async function cmdCompact(args, { stdout, stderr, stdin }) {
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
@@ -534,7 +365,6 @@ async function cmdCompact(args, { stdout, stderr, env, fetchImpl, stdin }) {
       file: { type: "string" },
       "max-chars": { type: "string", default: "2000" },
       offline: { type: "boolean", default: false },
-      model: { type: "string", default: "jev-latest" },
       format: { type: "string", default: "text" },
       output: { type: "string" },
     },
@@ -572,9 +402,6 @@ async function cmdCompact(args, { stdout, stderr, env, fetchImpl, stdin }) {
   const result = await compactLogs(text, {
     maxChars,
     offline: values.offline,
-    model: values.model,
-    fetchImpl,
-    env,
   });
 
   if (values.output) {

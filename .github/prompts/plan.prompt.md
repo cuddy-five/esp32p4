@@ -10,7 +10,7 @@ argument-hint: 'Describe the task or provide an issue link'
 
 ## Current manual mode
 
-Inspect the request and relevant files. Return a short, plain-language plan with scope and checks; do not require a task or plan contract. Jev and automated control-plane enforcement stay paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Inspect the request and relevant files. Return a short, plain-language plan with scope and checks; do not require a task or plan contract. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team Mission
 Analyze an accepted `task` contract, research the affected files in the repository, and produce a schema-validated `plan` contract JSON file with step-by-step tests, required approvals, and a rollback strategy.

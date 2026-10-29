@@ -7,7 +7,7 @@ description: 'Decompose control-plane and ESP32-P4 firmware tasks into schema-va
 
 ## Current manual mode
 
-Inspect the request and relevant files, then give a short plan with scope, checks and next step. A formal task or plan contract is not required. Jev and automated control-plane enforcement stay paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Inspect the request and relevant files, then give a short plan with scope, checks and next step. A formal task or plan contract is not required. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team When to Use
 Load this skill when turning an accepted `task` contract or GitHub Issue into a `plan` contract (`plan.schema.json`) during the `planning` state.

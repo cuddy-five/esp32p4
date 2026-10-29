@@ -11,7 +11,8 @@ task explicitly introduces one. Agents also follow [AGENTS.md](AGENTS.md).
 Use the [manual team runbook](docs/runbooks/agent-team.md) for role assignment,
 exact revision evidence, halt and resume. Copy the
 [project brief](docs/templates/project-brief.md) to `PROJECT.md` when establishing
-requirements; leave unresolved choices explicit.
+requirements; leave unresolved choices explicit. New to the roles? Read
+[Using this repository's agents](docs/runbooks/using-agents.md).
 
 ## Follow one change
 
