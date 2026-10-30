@@ -16,8 +16,7 @@
         "allowed_paths": [
           ".github/control-plane/**",
           "docs/**",
-          "src/**",
-          "tests/**"
+          ".runtime/**"
         ],
         "forbidden_paths": [
           ".env*",

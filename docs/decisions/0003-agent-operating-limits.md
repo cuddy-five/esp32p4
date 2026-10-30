@@ -2,6 +2,19 @@
 
 Status: retained owner decisions. Automated enforcement remains future work; ordinary owner-directed development uses the manual process.
 
+## Current operating agreement (2026-10-29)
+
+The owner selected plain-language essentials: outcome, scope, acceptance checks,
+handoff/results and owner authority. Existing JSON contracts remain available
+for explicit use; automated routing and extra contract requirements stay deferred.
+Rust design choices require evidence, including entropy-source and conditioning
+choices. Camera noise is not a mandatory entropy ingredient.
+
+The reviewer may use shell inspection while remaining read-only. It must not
+edit, create artifacts, run commands with unknown write effects or mutate remote
+services. Profile instructions do not enforce filesystem isolation; actual
+read-only sandbox/permission enforcement must be verified separately.
+
 ## Agreed operating limits
 
 After plan approval, the team may implement, test, review, and repair within scope and enforced limits before presenting the human merge decision. Retain separate planner, implementer, reviewer, security auditor, and verifier roles, with task-specific expertise and tools.

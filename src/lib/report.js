@@ -38,7 +38,13 @@ export function formatPlanText(report, { verbose = false } = {}) {
       .join(", ");
     lines.push(`${r.name}: ${r.drift ? "drift detected" : "in sync"}${summary ? ` (${summary})` : ""}`);
     for (const op of sortOps(r.ops)) {
-      if (op.type === "noop" && !verbose) continue;
+      const unverified = op.unverified?.length
+        ? `      not verified: ${op.unverified.join(", ")} not readable with this token, so not compared`
+        : undefined;
+      if (op.type === "noop" && !verbose) {
+        if (unverified) lines.push(`  ! unverified ${op.name}`, unverified);
+        continue;
+      }
       const label = op.type === "rename" ? `${op.from} -> ${op.name}` : op.name;
       lines.push(`  ${OP_GLYPH[op.type] ?? " "} ${op.type.padEnd(9)} ${label}`);
       if (op.type === "update" || op.type === "rename") {
@@ -47,6 +53,7 @@ export function formatPlanText(report, { verbose = false } = {}) {
           lines.push(`      ${c.path}: ${short(c.from)} -> ${short(c.to)}`);
         }
       }
+      if (unverified) lines.push(unverified);
     }
   }
   lines.push(report.drift ? "result: drift" : "result: no drift");
@@ -92,6 +99,12 @@ export function formatPlanMarkdown(report, { title = "Settings plan" } = {}) {
       out.push(`| ${resource} | ${op.type} | \`${label}\` | ${changes || "—"} |`);
     }
   }
+  const unverified = report.resources.flatMap((r) =>
+    r.ops
+      .filter((op) => op.unverified?.length)
+      .map((op) => `- \`${r.name}\` \`${op.name}\`: ${op.unverified.join(", ")} not readable with this token, so not compared.`),
+  );
+  if (unverified.length > 0) out.push("", "**Not verified:**", ...unverified);
   return out.join("\n");
 }
 
@@ -169,11 +182,29 @@ export function writeStepSummary(markdown, env = process.env) {
 }
 
 /**
- * Emit `::error file=...,line=...::message` annotations for Actions.
+ * Escape control characters so untrusted text stays on one output line. Every
+ * line then starts with the caller's own prefix and cannot begin a GitHub
+ * Actions workflow command (`::name::`).
+ * @param {unknown} value
+ */
+export function printable(value) {
+  return String(value ?? "").replace(
+    /[\u0000-\u001f\u007f\u2028\u2029]/g,
+    (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+  );
+}
+
+// Same escaping as the official Actions toolkit (@actions/core command.ts).
+const escapeData = (s) => String(s).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+const escapeProperty = (s) => escapeData(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
+
+/**
+ * Emit `::error file=...::message` annotations for Actions. Document-controlled
+ * text is escaped so it cannot end the command and start another one.
  * @param {{ file: string, errors: Array<{ path: string, message: string }> }} result
  */
 export function formatAnnotations(result) {
-  return result.errors.map((e) => `::error file=${result.file}::${e.path}: ${e.message}`);
+  return result.errors.map((e) => `::error file=${escapeProperty(result.file)}::${escapeData(`${e.path}: ${e.message}`)}`);
 }
 
 function sortOps(ops) {

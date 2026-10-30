@@ -48,14 +48,16 @@ describe("Owner-directed agent team configuration", () => {
     }
   });
 
-  test("agents have tools for their actual work without giving the reviewer edit or shell access", () => {
+  test("agents have tools for their actual work with reviewer shell inspection but no edit or remote mutation tools", () => {
     const tools = (name) => readProfile(path.join(agentsDir, `${name}.agent.md`)).header.tools;
     assert.ok(tools("planner").includes("execute"), "planner needs to run validation when requested");
     for (const name of ["implementer", "rust-coder"]) {
       assert.ok(tools(name).includes("edit") && tools(name).includes("execute"), `${name} needs edit and build tools`);
     }
     assert.ok(tools("verifier").includes("execute"), "verifier needs to run checks");
-    assert.ok(!tools("reviewer").includes("edit") && !tools("reviewer").includes("execute"));
+    assert.ok(tools("reviewer").includes("execute"));
+    assert.ok(!tools("reviewer").includes("edit"));
+    assert.ok(!tools("reviewer").includes("github/*"));
   });
 
   test("the coordinator preserves manual mode without invoking intake", () => {

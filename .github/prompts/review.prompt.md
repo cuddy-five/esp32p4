@@ -2,7 +2,7 @@
 name: review
 description: 'Independently review a plan or change and report actionable findings'
 agent: reviewer
-tools: ['read', 'search', 'github/*']
+tools: ['read', 'search', 'execute']
 argument-hint: 'Provide the plan or change to review'
 ---
 

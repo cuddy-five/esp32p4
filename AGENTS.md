@@ -17,6 +17,28 @@ The formal process below describes the future automated team. Do not enable
 scheduled agent jobs or repository protection rules without
 the owner's instruction. See the current-mode note in the manual team runbook.
 
+## Fundamental work agreement
+
+For current work, keep one short plain-language agreement in the conversation:
+requested outcome, allowed files or area, acceptance checks, and who owns the
+next step. Reuse the owner's request when it already supplies these details.
+Do not require a separate document or repeated approval for authorized work.
+
+A handoff or result states what changed, the exact work reviewed, actual checks,
+remaining problems and the next responsible role. Keep review and verification
+independent from the producer. Preserve secrets, respect read-only requests,
+stop on halt, and leave commits, external publication and merges to the owner's
+authority. Ask about material scope changes; do not infer permission from success.
+
+Existing JSON schemas remain available when explicitly requested. Validate any
+JSON contract that is produced, but do not require task, plan, review, evidence,
+escalation or result JSON for ordinary work. Automated state transitions,
+approval routing and extra contract paperwork remain deferred. This current
+agreement takes precedence over formal-contract requirements below and in
+profiles, prompts, instructions and templates. The non-negotiable principles
+still apply; their JSON fields and automated approval stages apply only when
+the owner explicitly requests the formal process.
+
 ## Read-only tasks and truthful reporting
 
 An explicit read-only or no-edit request prohibits persistent writes anywhere,

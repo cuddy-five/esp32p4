@@ -9,6 +9,10 @@
 # holds. Gates are named here for the future coordinator. Today the CLI checks
 # declarations and document shape; docs/runbooks/agent-team.md supplies the
 # manual process. No running dispatcher enforces these transitions.
+#
+# `mandatory_gates` lists gates that every route into a state must pass.
+# `policy check` searches the transition graph and fails when any route from
+# `initial` reaches the state while skipping one of them.
 
 version: 1
 
@@ -44,7 +48,7 @@ states:
     description: Result recorded with outcome success or partial. Terminal.
     owner: coordinator
   cancelled:
-    description: Result recorded with outcome aborted or escalated. Terminal.
+    description: Result recorded with outcome failed, aborted or escalated. Terminal.
     owner: coordinator
 
 # Gate names. Each must be implemented by the coordinator before the transition
@@ -87,8 +91,12 @@ gates:
     description: No escalation for this task has status open or acknowledged.
     status: planned
   retry_budget_remaining:
-    description: Number of in_review -> in_progress or verifying -> in_progress loops is below policies/retries.yaml.
+    description: Number of in_review -> in_progress or verifying -> in_progress loops is below the retry limit (ADR 0003 allows two repair rounds; policies/retries.yaml is not yet written).
     status: planned
+
+# Every route into done must pass each of these gates, whatever path the task took.
+mandatory_gates:
+  done: [plan_valid, plan_reviewed, reviews_approve, evidence_collected, within_scope, verification_passed, approval_granted]
 
 transitions:
   - from: proposed
@@ -138,9 +146,9 @@ transitions:
 
   - from: in_review
     to: in_progress
-    actor: reviewer
+    actor: [reviewer, security_auditor]
     gates: [retry_budget_remaining]
-    note: Verdict request_changes. Findings travel in the review; the implementer may not edit them.
+    note: Verdict request_changes from the code review or the security audit. Findings travel in the review; the implementer may not edit them.
 
   - from: in_review
     to: verifying
@@ -151,7 +159,7 @@ transitions:
     to: in_progress
     actor: verifier
     gates: [retry_budget_remaining]
-    note: Verification failed. The verifier's evidence replaces the implementer's as the record.
+    note: Verification failed. The verifier's own evidence replaces the earlier evidence as the record.
 
   - from: verifying
     to: awaiting_approval
@@ -162,17 +170,20 @@ transitions:
   - from: awaiting_approval
     to: done
     actor: human
-    gates: [approval_granted, verification_passed, within_budget, no_open_escalation]
-    note: Human approves the merge after verification.
+    gates: [approval_granted, plan_valid, plan_reviewed, reviews_approve, evidence_collected, within_scope, verification_passed, within_budget, no_open_escalation]
+    note: >-
+      Human approves the merge after verification. awaiting_approval also holds
+      plan-stage approvals, so this exit re-checks every mandatory gate; no route
+      into done can skip review, evidence or scope.
 
   # Any active state may block on an escalation and may be cancelled by a human.
   - from: [accepted, planning, awaiting_approval, in_progress, in_review, verifying]
     to: blocked
-    actor: [coordinator, planner, implementer, reviewer, security_auditor, verifier]
-    note: Emitting an escalation with status open moves the task here.
+    actor: [human, coordinator, planner, implementer, reviewer, security_auditor, verifier]
+    note: Emitting an escalation with status open moves the task here. A human halt also lands here (approvals.yaml overseer_powers).
 
   - from: blocked
-    to: [planning, in_progress, in_review, verifying]
+    to: [accepted, planning, awaiting_approval, in_progress, in_review, verifying]
     actor: human
     gates: [no_open_escalation]
     note: Returns to the state recorded in the escalation's related handoff.

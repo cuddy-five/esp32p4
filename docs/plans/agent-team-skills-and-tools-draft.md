@@ -17,7 +17,7 @@ A skill is a written procedure that helps an agent do a job. An MCP connection g
 | Agent | Starting skills | Why these help |
 | --- | --- | --- |
 | Coordinator | Adapt `triage` and the existing handoff procedure | Sort incoming work, pass it to the right agent, and keep progress understandable. |
-| Planner | `investigate-first`, `codebase-design` | Check the facts, reuse what exists, and prepare a clear plan. |
+| Planner | `investigate-first`, `codebase-design`, `context-engineering` | Check the facts, map relevant repository context, reuse what exists, and prepare a clear plan. |
 | Control-plane engineer | `surgical-patch` for repairs; `lean-build` for new features | Keep changes focused. Use the GitHub Actions Expert template when working on workflows. |
 | Wallet engineer | Adapt `rust-patterns` and `rust-testing`; add shared wallet references | Write and test Rust for this device, using verified Bitcoin and hardware information. |
 | Reviewer | Adapt `code-review`; add the relevant wallet or system guidance | Check whether the work follows the plan and repository rules. |
@@ -28,6 +28,10 @@ A skill is a written procedure that helps an agent do a job. An MCP connection g
 Keep extra guidance available when it fits the task. Examples include `property-based-testing` for parsers and data conversion, `agentic-actions-auditor` for workflows that run AI agents, and `domain-modeling` when a term or major design choice needs explaining. Do not load the whole library for every task.
 
 Some existing skills assume a different application, command format or kind of project. Adapt those parts instead of copying them unchanged. Keep their source and license information. Being installed for Codex does not mean a skill is already available to Copilot.
+
+## Context engineering skill
+
+The owner installed Awesome Copilot's `context-engineering` plugin for Copilot. This repository adapts its context-map and refactor-planning guidance in `.github/skills/context-engineering/`. The local skill is available as repository content; whether each Copilot client or delegated agent loads it must be checked in that client. Its rules require focused inspection, preserve read-only boundaries, and continue implementation when already authorized. Source and license are recorded in the skill notice.
 
 ## Starting MCP connections
 

@@ -144,3 +144,59 @@ describe("review-domain evidence reporting", () => {
     }
   });
 });
+
+describe("fail-closed scope and honest budgets", () => {
+  test("a missing or malformed scope permits nothing", () => {
+    assert.equal(isPathInScope(".github/workflows/ci.yml", {}), false);
+    assert.equal(isPathInScope("src/a.js", undefined), false);
+    assert.equal(isPathInScope(".github/workflows/ci.yml", { allowed_paths: "docs/**", forbidden_paths: ".github/**" }), false);
+    assert.equal(isPathInScope("docs/a.md", { allowed_paths: ["docs/**"], forbidden_paths: ".github/**" }), false);
+    assert.equal(isPathInScope("docs/a.md", { allowed_paths: ["**"] }), true);
+  });
+
+  test("the builder rejects a task that is not schema-valid", () => {
+    const bad = structuredClone(taskExample);
+    bad.scope.allowed_paths = "docs/**";
+    assert.throws(() => buildEvidenceContract(bad, { sha: VALID_SHA, paths: ["docs/a.md"] }), /schema-valid task contract/);
+  });
+
+  test("a task without allowed_paths puts every path out of scope and says why", () => {
+    const task = structuredClone(taskExample);
+    delete task.scope.allowed_paths;
+    const out = buildEvidenceContract(task, { sha: VALID_SHA, paths: ["src/cli.js"] });
+    assert.equal(out.gates.within_scope, false);
+    const scope = out.evidence.policy_results.find((r) => r.policy === "scope.paths");
+    assert.match(scope.details, /allowed_paths is not declared/);
+  });
+
+  test("unmeasured budget metrics are unknown, not zero", () => {
+    const result = evaluateBudget({}, { tokens: 100 });
+    assert.equal(result.withinBudget, true, "nothing known exceeds the ceiling");
+    assert.deepEqual(result.unknown, ["tokens"]);
+    assert.match(result.details, /tokens: unknown \(not measured\) of 100/);
+    assert.doesNotMatch(result.details, /0 of 100/);
+  });
+
+  test("the evidence budget result warns when usage was not measured", () => {
+    const task = structuredClone(taskExample);
+    task.budget = { tokens: 1000, usd: 5 };
+    const out = buildEvidenceContract(task, { sha: VALID_SHA, paths: ["src/cli.js"], budgetUsed: { tokens: 10 } });
+    const budget = out.evidence.policy_results.find((r) => r.policy === "budget.ceiling");
+    assert.equal(budget.outcome, "warn");
+    assert.deepEqual(out.budget_unknown, ["usd"]);
+    assert.equal(out.gates.within_budget, true);
+  });
+
+  test("an agent producer, role and model are recorded when supplied", () => {
+    const out = buildEvidenceContract(taskExample, {
+      sha: VALID_SHA,
+      paths: ["src/cli.js"],
+      producerKind: "agent",
+      producerName: "verifier",
+      producerRole: "verifier",
+      producerModel: "claude-haiku-4.5",
+    });
+    assert.deepEqual(out.evidence.producer, { kind: "agent", name: "verifier", role: "verifier", model: "claude-haiku-4.5" });
+    assert.ok(contracts.validate(out.evidence, { kind: "evidence" }).ok);
+  });
+});

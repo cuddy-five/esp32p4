@@ -26,12 +26,12 @@ stages:
 by_risk:
   low:
     human_stages: [merge]
-    required_reviews: [code]
+    required_reviews: [code, verification]
     security_review: optional
     note: Agents may prepare ordinary changes; the overseer decides whether to merge.
   medium:
     human_stages: [merge]
-    required_reviews: [code, security]
+    required_reviews: [code, security, verification]
     security_review: required
   high:
     human_stages: [plan, merge]
@@ -48,21 +48,25 @@ by_risk:
 # repository-relative and evaluated against evidence.diff.paths.
 always_human:
   - id: control_plane_self
-    paths: [".github/control-plane/**", ".github/workflows/**", ".github/actions/**"]
+    paths: [".github/control-plane/**", ".github/workflows/**", ".github/actions/**", ".github/hooks/**", "scripts/hooks/**", ".review-domains.json", ".gitattributes"]
     stages: [plan, merge]
-    reason: Changes to the guardrails are the highest-leverage attack surface.
+    reason: Changes to the guardrails, agent hooks, review coverage or diff visibility are the highest-leverage attack surface.
   - id: instructions_and_ownership
-    paths: ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md", "PROJECT.md", ".github/copilot-instructions.md", ".github/instructions/**", ".github/agents/**", ".github/skills/**", ".github/CODEOWNERS", "docs/runbooks/agent-team.md", "docs/runbooks/overseer.md", "docs/templates/project-brief.md"]
+    paths: ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md", "PROJECT.md", "GLOSSARY.md", ".github/copilot-instructions.md", ".github/instructions/**", ".github/agents/**", ".github/skills/**", ".github/prompts/**", ".github/CODEOWNERS", ".agents.registry.json", ".skills.registry.json", ".workflows.registry.json", "docs/decisions/**", "docs/runbooks/agent-team.md", "docs/runbooks/overseer.md", "docs/templates/project-brief.md"]
     stages: [plan, merge]
-    reason: Changes to agent instructions, project constraints, or review ownership can redirect the team.
+    reason: Changes to agent instructions, prompts and their tools, recorded decisions, project constraints, or review ownership can redirect the team.
   - id: secrets_and_auth
     tags: [secrets, auth, pii]
     stages: [plan, merge]
+  - id: ci_infrastructure_and_spending
+    tags: [ci_cd, infra, billing]
+    stages: [plan, merge]
+    reason: CI, infrastructure and billing changes affect every later task and can spend money (ADR 0003 authorizes no extra paid usage).
   - id: supply_chain
     tags: [dependencies]
-    paths: ["package.json", "**/package.json", "package-lock.json", "**/package-lock.json", "pnpm-lock.yaml", "**/pnpm-lock.yaml", "yarn.lock", "**/yarn.lock", "requirements*.txt", "**/requirements*.txt", "poetry.lock", "**/poetry.lock", "go.sum", "**/go.sum", "Cargo.lock", "**/Cargo.lock", "Gemfile.lock", "**/Gemfile.lock"]
+    paths: ["package.json", "**/package.json", "package-lock.json", "**/package-lock.json", "pnpm-lock.yaml", "**/pnpm-lock.yaml", "yarn.lock", "**/yarn.lock", "requirements*.txt", "**/requirements*.txt", "poetry.lock", "**/poetry.lock", "go.sum", "**/go.sum", "Cargo.toml", "**/Cargo.toml", "Cargo.lock", "**/Cargo.lock", "build.rs", "**/build.rs", ".cargo/config.toml", "**/.cargo/config.toml", "rust-toolchain.toml", "**/rust-toolchain.toml", "Gemfile.lock", "**/Gemfile.lock"]
     stages: [merge]
-    reason: New or changed dependencies are reviewed by a human even on low-risk tasks.
+    reason: New or changed dependencies and build-time code are reviewed by a human even on low-risk tasks.
   - id: destructive_migration
     tags: [data_migration]
     stages: [plan, merge]
@@ -79,7 +83,10 @@ approval:
     - a superseding plan for the same task
     - a new head SHA after a merge-stage approval
     - an open escalation of severity high or critical
-  record_as: annotations on the plan (plan stage) or result (merge stage), with approver, timestamp, and the SHA or plan id approved
+  # The approval itself is the original platform record (a PR review or comment by
+  # the configured overseer). Contracts only reference it: an agent-written annotation,
+  # granted_by, or producer.kind human is a claim, never proof (docs/architecture/agent-memory.md).
+  record_as: a reference to the original human record, cited from plan.approvals_required[] with stage, reference URL, approver and timestamp
 
 # What the overseer may do without an approval request being pending.
 overseer_powers:

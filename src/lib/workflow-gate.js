@@ -20,7 +20,9 @@ function commit(ref, requireSha, runGit) {
 }
 
 function changedPaths(base, head, runGit) {
-  const bytes = runGit(["diff", "--no-renames", "--name-only", "-z", base, head, "--"]);
+  // Three-dot form diffs from the merge base, so commits that landed on the base
+  // branch after the PR branched are not reported as the PR's own changes.
+  const bytes = runGit(["diff", "--no-renames", "--name-only", "-z", `${base}...${head}`, "--"]);
   if (bytes.length && bytes.at(-1) !== 0) throw new Error("Incomplete Git path output.");
   const paths = [];
   const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });

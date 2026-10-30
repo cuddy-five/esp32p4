@@ -11,6 +11,13 @@ To resume automation, the owner must request it. Review the workflow, access,
 spending and protection settings before enabling the relevant pieces. Do not
 turn everything back on merely because the files are present.
 
+## Current fundamental contracts
+
+Use the [fundamental work agreement](../../AGENTS.md#fundamental-work-agreement):
+outcome, scope, checks, handoff/results and owner authority in plain language.
+Do not turn each item into a separate form. Existing JSON contracts are optional
+unless explicitly requested; the future process below is not the default.
+
 ## Future team process
 
 Use this process to start, hand off, or resume one task. The owner describes

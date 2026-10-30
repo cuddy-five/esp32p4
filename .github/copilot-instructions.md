@@ -10,7 +10,11 @@ For task intake, handoff, or resumption, follow the
 [manual team runbook](../docs/runbooks/agent-team.md). For project constraints
 and owner choices, use the [project brief](../docs/templates/project-brief.md).
 
-Short version:
+Current work uses the fundamental work agreement in AGENTS.md: outcome, scope,
+checks, handoff/results and owner authority in plain language. Existing JSON
+contracts are used only when explicitly requested.
+
+Future automated-team short version:
 
 - Communicate across roles only through contract documents
   (`.github/control-plane/contracts/`). Validate with `node src/cli.js validate`.

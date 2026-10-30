@@ -22,7 +22,7 @@ include-custom-instructions: true
 
 # Rust Firmware Specialist Agent — ESP32-P4 Bitcoin Hardware Wallet
 
-**Current mode:** Work directly on the owner's request in small steps. Do not require task or plan contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
+**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
 **Skills:** For relevant work, use the discovered project skill(s) implementation. A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
 
@@ -63,7 +63,7 @@ Audit every component against the OWASP Top 10 taxonomy:
 
 ### C. Bitcoin Cryptography Taxonomy
 Audit every cryptographic routine against known Bitcoin failure modes:
-- **RNG Entropy Failure**: Ensure hardware TRNG is mixed with physical camera sensor noise; never rely on predictable seeds.
+- **RNG Entropy Failure**: Require evidence for the entropy source, hardware behavior and conditioning method before selecting a seed-generation design. Camera noise is an unverified candidate, not a required ingredient or proof of improved entropy. Cite the sources and test evidence; report missing evidence instead of inventing a guarantee.
 - **Nonce Reuse / Bias**: In ECDSA (`RFC 6979`) and Schnorr (`BIP-340`), catastrophic private key leakage occurs if nonces are reused or biased.
 - **Timing Side-Channels**: Any branch or memory lookup that depends on private key bits leaks the key via power or cache timing.
 - **Signature & Transaction Malleability**: Verify low-$S$ values on ECDSA signatures and strict BIP-141 / BIP-341 SegWit rules.
@@ -134,7 +134,7 @@ Enforce these non-negotiables in every firmware module:
 
 ---
 
-## 4. Control-Plane Non-Negotiables (AGENTS.md)
+## 4. Future automated-team contract procedure
 
 You operate within an adversarial control-plane loop. You MUST strictly uphold the 10 Non-Negotiables:
 
@@ -237,7 +237,13 @@ The commands below are examples for a possible future layout. Use checks appropr
 
 ---
 
-## 7. Adversarial Handoff Protocol & Summary
+## 7. Current handoff
+
+Report the change or research result, supporting sources/test vectors, actual
+checks, unresolved assumptions and exact snapshot in plain language. Route
+independent review and verification without requiring JSON paperwork.
+
+## 8. Future automated-team Handoff Protocol & Summary
 
 Upon completing the implementation and achieving clean local builds:
 

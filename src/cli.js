@@ -13,6 +13,7 @@ import {
   formatEvidenceMarkdown,
   formatPlanMarkdown,
   formatPlanText,
+  printable,
   writeStepSummary,
 } from "./lib/report.js";
 import { loadReviewDomains } from "./review-domains.js";
@@ -41,12 +42,22 @@ Commands
   evidence --task <file> --sha <sha> [--project <dir>] [--path <p>]... [--output <file>]
                                Build and validate an evidence contract and
                                report scope, budget and review-domain mapping
+    --base-sha <sha>           Record the diff base commit
+    --files-changed <n>        Changed-file count (default: number of --path)
+    --additions <n>, --deletions <n>
+                               Diff line counts (default: 0)
+    --tokens-used <n>          Measured token usage; unmeasured budgets report "unknown"
+    --producer-kind <kind>     human, agent, workflow or system (default: workflow)
+    --producer-name <name>     Who collected the evidence (default: collect-evidence)
+    --producer-role <role>     Contract role, for example verifier
+    --producer-model <model>   Model identifier when the producer is an agent
     --format json|markdown     Output format (default: json reporting envelope)
     --summary                  Append Markdown to $GITHUB_STEP_SUMMARY when set
     --output <file>            Save only the standalone evidence contract
 
   compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
                                Compact execution/test logs using deterministic local scoring
+    --offline                  Accepted for compatibility; compaction is always local
 
   settings plan [--project <dir>]
                                Show what would change to reach desired state
@@ -126,6 +137,7 @@ function cmdValidate(args, { stdout, stderr }) {
     stderr("validate: at least one file is required");
     return EXIT.ERROR;
   }
+  if (!checkFormat("validate", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
   const registry = new ContractRegistry();
   const results = positionals.map((file) => validateFile(registry, file, { kind: values.kind }));
   const failed = results.filter((r) => !r.ok);
@@ -133,12 +145,13 @@ function cmdValidate(args, { stdout, stderr }) {
   if (values.format === "json") {
     stdout(JSON.stringify({ ok: failed.length === 0, results }, null, 2));
   } else {
+    // Document-controlled text is escaped so it cannot start a workflow-command line.
     for (const r of results) {
       if (r.ok) {
-        stdout(`ok ${r.file} (${r.kind})`);
+        stdout(`ok ${printable(r.file)} (${printable(r.kind)})`);
       } else {
-        stdout(`FAIL ${r.file}${r.kind ? ` (${r.kind})` : ""}`);
-        for (const e of r.errors) stdout(`  ${e.path}: ${e.message}`);
+        stdout(`FAIL ${printable(r.file)}${r.kind ? ` (${printable(r.kind)})` : ""}`);
+        for (const e of r.errors) stdout(`  ${printable(e.path)}: ${printable(e.message)}`);
       }
     }
     stdout(`${results.length - failed.length}/${results.length} documents valid`);
@@ -147,6 +160,23 @@ function cmdValidate(args, { stdout, stderr }) {
     for (const r of failed) for (const line of formatAnnotations(r)) stdout(line);
   }
   return failed.length === 0 ? EXIT.OK : EXIT.FAILED;
+}
+
+/** Reject an unknown --format instead of silently printing the default. */
+function checkFormat(command, format, allowed, stderr) {
+  if (allowed.includes(format)) return true;
+  stderr(`${command}: unknown format "${printable(format)}" (expected ${allowed.join(" or ")})`);
+  return false;
+}
+
+/**
+ * Parse a non-negative integer flag strictly; `1e9` or `600,000` are errors, not 1 or 600.
+ * @returns {number | undefined} undefined when the value is not a plain decimal count
+ */
+function parseCount(value) {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return undefined;
+  const n = Number(value);
+  return Number.isSafeInteger(n) ? n : undefined;
 }
 
 function cmdSchema(args, { stdout, stderr }) {
@@ -195,6 +225,7 @@ function cmdPolicy(args, { stdout, stderr }) {
         return EXIT.ERROR;
       }
     }
+    if (!checkFormat("policy check", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
     const { problems, stateMachine, approvals } = checkPolicies({
       stateMachineFile: paths.stateMachineFile,
       approvalsFile: paths.approvalsFile,
@@ -203,15 +234,15 @@ function cmdPolicy(args, { stdout, stderr }) {
     if (values.format === "json") {
       stdout(JSON.stringify({ ok: problems.length === 0, problems }, null, 2));
     } else {
-      for (const p of problems) stdout(`FAIL ${path.relative(process.cwd(), p.file)}${p.path}: ${p.message}`);
-      const nStates = Object.keys(stateMachine.states).length;
-      const nTransitions = stateMachine.transitions.length;
-      const nGates = Object.keys(stateMachine.gates).length;
-      const implemented = Object.values(stateMachine.gates).filter((g) => g.status === "implemented").length;
+      for (const p of problems) stdout(`FAIL ${printable(path.relative(process.cwd(), p.file))}${printable(p.path)}: ${printable(p.message)}`);
+      // Count defensively: a sparse file is reported as problems above, not as a crash.
+      const count = (v) => (Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0);
+      const gates = stateMachine.gates && typeof stateMachine.gates === "object" ? Object.values(stateMachine.gates) : [];
+      const implemented = gates.filter((g) => g?.status === "implemented").length;
       stdout(
-        `state machine: ${nStates} states, ${nTransitions} transition rules, ${nGates} gates (${implemented} implemented)`,
+        `state machine: ${count(stateMachine.states)} states, ${count(stateMachine.transitions)} transition rules, ${gates.length} gates (${implemented} implemented)`,
       );
-      stdout(`approvals: ${Object.keys(approvals.by_risk).length} risk levels, ${approvals.always_human.length} always-human rules`);
+      stdout(`approvals: ${count(approvals.by_risk)} risk levels, ${count(approvals.always_human)} always-human rules`);
       stdout(problems.length === 0 ? "policy: ok" : `policy: ${problems.length} problem${problems.length === 1 ? "" : "s"}`);
     }
     return problems.length === 0 ? EXIT.OK : EXIT.FAILED;
@@ -242,13 +273,20 @@ function cmdPolicy(args, { stdout, stderr }) {
       stderr(`policy stages: approvals policy not found at "${paths.approvalsFile}"`);
       return EXIT.ERROR;
     }
-    const { approvals } = checkPolicies({
+    if (!checkFormat("policy stages", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
+    const { problems, approvals } = checkPolicies({
       stateMachineFile: paths.stateMachineFile,
       approvalsFile: paths.approvalsFile,
       contractsDir: CONTRACTS_DIR,
     });
-    if (!approvals.by_risk[values.risk]) {
-      stderr(`policy stages: unknown risk level "${values.risk}"`);
+    // Stages computed from an invalid policy would look authoritative; refuse instead.
+    if (problems.length > 0) {
+      for (const p of problems) stderr(`policy stages: ${printable(p.path)}: ${printable(p.message)}`);
+      stderr("policy stages: policy files are invalid; run `policy check`");
+      return EXIT.FAILED;
+    }
+    if (!Object.hasOwn(approvals.by_risk ?? {}, values.risk)) {
+      stderr(`policy stages: unknown risk level "${printable(values.risk)}"`);
       return EXIT.ERROR;
     }
     const out = requiredHumanStages(approvals, { risk: { level: values.risk, tags: values.tag }, paths: values.path });
@@ -279,6 +317,10 @@ function cmdEvidence(args, { stdout, stderr, env }) {
       additions: { type: "string", default: "0" },
       deletions: { type: "string", default: "0" },
       "tokens-used": { type: "string" },
+      "producer-kind": { type: "string" },
+      "producer-name": { type: "string" },
+      "producer-role": { type: "string" },
+      "producer-model": { type: "string" },
       output: { type: "string" },
       format: { type: "string", default: "json" },
       summary: { type: "boolean", default: false },
@@ -322,14 +364,24 @@ function cmdEvidence(args, { stdout, stderr, env }) {
     stderr(`evidence: cannot read task contract "${values.task}": ${err.message}`);
     return EXIT.ERROR;
   }
-  const additions = Number.parseInt(values.additions, 10) || 0;
-  const deletions = Number.parseInt(values.deletions, 10) || 0;
-  const filesChanged = values["files-changed"]
-    ? Number.parseInt(values["files-changed"], 10)
-    : values.path.length;
-  const budgetUsed = values["tokens-used"]
-    ? { tokens: Number.parseInt(values["tokens-used"], 10) }
-    : undefined;
+  // A malformed scope must not be evaluated as permissive; reject the task first.
+  const taskCheck = new ContractRegistry().validate(task, { kind: "task" });
+  if (!taskCheck.ok) {
+    stderr(`evidence: task contract "${printable(values.task)}" is invalid`);
+    for (const e of taskCheck.errors) stderr(`  ${printable(e.path)}: ${printable(e.message)}`);
+    return EXIT.FAILED;
+  }
+  const counts = {};
+  for (const flag of ["additions", "deletions", "files-changed", "tokens-used"]) {
+    if (values[flag] === undefined) continue;
+    counts[flag] = parseCount(values[flag]);
+    if (counts[flag] === undefined) {
+      stderr(`evidence: --${flag} must be a non-negative whole number, got "${printable(values[flag])}"`);
+      return EXIT.ERROR;
+    }
+  }
+  const filesChanged = counts["files-changed"] ?? values.path.length;
+  const budgetUsed = counts["tokens-used"] !== undefined ? { tokens: counts["tokens-used"] } : undefined;
 
   let result;
   try {
@@ -338,9 +390,13 @@ function cmdEvidence(args, { stdout, stderr, env }) {
       baseSha: values["base-sha"],
       paths: values.path,
       filesChanged,
-      additions,
-      deletions,
+      additions: counts.additions ?? 0,
+      deletions: counts.deletions ?? 0,
       budgetUsed,
+      ...(values["producer-kind"] ? { producerKind: values["producer-kind"] } : {}),
+      ...(values["producer-name"] ? { producerName: values["producer-name"] } : {}),
+      ...(values["producer-role"] ? { producerRole: values["producer-role"] } : {}),
+      ...(values["producer-model"] ? { producerModel: values["producer-model"] } : {}),
       ...(reviewDomains ? { reviewDomains } : {}),
     });
   } catch (err) {
@@ -375,8 +431,8 @@ async function cmdCompact(args, { stdout, stderr, stdin }) {
     return EXIT.ERROR;
   }
 
-  const maxChars = Number.parseInt(values["max-chars"], 10);
-  if (!Number.isFinite(maxChars) || maxChars <= 0) {
+  const maxChars = parseCount(values["max-chars"]);
+  if (maxChars === undefined || maxChars <= 0) {
     stderr(`compact: invalid --max-chars "${values["max-chars"]}"`);
     return EXIT.ERROR;
   }

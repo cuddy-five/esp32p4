@@ -409,3 +409,210 @@ describe("cli policy", () => {
     assert.equal(await main(["policy", "nope"], capture().io), EXIT.ERROR);
   });
 });
+
+describe("loader-enforced invariants", () => {
+  function capture() {
+    const out = [];
+    const err = [];
+    return { out, err, io: { stdout: (s) => out.push(s), stderr: (s) => err.push(s), env: {} } };
+  }
+  const withText = (text) => {
+    const tmp = path.join(os.tmpdir(), `cp-raw-${process.pid}-${Math.random().toString(36).slice(2)}.yaml`);
+    fs.writeFileSync(tmp, text);
+    return tmp;
+  };
+
+  test("every mandatory gate holds on every route into done", () => {
+    const { doc, problems } = loadStateMachine();
+    assert.deepEqual(problems, []);
+    assert.deepEqual([...doc.mandatory_gates.done].sort(), [
+      "approval_granted", "evidence_collected", "plan_reviewed", "plan_valid",
+      "reviews_approve", "verification_passed", "within_scope",
+    ]);
+  });
+
+  test("a route into done that skips a mandatory gate is reported", () => {
+    const f = withMutated(STATE_MACHINE_FILE, (d) => {
+      const intoDone = d.transitions.find((t) => t.from === "awaiting_approval" && t.to === "done");
+      intoDone.gates = intoDone.gates.filter((g) => g !== "reviews_approve");
+    });
+    const { problems } = loadStateMachine({ file: f, enums });
+    assert.ok(problems.some((p) => p.message === '"done" is reachable without gate "reviews_approve"'));
+  });
+
+  test("an undefined mandatory gate is reported", () => {
+    const f = withMutated(STATE_MACHINE_FILE, (d) => {
+      d.mandatory_gates.done.push("vibes");
+    });
+    const { problems } = loadStateMachine({ file: f, enums });
+    assert.ok(problems.some((p) => p.path === "/mandatory_gates/done" && /gate "vibes" is not defined/.test(p.message)));
+  });
+
+  test("a human can halt every active state, and blocked returns to each of them", () => {
+    const { edges } = loadStateMachine();
+    const into = edges.filter((e) => e.to === "blocked");
+    assert.ok(into.every((e) => e.actors.includes("human")));
+    const sources = new Set(into.map((e) => e.from));
+    const targets = new Set(edges.filter((e) => e.from === "blocked" && e.to !== "cancelled").map((e) => e.to));
+    for (const s of sources) assert.ok(targets.has(s), `blocked cannot return to ${s}`);
+  });
+
+  test("the security auditor can send work back from review", () => {
+    const { edges } = loadStateMachine();
+    const back = edges.find((e) => e.from === "in_review" && e.to === "in_progress");
+    assert.ok(back.actors.includes("security_auditor"));
+  });
+
+  test("the implementer may not move a task into verifying", () => {
+    const f = withMutated(STATE_MACHINE_FILE, (d) => {
+      d.transitions.push({ from: "in_review", to: "verifying", actor: "implementer", gates: ["reviews_approve"] });
+    });
+    const { problems } = loadStateMachine({ file: f, enums });
+    assert.ok(problems.some((p) => p.message === 'implementer may not move a task into "verifying"'));
+  });
+
+  test("only humans may move a task into done, from any state", () => {
+    const f = withMutated(STATE_MACHINE_FILE, (d) => {
+      d.transitions.push({ from: "verifying", to: "done", actor: "coordinator", gates: [...d.mandatory_gates.done] });
+    });
+    const { problems } = loadStateMachine({ file: f, enums });
+    assert.ok(problems.some((p) => p.message === 'only humans may move a task into done (from "verifying")'));
+  });
+
+  test("an unused gate is reported", () => {
+    const f = withMutated(STATE_MACHINE_FILE, (d) => {
+      d.gates.orphan = { description: "x", status: "planned" };
+    });
+    const { problems } = loadStateMachine({ file: f, enums });
+    assert.ok(problems.some((p) => p.path === "/gates/orphan" && /no transition uses it/.test(p.message)));
+  });
+
+  test("a policy file that is not a mapping is a problem, not a crash", async () => {
+    for (const text of ["", "- a\n- b\n", "just text\n"]) {
+      const f = withText(text);
+      assert.ok(loadStateMachine({ file: f, enums }).problems.some((p) => p.path === "/" && /must be a YAML mapping/.test(p.message)));
+      assert.ok(loadApprovals({ file: f, enums }).problems.some((p) => p.path === "/" && /must be a YAML mapping/.test(p.message)));
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-empty-policy-"));
+    fs.mkdirSync(path.join(dir, ".github/control-plane/orchestration"), { recursive: true });
+    fs.mkdirSync(path.join(dir, ".github/control-plane/policies"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".github/control-plane/orchestration/state-machine.yaml"), "");
+    fs.writeFileSync(path.join(dir, ".github/control-plane/policies/approvals.yaml"), "");
+    for (const format of ["text", "json"]) {
+      const c = capture();
+      assert.equal(await main(["policy", "check", "--project", dir, "--format", format], c.io), EXIT.FAILED, format);
+    }
+  });
+
+  test("security_review and required_reviews must agree", () => {
+    const f = withMutated(APPROVALS_FILE, (d) => {
+      d.by_risk.low.security_review = "required";
+    });
+    const { problems } = loadApprovals({ file: f, enums });
+    assert.ok(problems.some((p) => p.path === "/by_risk/low/security_review" && /disagrees with required_reviews/.test(p.message)));
+  });
+
+  test("security review cannot be optional at medium risk", () => {
+    const f = withMutated(APPROVALS_FILE, (d) => {
+      d.by_risk.medium.security_review = "optional";
+      d.by_risk.medium.required_reviews = ["code", "verification"];
+    });
+    const { problems } = loadApprovals({ file: f, enums });
+    assert.ok(problems.some((p) => p.path === "/by_risk/medium/security_review" && /required at medium risk and above/.test(p.message)));
+  });
+
+  test("required reviews never shrink as risk rises", () => {
+    const f = withMutated(APPROVALS_FILE, (d) => {
+      d.by_risk.high.required_reviews = ["code", "verification"];
+      d.by_risk.high.security_review = "optional";
+    });
+    const { problems } = loadApprovals({ file: f, enums });
+    assert.ok(problems.some((p) => p.path === "/by_risk/high/required_reviews" && /drops review "security" required at medium/.test(p.message)));
+  });
+
+  test("always-human globs that can never match a normalized path are rejected", () => {
+    for (const glob of ["./.github/workflows/**", ".github//workflows/**", "src/../.github/**", "src/./x"]) {
+      const f = withMutated(APPROVALS_FILE, (d) => {
+        d.always_human[0].paths.push(glob);
+      });
+      const { problems } = loadApprovals({ file: f, enums });
+      assert.ok(problems.some((p) => /must not contain \.\/, \/\/ or \.\. segments/.test(p.message)), glob);
+    }
+  });
+
+  test("every risk level requires the reviews the state machine makes mandatory", () => {
+    const f = withMutated(APPROVALS_FILE, (d) => {
+      d.by_risk.low.required_reviews = ["code"];
+    });
+    const { problems } = checkPolicies({ approvalsFile: f });
+    assert.ok(problems.some((p) => p.path === "/by_risk/low/required_reviews" && /must include "verification"/.test(p.message)));
+  });
+
+  test("CI, infrastructure and billing tags need plan and merge decisions", () => {
+    const { approvals } = checkPolicies();
+    for (const tag of ["ci_cd", "infra", "billing"]) {
+      const out = requiredHumanStages(approvals, { risk: { level: "low", tags: [tag] } });
+      assert.deepEqual(out.stages, ["plan", "merge"], tag);
+      assert.ok(out.reasons.includes("ci_infrastructure_and_spending"), tag);
+    }
+  });
+
+  test("prompts, hooks, review domains, registries, glossary and decisions are protected paths", () => {
+    const { approvals } = checkPolicies();
+    for (const file of [".github/prompts/review.prompt.md", ".github/hooks/tool-policy.json", "scripts/hooks/pre-tool.js",
+      ".review-domains.json", ".gitattributes", ".agents.registry.json", ".skills.registry.json", ".workflows.registry.json",
+      "GLOSSARY.md", "docs/decisions/0003-agent-operating-limits.md"]) {
+      assert.deepEqual(requiredHumanStages(approvals, { risk: { level: "low" }, paths: [file] }).stages, ["plan", "merge"], file);
+    }
+  });
+
+  test("Rust build-time files count as supply chain", () => {
+    const { approvals } = checkPolicies();
+    for (const file of ["Cargo.toml", "firmware/crates/wallet-core/Cargo.toml", "firmware/build.rs", ".cargo/config.toml", "firmware/rust-toolchain.toml"]) {
+      assert.ok(requiredHumanStages(approvals, { risk: { level: "low" }, paths: [file] }).reasons.includes("supply_chain"), file);
+    }
+  });
+
+  test("inherited object keys are not risk levels", async () => {
+    const { approvals } = checkPolicies();
+    assert.deepEqual(requiredHumanStages(approvals, { risk: { level: "constructor" } }), { stages: [], reasons: [] });
+    for (const risk of ["constructor", "toString", "__proto__"]) {
+      assert.equal(await main(["policy", "stages", "--risk", risk], capture().io), EXIT.ERROR, risk);
+    }
+  });
+
+  test("policy commands reject an unknown format", async () => {
+    assert.equal(await main(["policy", "check", "--format", "yaml"], capture().io), EXIT.ERROR);
+    assert.equal(await main(["policy", "stages", "--risk", "low", "--format", "yaml"], capture().io), EXIT.ERROR);
+  });
+
+  test("policy stages refuses to answer from an invalid policy", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-bad-policy-"));
+    fs.mkdirSync(path.join(dir, ".github/control-plane/orchestration"), { recursive: true });
+    fs.mkdirSync(path.join(dir, ".github/control-plane/policies"), { recursive: true });
+    fs.copyFileSync(STATE_MACHINE_FILE, path.join(dir, ".github/control-plane/orchestration/state-machine.yaml"));
+    const bad = YAML.parse(fs.readFileSync(APPROVALS_FILE, "utf8"));
+    bad.by_risk.medium.security_review = "optional";
+    fs.writeFileSync(path.join(dir, ".github/control-plane/policies/approvals.yaml"), YAML.stringify(bad));
+    const c = capture();
+    assert.equal(await main(["policy", "stages", "--project", dir, "--risk", "low"], c.io), EXIT.FAILED);
+    assert.match(c.err.join("\n"), /policy files are invalid/);
+  });
+
+  test("double stars match line terminators, as single stars always did", () => {
+    for (const sep of ["\n", "\r", " ", " "]) {
+      assert.ok(globMatch(".github/workflows/**", `.github/workflows/x${sep}y.yml`), JSON.stringify(sep));
+      assert.ok(globMatch("src/secret/**", `src/secret/k${sep}.js`), JSON.stringify(sep));
+    }
+    const { approvals } = checkPolicies();
+    assert.deepEqual(requiredHumanStages(approvals, { risk: { level: "low" }, paths: [".github/workflows/x\ny.yml"] }).stages, ["plan", "merge"]);
+  });
+
+  test("matching cost stays linear for inputs with many stars", () => {
+    const started = Date.now();
+    assert.equal(globMatch(".github/control-plane/**", `${"*".repeat(400)}Z`), false);
+    assert.equal(globMatch(`${"*".repeat(400)}Z`, ".github/control-plane/**"), false);
+    assert.equal(globMatch(`${"*a".repeat(60)}b`, "a".repeat(500)), false);
+    assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
+  });
+});

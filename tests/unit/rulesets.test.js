@@ -192,3 +192,48 @@ describe("rulesets.exportDesired", () => {
     );
   });
 });
+
+describe("rulesets bypass_actors visibility", () => {
+  const { bypass_actors: _hidden, ...LIVE_HIDDEN } = LIVE_PROTECT;
+  const fetchHidden = async () => {
+    const { client } = fakeClient({
+      "GET /repos/o/r/rulesets": [{ id: 77, name: "protect" }],
+      "GET /repos/o/r/rulesets/77": LIVE_HIDDEN,
+    });
+    return rulesets.fetchActual(client, repo);
+  };
+
+  test("a live response without bypass_actors is marked unreadable, not empty", async () => {
+    const [live] = await fetchHidden();
+    assert.equal("bypass_actors" in live, false);
+    assert.deepEqual(live.unreadable, ["bypass_actors"]);
+  });
+
+  test("an unreadable field is reported as unverified instead of in sync", async () => {
+    const live = await fetchHidden();
+    const [op] = rulesets.plan(desired([{ ...DESIRED_PROTECT, bypass_actors: [] }]), live);
+    assert.equal(op.type, "noop");
+    assert.deepEqual(op.unverified, ["bypass_actors"]);
+    const changed = rulesets.plan(desired([{ ...DESIRED_PROTECT, enforcement: "disabled" }]), live);
+    assert.equal(changed[0].type, "update");
+    assert.deepEqual(changed[0].unverified, ["bypass_actors"]);
+    assert.ok(!changed[0].changes.some((c) => c.path === "/bypass_actors"));
+  });
+
+  test("visible bypass actors are compared as before", async () => {
+    const { client } = fakeClient({
+      "GET /repos/o/r/rulesets": [{ id: 77, name: "protect" }],
+      "GET /repos/o/r/rulesets/77": { ...LIVE_PROTECT, bypass_actors: [{ actor_id: 5, actor_type: "Team", bypass_mode: "always" }] },
+    });
+    const live = await rulesets.fetchActual(client, repo);
+    const [op] = rulesets.plan(desired([DESIRED_PROTECT]), live);
+    assert.equal(op.type, "update");
+    assert.equal(op.unverified, undefined);
+    assert.ok(op.changes.some((c) => c.path === "/bypass_actors"));
+  });
+
+  test("export refuses to record a value the token could not read", async () => {
+    const live = await fetchHidden();
+    assert.throws(() => rulesets.exportDesired(live), /bypass_actors not readable with this token/);
+  });
+});

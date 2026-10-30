@@ -63,6 +63,15 @@ export class Registry {
       const errors = this.validator.errors.map((e) => `${e.instancePath} ${e.message}`).join("; ");
       throw new RegistryError(`Schema validation failed for ${type}: ${errors}`);
     }
+    // The shared schema requires only schema_version, so check the type's own list here.
+    if (!Array.isArray(data[type])) {
+      throw new RegistryError(`.${type}.registry.json must contain a "${type}" array`);
+    }
+    const seen = new Set();
+    for (const entry of data[type]) {
+      if (seen.has(entry.id)) throw new RegistryError(`Duplicate ${type} id: ${entry.id}`);
+      seen.add(entry.id);
+    }
   }
 
   lookupAgent(name) {

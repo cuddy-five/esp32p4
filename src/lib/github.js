@@ -3,6 +3,9 @@ import { execFileSync } from "node:child_process";
 const DEFAULT_API_URL = "https://api.github.com";
 const USER_AGENT = "control-plane/0.1 (+https://github.com)";
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+// A 5xx after POST or PATCH may mean the write happened; repeating it could
+// duplicate a ruleset or retry a rename. 429 is rejected before processing.
+const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "PUT", "DELETE", "OPTIONS"]);
 
 export class GitHubApiError extends Error {
   /**
@@ -65,6 +68,12 @@ export class GitHubClient {
    * @returns {Promise<{ status: number, data: any, headers: Headers }>}
    */
   async request(method, path, { body, params } = {}) {
+    // URL parsing resolves "." and ".." segments (also as %2e), so a label or
+    // repository named ".." would silently address a different endpoint.
+    const segments = path.split("?")[0].split("/");
+    if (segments.some((s) => /^(\.|%2e){1,2}$/i.test(s))) {
+      throw new Error(`refusing ${method} ${path}: "." and ".." are not valid path segments`);
+    }
     const url = new URL(this.apiUrl + path);
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -86,7 +95,8 @@ export class GitHubClient {
     let attempt = 0;
     for (;;) {
       const res = await this.fetch(url, init);
-      if (RETRYABLE_STATUSES.has(res.status) && attempt < this.retries) {
+      const retryable = res.status === 429 || (RETRYABLE_STATUSES.has(res.status) && IDEMPOTENT_METHODS.has(method));
+      if (retryable && attempt < this.retries) {
         attempt += 1;
         const retryAfter = Number(res.headers.get("retry-after"));
         const wait = Number.isFinite(retryAfter) && retryAfter > 0
@@ -211,7 +221,7 @@ export function resolveRepo(explicit, { cwd = process.cwd(), env = process.env }
 /** @param {string} s */
 export function parseRepo(s) {
   const m = s.trim().match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/);
-  if (!m) throw new Error(`invalid repository "${s}", expected owner/name`);
+  if (!m || isDotSegment(m[1]) || isDotSegment(m[2])) throw new Error(`invalid repository "${s}", expected owner/name`);
   return { owner: m[1], name: m[2] };
 }
 
@@ -219,6 +229,8 @@ export function parseRepo(s) {
 export function repoFromRemoteUrl(url) {
   const m =
     url.match(/[:/]([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?\/?$/) ?? null;
-  if (!m) return null;
+  if (!m || isDotSegment(m[1]) || isDotSegment(m[2])) return null;
   return { owner: m[1], name: m[2] };
 }
+
+const isDotSegment = (s) => s === "." || s === "..";

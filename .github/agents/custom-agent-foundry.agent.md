@@ -19,7 +19,7 @@ include-custom-instructions: true
 
 # Custom Agent Foundry — Control-Plane & ESP32-P4 Specialist Designer
 
-**Current mode:** Work directly on the owner's request in small steps. Do not require task or plan contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
+**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
 **Skills:** For relevant work, use the discovered project skill(s) planning and review. A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
 
@@ -50,7 +50,7 @@ When a user wants to create or upgrade a custom agent, start by understanding:
 ### 2. Custom Agent Design Principles
 
 **Tool Selection Strategy:**
-- Use documented aliases for the chosen client, such as `read`, `search`, `edit` and `execute`, and verify actual availability. Give a reviewer read/search tools and return findings in text; give engineers editing and command tools as needed.
+- Use documented aliases for the chosen client, such as `read`, `search`, `edit` and `execute`, and verify actual availability. Give a reviewer read/search/execute tools for inspection only, following reviewer.agent.md read-only shell rules; return findings in text; give engineers editing and command tools as needed.
 - A command tool can write files even if the edit tool is absent. The proposed tool-access YAML and registry declarations do not enforce isolation.
 - The two engineers handle test-writing guidance; the independent verifier checks results. Do not create a separate test-specialist agent in the agreed starting team.
 - Include `include-custom-instructions: true` for repository workers so delegated CLI agents receive repository instructions. Verify direct and delegated use separately.
@@ -59,7 +59,7 @@ When a user wants to create or upgrade a custom agent, start by understanding:
 **Model Family Diversity & Separation of Duties (`AGENTS.md` & `state-machine.yaml`):**
 - **Never Approve Your Own Work**: The role that produces a `plan`, code change, or `evidence` artifact MUST NEVER review, audit, verify, or merge it.
 - **Model Families**: For ordinary work, a separate same-family reviewer is acceptable if another family is unavailable. Security-critical work requires a different family; pause if unavailable. Verify actual model availability instead of assuming a configured name works.
-- **No Shared Scratch Memory**: When handing off from `implementer` to `reviewer` or `security_auditor`, pass only the committed diff, `task`, `plan`, and `evidence` contracts—never the implementer's private chain-of-thought or persuasive rationale.
+- **No Shared Scratch Memory**: When handing off from `implementer` to `reviewer` or `security_auditor`, pass the exact relevant diff/snapshot, owner request, scope, checks and results; use `task`, `plan`, and `evidence` JSON only when explicitly requested—never the implementer's private chain-of-thought or persuasive rationale.
 
 **Registry & Linter Synchronization:**
 If the agent is registered in `.agents.registry.json` (or a skill in `.skills.registry.json` / workflow in `.workflows.registry.json`), you MUST ensure it passes `tests/unit/selection-registry-lint.test.js` and `tests/unit/registry.test.js`:

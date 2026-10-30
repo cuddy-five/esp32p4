@@ -133,3 +133,15 @@ test('Registry - Cache memoizes loaded registries and invalidates on clearCache'
   registry.clearCache();
   assert.ok(!registry.cache.has('agents'), 'cache empty after clear');
 });
+
+test("Registry - a registry without its own array or with duplicate ids is rejected", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-registry-"));
+  fs.writeFileSync(path.join(dir, ".skills.registry.json"), JSON.stringify({ schema_version: 1 }));
+  assert.throws(() => new Registry({ rootDir: dir }).lookupSkill("x"), /must contain a "skills" array/);
+  const agent = { id: "a", name: "A", description: "d", model: "kimi-k3", budget: { max_ai_credits: 100, max_tokens_per_request: 1000, max_concurrent_tasks: 1 }, scope: { allowed_paths: [], forbidden_paths: [] }, enabled: true };
+  fs.writeFileSync(path.join(dir, ".agents.registry.json"), JSON.stringify({ schema_version: 1, agents: [agent, agent] }));
+  assert.throws(() => new Registry({ rootDir: dir }).listAgents(), /Duplicate agents id: a/);
+});

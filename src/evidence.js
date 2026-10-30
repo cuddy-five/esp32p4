@@ -18,8 +18,9 @@ function makeId(prefix) {
 
 /**
  * Determine whether a repository-relative path is permitted by `task.scope`.
- * Forbidden paths always win; when `allowed_paths` is present, the path must
- * match at least one allowed glob.
+ * Forbidden paths always win, and the path must match at least one allowed
+ * glob. The allowed paths are the whole scope (AGENTS.md non-negotiable 2), so
+ * a missing or malformed scope permits nothing; declare `["**"]` for everything.
  *
  * @param {string} filePath
  * @param {{ allowed_paths?: string[], forbidden_paths?: string[] }} [scope]
@@ -27,15 +28,11 @@ function makeId(prefix) {
  */
 export function isPathInScope(filePath, scope = {}) {
   const normalized = normalizeRepoPath(filePath);
-  const forbidden = Array.isArray(scope?.forbidden_paths) ? scope.forbidden_paths : [];
-  if (forbidden.some((pattern) => globMatch(pattern, normalized))) {
-    return false;
-  }
-  if (Array.isArray(scope?.allowed_paths)) {
-    if (scope.allowed_paths.length === 0) return false;
-    return scope.allowed_paths.some((pattern) => globMatch(pattern, normalized));
-  }
-  return true;
+  const allowed = scope?.allowed_paths;
+  const forbidden = scope?.forbidden_paths ?? [];
+  if (!Array.isArray(allowed) || !Array.isArray(forbidden)) return false;
+  if (forbidden.some((pattern) => globMatch(pattern, normalized))) return false;
+  return allowed.some((pattern) => globMatch(pattern, normalized));
 }
 
 /**
@@ -50,29 +47,37 @@ export function findOutOfScopePaths(paths, scope = {}) {
 }
 
 /**
- * Evaluate `budget_used` against `task.budget` ceilings.
+ * Evaluate `budget_used` against `task.budget` ceilings. `withinBudget` means no
+ * known measurement exceeds its ceiling; a metric without a measurement is listed
+ * in `unknown` rather than counted as zero, because missing usage is not proof.
  * @param {Record<string, number>} [budgetUsed]
  * @param {Record<string, number>} [budgetCeiling]
- * @returns {{ withinBudget: boolean, details: string }}
+ * @returns {{ withinBudget: boolean, unknown: string[], details: string }}
  */
 export function evaluateBudget(budgetUsed = {}, budgetCeiling = {}) {
   if (!budgetCeiling || typeof budgetCeiling !== "object") {
-    return { withinBudget: true, details: "unbounded" };
+    return { withinBudget: true, unknown: [], details: "unbounded" };
   }
   const violations = [];
+  const unknown = [];
   const summaries = [];
   for (const [metric, limit] of Object.entries(budgetCeiling)) {
     if (!Number.isFinite(limit)) continue;
-    const used = budgetUsed?.[metric] ?? 0;
+    const used = budgetUsed?.[metric];
+    if (!Number.isFinite(used)) {
+      unknown.push(metric);
+      summaries.push(`${metric}: unknown (not measured) of ${limit}`);
+      continue;
+    }
     summaries.push(`${metric}: ${used} of ${limit}`);
     if (used > limit) {
       violations.push(`${metric} exceeded (${used} > ${limit})`);
     }
   }
   if (violations.length > 0) {
-    return { withinBudget: false, details: violations.join("; ") };
+    return { withinBudget: false, unknown, details: violations.join("; ") };
   }
-  return { withinBudget: true, details: summaries.join(", ") || "within ceiling" };
+  return { withinBudget: true, unknown, details: summaries.join(", ") || "within ceiling" };
 }
 
 /** Map paths to required checklists. This does not attest that reviews occurred. */
@@ -107,11 +112,17 @@ export function buildEvidenceContract(task, {
   producerName = "collect-evidence",
   producerKind = "workflow",
   producerRole = undefined,
+  producerModel = undefined,
   now = new Date().toISOString(),
   contracts = new ContractRegistry(),
 } = {}) {
   if (!task || typeof task !== "object" || task.contract !== "task") {
     throw new TypeError("buildEvidenceContract requires a valid task contract object.");
+  }
+  const taskCheck = contracts.validate(task, { kind: "task" });
+  if (!taskCheck.ok) {
+    const where = taskCheck.errors.map((e) => `${e.path}: ${e.message}`).join("; ");
+    throw new TypeError(`buildEvidenceContract requires a schema-valid task contract (${where}).`);
   }
   if (typeof sha !== "string" || !/^[0-9a-f]{40}$/.test(sha)) {
     throw new TypeError("buildEvidenceContract requires a 40-character lowercase hex commit sha.");
@@ -123,16 +134,20 @@ export function buildEvidenceContract(task, {
   const withinScope = outOfScope.length === 0;
   const budgetEval = evaluateBudget(budgetUsed, task.budget);
 
+  const scopeDeclared = Array.isArray(task.scope?.allowed_paths);
   const policyResults = [
     {
       policy: "scope.paths",
       outcome: withinScope ? "pass" : "fail",
-      ...(withinScope ? {} : { severity: "high", details: `Out of scope: ${outOfScope.join(", ")}` }),
+      ...(withinScope ? {} : {
+        severity: "high",
+        details: `${scopeDeclared ? "" : "task.scope.allowed_paths is not declared, so nothing is in scope. "}Out of scope: ${outOfScope.join(", ")}`,
+      }),
       evaluated_by: producerName,
     },
     {
       policy: "budget.ceiling",
-      outcome: budgetEval.withinBudget ? "pass" : "fail",
+      outcome: !budgetEval.withinBudget ? "fail" : budgetEval.unknown.length > 0 ? "warn" : "pass",
       details: budgetEval.details,
       evaluated_by: producerName,
     },
@@ -161,6 +176,7 @@ export function buildEvidenceContract(task, {
       kind: producerKind,
       name: producerName,
       ...(producerRole ? { role: producerRole } : {}),
+      ...(producerModel ? { model: producerModel } : {}),
     },
     ...(task.trace?.correlation_id
       ? { trace: { correlation_id: task.trace.correlation_id, parent_id: task.id } }
@@ -197,5 +213,6 @@ export function buildEvidenceContract(task, {
       within_scope: withinScope,
       within_budget: budgetEval.withinBudget,
     },
+    budget_unknown: budgetEval.unknown,
   };
 }

@@ -27,7 +27,7 @@ export const DRIFT_TYPES = new Set(["create", "update", "rename", "delete"]);
 export function selectResources(only) {
   if (!only || only.length === 0) return RESOURCE_NAMES;
   for (const n of only) {
-    if (!RESOURCES[n]) {
+    if (!Object.hasOwn(RESOURCES, n)) {
       throw new Error(`unknown settings resource "${n}" (known: ${RESOURCE_NAMES.join(", ")})`);
     }
   }
@@ -135,7 +135,7 @@ export async function applyAll(opts) {
  * @param {{ client: import("../github.js").GitHubClient, repo: import("../github.js").RepoRef, resource: string }} opts
  */
 export async function exportResource({ client, repo, resource }) {
-  const mod = RESOURCES[resource];
+  const mod = Object.hasOwn(RESOURCES, resource) ? RESOURCES[resource] : undefined;
   if (!mod) throw new Error(`unknown settings resource "${resource}"`);
   const actual = await mod.fetchActual(client, repo);
   return mod.exportDesired(actual);

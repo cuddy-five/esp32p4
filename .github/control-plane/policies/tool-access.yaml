@@ -52,11 +52,10 @@ roles:
     allowed_tools:
       - read
       - search
-      - github/*
+      - execute # Inspection only; requires client controls for enforced read-only access.
     forbidden_tools:
       - edit
-      - execute
-    mcp_servers: [github]
+    mcp_servers: []
 
   security_auditor:
     allowed_tools:

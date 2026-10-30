@@ -1,15 +1,24 @@
 ---
-description: 'Contract-driven planning and architectural decomposition rules for the adversarial agent loop'
-applyTo: 'docs/plans/**,**/*.plan.json,.github/control-plane/contracts/**'
+description: 'Plain-language planning rules and validation for explicitly requested JSON plans'
+applyTo: 'docs/plans/**,**/*plan*.json,.github/control-plane/contracts/**'
 ---
 
-# Planning Instructions
+# Planning instructions
 
-In current manual mode, provide a short plan with the requested scope, useful checks, and next step. Contracts and automated approval routing are not required. The contract instructions below are for the future automated team, after the owner requests it.
+In current manual mode, follow the fundamental work agreement in `AGENTS.md`
+and the [planning skill](../skills/planning/SKILL.md). State the outcome, scope,
+steps, useful checks, remaining questions and next role in plain language.
+Reuse the owner's request; do not require extra documents or repeated approval.
 
-- **CRITICAL**: You MUST validate every generated plan against `.github/control-plane/contracts/plan.schema.json` using `node src/cli.js validate <file> --kind plan`.
-- You WILL verify that every path in `steps[].files_touched` is permitted by `task.scope.allowed_paths` and excluded by `task.scope.forbidden_paths`.
-- You MUST include at least one automated or verifiable test in `steps[].tests` for each implementation step and map steps to `task.acceptance_criteria`.
-- You WILL run `node src/cli.js policy stages --risk <level> --path <path>...` to populate `approvals_required` accurately.
-- You MUST provide a concrete `rollback_strategy` and `verification_strategy`.
-- You WILL NEVER implement production or test code while acting in the planning role.
+The planner does not implement production or test code. Save plan artifacts only
+when authorized; read-only work stays in chat. State which checks ran and which
+are proposed. Keep review independent from the plan's author.
+
+For explicitly requested JSON plans, use the skill's
+[formal reference](../skills/planning/references/formal-plan-contracts.md).
+Validate the generated contract against `plan.schema.json`; newly proposed plans
+use `status: "proposed"`. Never fabricate approval or required task input.
+Formal approval routing applies only when the owner requests that process.
+
+The [planner profile](../agents/planner.agent.md) defines the role;
+the [planning prompt](../prompts/plan.prompt.md) is an optional editor entry point.

@@ -97,15 +97,20 @@ export function loadDesired(json) {
  * @param {object} raw
  * @returns {Ruleset}
  */
-export function normalizeRuleset(raw) {
+export function normalizeRuleset(raw, { defaultBypassActors = true } = {}) {
   const out = {};
   for (const [k, v] of Object.entries(raw)) {
     if (SERVER_FIELDS.has(k)) continue;
     out[k] = v;
   }
-  if (out.bypass_actors === undefined) out.bypass_actors = [];
+  // Desired files may omit bypass actors to mean none. A live response that
+  // omits them means the token cannot see them, which is not the same thing.
+  if (defaultBypassActors && out.bypass_actors === undefined) out.bypass_actors = [];
   return stripNullish(out);
 }
+
+/** Live fields the API leaves out when the token lacks permission to read them. */
+const PERMISSION_GATED_FIELDS = ["bypass_actors"];
 
 /**
  * The list endpoint omits rules and conditions, so each ruleset is fetched by id.
@@ -119,7 +124,12 @@ export async function fetchActual(client, repo) {
   const full = [];
   for (const s of summaries) {
     const { data } = await client.request("GET", `${base}/${s.id}`);
-    full.push({ ...normalizeRuleset(data), id: data.id });
+    const unreadable = PERMISSION_GATED_FIELDS.filter((field) => data[field] === undefined);
+    full.push({
+      ...normalizeRuleset(data, { defaultBypassActors: false }),
+      id: data.id,
+      ...(unreadable.length ? { unreadable } : {}),
+    });
   }
   return full;
 }
@@ -161,18 +171,22 @@ export function plan(desired, actual) {
       continue;
     }
     consumed.add(d.name);
-    const { id, ...actualBody } = match;
-    const changes = diff(d, actualBody, { mode: desired.mode });
+    const { id, unreadable = [], ...actualBody } = match;
+    // A field this token cannot read is not compared and is reported as unverified,
+    // rather than being treated as empty and reported as in sync.
+    const comparable = Object.fromEntries(Object.entries(d).filter(([k]) => !unreadable.includes(k)));
+    const changes = diff(comparable, actualBody, { mode: desired.mode });
+    const unverified = unreadable.length ? { unverified: unreadable } : {};
     ops.push(
       changes.length === 0
-        ? { type: "noop", name: d.name, id, changes: [] }
-        : { type: "update", name: d.name, id, before: actualBody, after: d, changes },
+        ? { type: "noop", name: d.name, id, changes: [], ...unverified }
+        : { type: "update", name: d.name, id, before: actualBody, after: d, changes, ...unverified },
     );
   }
 
   for (const a of actual) {
     if (consumed.has(a.name)) continue;
-    const { id, ...body } = a;
+    const { id, unreadable, ...body } = a;
     ops.push(
       desired.prune
         ? { type: "delete", name: a.name, id, before: body, changes: diff({}, body, { mode: "strict" }) }
@@ -218,12 +232,20 @@ export async function apply(client, repo, ops) {
  * @param {Array<Ruleset & { id?: number }>} actual
  */
 export function exportDesired(actual) {
+  for (const ruleset of actual) {
+    if (ruleset.unreadable?.length) {
+      throw new Error(
+        `ruleset "${ruleset.name}": ${ruleset.unreadable.join(", ")} not readable with this token; ` +
+          "exporting would record a wrong value that a later apply could enforce. Use a token with ruleset admin access.",
+      );
+    }
+  }
   return {
     version: 1,
     prune: false,
     comparison: "declared",
     rulesets: [...actual]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(({ id, ...body }) => body),
+      .map(({ id, unreadable, ...body }) => body),
   };
 }

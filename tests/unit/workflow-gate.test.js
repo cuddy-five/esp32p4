@@ -130,3 +130,15 @@ test("workflow wires PR head/base, entry point and removes hosted paid evaluatio
   const evals = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/agent-evals.yml"), "utf8"));
   assert.deepEqual(Object.keys(evals.jobs), ["guardrail-and-registry-audit"]);
 });
+
+test("the changed-path report diffs from the merge base, not the base tip", () => {
+  const sha = "a".repeat(40);
+  const seen = [];
+  const mock = (args) => {
+    seen.push(args);
+    return args[0] === "diff" ? Buffer.from("") : Buffer.from(`${sha}\n`);
+  };
+  buildReport({ CP_EVENT: "pull_request", CP_BASE_SHA: sha, CP_HEAD_SHA: sha }, mock);
+  const diffArgs = seen.find((a) => a[0] === "diff");
+  assert.ok(diffArgs.includes(`${sha}...${sha}`), diffArgs.join(" "));
+});

@@ -59,6 +59,9 @@ Start with a small request. Name the outcome and any important limits, such as
 
 ## What is and is not established
 
+The [planner setup guide](planner-setup.md) records the first Issue #6 skill/tool
+inventory, current CLI discovery evidence and the remaining live check.
+
 Only the demonstrated flows above are established; the other agent profiles
 and their capabilities remain unverified. A successful invocation or
 delegation is not proof that every capability of that agent works. A model
@@ -93,3 +96,19 @@ permission to write, publish, install, or change GitHub.
 
 The [manual team runbook](agent-team.md) explains the broader working
 agreement and future process.
+
+## Reviewer shell access
+
+The reviewer has read, search and execute tools. It may inspect the local diff,
+status and relevant untracked files, then return findings in chat. Follow the
+read-only shell rules in `.github/agents/reviewer.agent.md`. Builds and tests
+may create artifacts; leave those to the verifier unless separately authorized.
+
+This profile does not create a read-only sandbox. Keep permission prompts enabled
+and avoid blanket shell approvals. Copilot's `--deny-tool=write` does not block
+shell writes. For enforced isolation, configure and verify the client sandbox's
+effective filesystem and network policy, including Git metadata and writable
+caches; the default workspace grant is read/write. Do not treat a setting or
+profile name as proof. No client sandbox was configured by this repository edit.
+See [GitHub's filesystem policy documentation](https://docs.github.com/en/copilot/concepts/security-governance-and-network-settings/understanding-local-sandboxing)
+and [tool permissions](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/allowing-tools).

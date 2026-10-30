@@ -133,3 +133,42 @@ describe("repository resolution", () => {
     assert.throws(() => resolveRepo(undefined, { env: {}, cwd: "/" }), /could not determine repository/);
   });
 });
+
+describe("GitHubClient write safety", () => {
+  test("a 5xx after POST or PATCH is not retried, because the write may have happened", async () => {
+    for (const method of ["POST", "PATCH"]) {
+      const { client, calls } = fakeClient({
+        [`${method} /repos/o/r/rulesets`]: [
+          { status: 502, body: { message: "bad gateway" } },
+          { status: 201, body: { id: 1 } },
+        ],
+      });
+      await assert.rejects(() => client.request(method, "/repos/o/r/rulesets", { body: {} }), (err) => err.status === 502);
+      assert.equal(calls.length, 1, method);
+    }
+  });
+
+  test("idempotent methods and rate limits are still retried", async () => {
+    const { client, calls } = fakeClient({
+      "PUT /repos/o/r/rulesets/7": [{ status: 503, body: {} }, { status: 200, body: { ok: 1 } }],
+      "POST /repos/o/r/labels": [{ status: 429, body: {} }, { status: 201, body: { name: "x" } }],
+    });
+    assert.deepEqual((await client.request("PUT", "/repos/o/r/rulesets/7", { body: {} })).data, { ok: 1 });
+    assert.deepEqual((await client.request("POST", "/repos/o/r/labels", { body: {} })).data, { name: "x" });
+    assert.equal(calls.length, 4);
+  });
+
+  test("dot segments are refused before any request is sent", async () => {
+    const { client, calls } = fakeClient({});
+    for (const p of ["/repos/o/r/labels/..", "/repos/o/r/labels/.", "/repos/o/r/labels/%2e%2E", "/repos/../user/labels"]) {
+      await assert.rejects(() => client.request("DELETE", p), /not valid path segments/, p);
+    }
+    assert.equal(calls.length, 0);
+  });
+
+  test("repository names cannot be dot segments", () => {
+    for (const s of ["../user", "./x", "o/..", "o/."]) assert.throws(() => parseRepo(s), /invalid repository/, s);
+    assert.equal(repoFromRemoteUrl("git@github.com:../user.git"), null);
+    assert.deepEqual(parseRepo("o/my.repo"), { owner: "o", name: "my.repo" });
+  });
+});

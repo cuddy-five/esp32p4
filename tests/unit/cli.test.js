@@ -649,3 +649,64 @@ test("removed provider commands are rejected", async () => {
     assert.match(c.err.join("\n"), /unknown command/);
   }
 });
+
+describe("cli hardening", () => {
+  const taskPath = path.join(EXAMPLES, "task.example.json");
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const tmpJson = (doc) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cp-hardening-"));
+    const file = path.join(dir, "doc.json");
+    fs.writeFileSync(file, JSON.stringify(doc));
+    return file;
+  };
+
+  test("evidence exits 2 for a schema-invalid task instead of evaluating its scope", async () => {
+    const task = JSON.parse(fs.readFileSync(taskPath, "utf8"));
+    task.scope = { allowed_paths: "docs/**", forbidden_paths: ".github/**" };
+    const c = capture();
+    assert.equal(await main(["evidence", "--task", tmpJson(task), "--sha", sha, "--path", ".github/workflows/ci.yml"], c.io), EXIT.FAILED);
+    assert.match(c.err.join("\n"), /is invalid/);
+  });
+
+  test("evidence counts must be plain whole numbers", async () => {
+    for (const [flag, value] of [["--tokens-used", "1e9"], ["--tokens-used", "600,000"], ["--additions", "abc"], ["--files-changed", "-1"]]) {
+      const c = capture();
+      assert.equal(await main(["evidence", "--task", taskPath, "--sha", sha, "--path", "src/cli.js", `${flag}=${value}`], c.io), EXIT.ERROR, `${flag} ${value}`);
+      assert.match(c.err.join("\n"), /must be a non-negative whole number/);
+    }
+    const ok = capture();
+    assert.equal(await main(["evidence", "--task", taskPath, "--sha", sha, "--path", "src/cli.js", "--tokens-used", "1200"], ok.io), EXIT.OK);
+    assert.equal(JSON.parse(ok.out.join("\n")).evidence.budget_used.tokens, 1200);
+  });
+
+  test("evidence records who collected it", async () => {
+    const c = capture();
+    const args = ["evidence", "--task", taskPath, "--sha", sha, "--path", "src/cli.js",
+      "--producer-kind", "agent", "--producer-name", "verifier", "--producer-role", "verifier", "--producer-model", "claude-haiku-4.5"];
+    assert.equal(await main(args, c.io), EXIT.OK);
+    assert.deepEqual(JSON.parse(c.out.join("\n")).evidence.producer, { kind: "agent", name: "verifier", role: "verifier", model: "claude-haiku-4.5" });
+    const bad = capture();
+    assert.equal(await main([...args.slice(0, 8), "--producer-role", "overlord"], bad.io), EXIT.ERROR);
+  });
+
+  test("compact rejects scientific or separated character limits", async () => {
+    for (const value of ["1e3", "2,000", "0"]) {
+      assert.equal(await main(["compact", "--max-chars", value], { ...capture().io, stdin: "log" }), EXIT.ERROR, value);
+    }
+  });
+
+  test("validate output cannot start a workflow command from a document key", async () => {
+    const file = tmpJson({ contract: "task", "\n::warning title=Injected::forged\n": 1 });
+    for (const extra of [[], ["--annotations"]]) {
+      const c = capture();
+      assert.equal(await main(["validate", file, ...extra], c.io), EXIT.FAILED);
+      const lines = c.out.flatMap((l) => l.split(/\r?\n/));
+      assert.ok(!lines.some((l) => l.startsWith("::warning")), lines.join("\n"));
+      assert.ok(lines.filter((l) => l.startsWith("::")).every((l) => l.startsWith("::error file=")));
+    }
+  });
+
+  test("validate rejects an unknown format", async () => {
+    assert.equal(await main(["validate", taskPath, "--format", "yaml"], capture().io), EXIT.ERROR);
+  });
+});
