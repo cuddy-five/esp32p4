@@ -12,7 +12,7 @@ There are seven working agents and one helper that prepares the team:
 | Agent | Ask it to… |
 | --- | --- |
 | **Coordinator** (`coordinator`) | Help choose a next step, route work, and summarize what each role reports. It does not implement or review code. |
-| **Planner** (`planner`) | Research a request and outline a small plan, checks, and next step. It does not implement the plan. |
+| **Planner** (`planner`) | Build or refresh codebase knowledge, verify relevant sources, and use that evidence to plan the change. It does not implement the plan. |
 | **Control-plane engineer** (`implementer`) | Make owner-requested changes to repository code, tests, or documentation. |
 | **Wallet engineer** (`rust-coder`) | Research or implement owner-approved Rust, Bitcoin, or ESP32 wallet work. Firmware development is not authorized by this guide. |
 | **Reviewer** (`reviewer`) | Independently look for problems in a plan or change. It reports findings rather than fixing them. |

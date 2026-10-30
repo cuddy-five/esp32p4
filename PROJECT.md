@@ -2,7 +2,7 @@
 
 ## Current work
 
-Build a usable agent team and its control-plane pipeline. The owner directs development and retains commit and merge decisions. Automated enforcement and scheduled agent operation remain paused; do not enable them without instruction.
+Build a usable agent team and its control-plane pipeline. The owner directs development and retains commit and merge decisions. Full control-plane ruleset enforcements are active per owner instruction; automated background agent loops remain governed by explicit owner authorization.
 
 ## Existing implementation
 

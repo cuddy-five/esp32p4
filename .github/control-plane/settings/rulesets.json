@@ -6,7 +6,7 @@
     {
       "name": "control-plane: protect default branch",
       "target": "branch",
-      "enforcement": "disabled",
+      "enforcement": "active",
       "conditions": {
         "ref_name": {
           "include": ["~DEFAULT_BRANCH"],
@@ -43,7 +43,7 @@
     {
       "name": "control-plane: protect release tags",
       "target": "tag",
-      "enforcement": "disabled",
+      "enforcement": "active",
       "conditions": {
         "ref_name": {
           "include": ["refs/tags/v*"],
