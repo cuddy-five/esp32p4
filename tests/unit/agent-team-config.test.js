@@ -70,6 +70,17 @@ describe("Owner-directed agent team configuration", () => {
     }
   });
 
+  test("no proposed tool policy role forbids a tool it also allows", () => {
+    const policy = YAML.parse(fs.readFileSync(".github/control-plane/policies/tool-access.yaml", "utf8"));
+    const covers = (pattern, tool) => pattern === tool || (pattern.endsWith("/*") && tool.startsWith(pattern.slice(0, -1)));
+    for (const [role, entry] of Object.entries(policy.roles)) {
+      for (const forbidden of entry.forbidden_tools ?? []) {
+        const clash = (entry.allowed_tools ?? []).find((tool) => covers(forbidden, tool));
+        assert.equal(clash, undefined, `${role} forbids ${forbidden} but allows ${clash}`);
+      }
+    }
+  });
+
   test("Rust code intelligence comes from a cautious project language server", () => {
     const lsp = JSON.parse(fs.readFileSync(".github/lsp.json", "utf8")).lspServers["rust-analyzer"];
     assert.equal(lsp.command, "rust-analyzer");
