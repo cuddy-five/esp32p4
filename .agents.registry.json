@@ -4,7 +4,7 @@
     {
       "id": "planner",
       "name": "Planner",
-      "description": "Choose when the request asks to design, architect, or write a step-by-step plan with tests and rollback before changing code, or when the request is vague. Not for writing code or reviewing.",
+      "description": "Choose when the request asks to build or refresh codebase knowledge, design architecture, or write a step-by-step plan with tests and rollback. Not for writing code or reviewing.",
       "model": "gpt-5.6-luna",
       "reasoning_effort": "high",
       "budget": {

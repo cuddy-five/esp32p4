@@ -4,11 +4,38 @@ This is the first slice of [issue #6](https://github.com/cuddy-five/esp32p4/issu
 The planner prepares a small plan from repository evidence. Its default result is
 plain language in chat. JSON contracts remain available on explicit request.
 
+## Replacement workflow (2026-10-29)
+
+The planner profile has been rebuilt around
+[acquire-codebase-knowledge](../../.github/skills/acquire-codebase-knowledge/SKILL.md).
+The repository includes its entry point and all ten supporting files: seven
+templates, two inquiry/stack references, and the Python scanner. The
+[source notice](../../.github/skills/acquire-codebase-knowledge/NOTICE.md) pins
+upstream and records the local safety adaptations.
+
+The flow is knowledge acquisition or refresh → source verification → plan →
+independent review → separate implementation. Existing `docs/codebase/` knowledge
+is reused after checking relevant evidence. Missing knowledge can be built in
+chat; creating or refreshing saved documents requires authorization. No populated
+codebase documents or live client-loading proof are supplied by installing the skill.
+
+The scanner uses Python's standard library; no package installation is needed.
+It omits environment templates, protected filenames and symlinks. These filters
+are not a general secret detector; permitted source may still contain sensitive
+values. Follow the repository's secret rules during all manual reads.
+
+The access observations below predate this replacement. Skill discovery and
+selected-agent behavior for the new package remain pending. For a live check,
+ask Planner to plan a small change using the new acquisition skill, cite the
+knowledge and current source it used, and return the plan in chat. Record actual
+skill loads and calls; do not infer them from the profile header.
+
 ## What connects to what
 
 - [Planner profile](../../.github/agents/planner.agent.md) selects the role and intended tools.
+- [Agent tools and setup](agent-tools.md) records the planner's live tool check (2026-10-30) and the GitHub launch flags it needs.
 - [Planning skill](../../.github/skills/planning/SKILL.md) supplies the procedure.
-- [Context-engineering skill](../../.github/skills/context-engineering/SKILL.md) supplies focused repository discovery for unfamiliar or multi-file work.
+- [Acquire-codebase-knowledge](../../.github/skills/acquire-codebase-knowledge/SKILL.md) supplies the knowledge foundation. Context-engineering remains available for other workflows.
 - [Planning instructions](../../.github/instructions/planning.instructions.md) apply to plan artifacts.
 - [Planning prompt](../../.github/prompts/plan.prompt.md) is an editor convenience, not a required CLI entry point.
 - [Formal plan reference](../../.github/skills/planning/references/formal-plan-contracts.md) is loaded only for explicitly requested contracts or the formal process.
@@ -90,7 +117,7 @@ selection evidence.
 
 Give it this request:
 
-> Planning only. Use the repository planning and context-engineering skills to
+> Planning only. Use the repository acquire-codebase-knowledge and planning skills to
 > plan the next small step for issue #6, starting with Planner's tools. Inspect
 > the accepted skills-and-tools draft and the current planner setup guide. Return
 > the outcome, allowed files, steps, acceptance checks, remaining questions and

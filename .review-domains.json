@@ -17,7 +17,6 @@
         "PROJECT.md",
         "README.md",
         "CONTRIBUTING.md",
-        "NEXT-AGENT.md",
         ".agents.registry.json",
         ".workflows.registry.json",
         ".skills.registry.json",

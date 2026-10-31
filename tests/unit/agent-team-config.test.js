@@ -9,7 +9,7 @@ const expectedAgents = [
   "coordinator", "planner", "implementer", "rust-coder",
   "reviewer", "security-auditor", "verifier", "custom-agent-foundry",
 ];
-const supportedAliases = new Set(["read", "search", "edit", "execute", "web", "agent", "todo"]);
+const supportedAliases = new Set(["read", "search", "edit", "execute", "web", "agent", "todo", "lsp"]);
 
 function readProfile(file) {
   const text = fs.readFileSync(file, "utf8");
@@ -37,7 +37,7 @@ describe("Owner-directed agent team configuration", () => {
       assert.equal(header["include-custom-instructions"], true, `${name} must receive repository instructions`);
       assert.ok(Array.isArray(header.tools) && header.tools.length > 0, `${name} needs an explicit tool list`);
       for (const tool of header.tools) {
-        assert.ok(supportedAliases.has(tool) || /^[a-z0-9-]+\/\*$/.test(tool), `${name} has an unsupported tool name: ${tool}`);
+        assert.ok(supportedAliases.has(tool) || /^[a-z0-9-]+\/(\*|[a-z0-9_]+)$/.test(tool), `${name} has an unsupported tool name: ${tool}`);
       }
       for (const skill of header.skills ?? []) {
         assert.ok(fs.existsSync(path.join(".github/skills", skill, "SKILL.md")), `${name} refers to unavailable project skill ${skill}`);
@@ -58,6 +58,30 @@ describe("Owner-directed agent team configuration", () => {
     assert.ok(tools("reviewer").includes("execute"));
     assert.ok(!tools("reviewer").includes("edit"));
     assert.ok(!tools("reviewer").includes("github/*"));
+  });
+
+  test("the planner reads Basic Memory but cannot write it", () => {
+    const tools = readProfile(path.join(agentsDir, "planner.agent.md")).header.tools;
+    const memory = tools.filter((tool) => tool.startsWith("basic-memory/"));
+    assert.ok(memory.includes("basic-memory/search_notes") && memory.includes("basic-memory/read_note"));
+    for (const forbidden of ["basic-memory/*", "basic-memory/write_note", "basic-memory/edit_note",
+      "basic-memory/delete_note", "basic-memory/move_note", "basic-memory/create_memory_project", "basic-memory/delete_project"]) {
+      assert.ok(!memory.includes(forbidden), `planner must not have ${forbidden}`);
+    }
+  });
+
+  test("Rust code intelligence comes from a cautious project language server", () => {
+    const lsp = JSON.parse(fs.readFileSync(".github/lsp.json", "utf8")).lspServers["rust-analyzer"];
+    assert.equal(lsp.command, "rust-analyzer");
+    assert.equal(lsp.fileExtensions[".rs"], "rust");
+    const options = lsp.initializationOptions;
+    assert.equal(options.cargo.buildScripts.enable, false, "opening a session must not run dependency build scripts");
+    assert.equal(options.procMacro.enable, false, "opening a session must not run proc macros");
+    assert.equal(options.checkOnSave, false, "cargo runs belong to an approved execute call");
+    for (const name of expectedAgents) {
+      const { header } = readProfile(path.join(agentsDir, `${name}.agent.md`));
+      assert.ok(!header.tools.some((tool) => tool.startsWith("rust-mcp/")), `${name} lists the retired rust-mcp server`);
+    }
   });
 
   test("the coordinator preserves manual mode without invoking intake", () => {

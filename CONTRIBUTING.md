@@ -89,7 +89,3 @@ contracts. `node` executes `src/cli.js`; `policy check` asks the CLI to
 check that state-machine and approval declarations agree with the schemas.
 These commands take no additional flags and do not change GitHub settings.
 Workflow edits also need actionlint, as required by `AGENTS.md`.
-
-The [original skeleton prompt](docs/architecture/skeleton-prompt.md) records
-why these directories exist. It is historical context, not current working
-instructions.

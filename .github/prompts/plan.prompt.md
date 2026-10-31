@@ -8,8 +8,11 @@ argument-hint: 'Describe the task or provide an issue link'
 
 # Plan the requested change
 
-Use the repository [planning skill](../skills/planning/SKILL.md). For unfamiliar
-or multi-file work, also use [context-engineering](../skills/context-engineering/SKILL.md).
+Use the repository [planning skill](../skills/planning/SKILL.md). First use
+[acquire-codebase-knowledge](../skills/acquire-codebase-knowledge/SKILL.md) to
+establish or refresh relevant knowledge. Reuse `docs/codebase/` when present,
+verify cited sources against current files, and build missing knowledge in chat
+unless saving documentation is authorized. Base plan steps on that evidence.
 
 Inspect the request and relevant files. Return a plain-language plan with outcome,
 allowed files or area, steps, useful acceptance checks, unresolved decisions and

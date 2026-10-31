@@ -12,7 +12,7 @@ There are seven working agents and one helper that prepares the team:
 | Agent | Ask it to… |
 | --- | --- |
 | **Coordinator** (`coordinator`) | Help choose a next step, route work, and summarize what each role reports. It does not implement or review code. |
-| **Planner** (`planner`) | Research a request and outline a small plan, checks, and next step. It does not implement the plan. |
+| **Planner** (`planner`) | Build or refresh codebase knowledge, verify relevant sources, and use that evidence to plan the change. It does not implement the plan. |
 | **Control-plane engineer** (`implementer`) | Make owner-requested changes to repository code, tests, or documentation. |
 | **Wallet engineer** (`rust-coder`) | Research or implement owner-approved Rust, Bitcoin, or ESP32 wallet work. Firmware development is not authorized by this guide. |
 | **Reviewer** (`reviewer`) | Independently look for problems in a plan or change. It reports findings rather than fixing them. |
@@ -92,6 +92,8 @@ permission to write, publish, install, or change GitHub.
 - `.github/skills/` — reusable project procedures. A profile mentioning a
   skill does not guarantee that the client loaded it.
 - `.github/prompts/` — reusable prompt files; client support varies.
+- [Agent tools and setup](agent-tools.md) — each agent's skills and tools, what
+  was tried live, and the setup steps.
 - `docs/templates/custom-agent-foundry.agent.md` — Foundry design reference.
 
 The [manual team runbook](agent-team.md) explains the broader working

@@ -1,0 +1,426 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.agents.registry.json
+.devcontainer
+.devcontainer/Dockerfile.disabled
+.devcontainer/devcontainer.json.disabled
+.gitattributes
+.github
+.github/CODEOWNERS
+.github/ISSUE_TEMPLATE
+.github/ISSUE_TEMPLATE/bug.yml
+.github/ISSUE_TEMPLATE/escalation.yml.disabled
+.github/ISSUE_TEMPLATE/plan.yml.disabled
+.github/ISSUE_TEMPLATE/task.yml
+.github/PULL_REQUEST_TEMPLATE.md
+.github/SECURITY.md
+.github/actionlint.yaml
+.github/actions
+.github/actions/collect-evidence
+.github/actions/collect-evidence/action.yml.disabled
+.github/actions/run-agent
+.github/actions/run-agent/action.yml.disabled
+.github/actions/setup-runtime
+.github/actions/setup-runtime/action.yml.disabled
+.github/actions/validate-contract
+.github/actions/validate-contract/action.yml
+.github/agents
+.github/agents/coordinator.agent.md
+.github/agents/custom-agent-foundry.agent.md
+.github/agents/implementer.agent.md
+.github/agents/planner.agent.md
+.github/agents/reviewer.agent.md
+.github/agents/rust-coder.agent.md
+.github/agents/security-auditor.agent.md
+.github/agents/test-specialist.agents.md.disabled
+.github/agents/verifier.agent.md
+.github/aw
+.github/aw/actions-lock.json
+.github/control-plane
+.github/control-plane/adapters
+.github/control-plane/adapters/generic-cli
+.github/control-plane/adapters/github-runner
+.github/control-plane/adapters/local-runner
+.github/control-plane/context
+.github/control-plane/context/memory
+.github/control-plane/context/project-state
+.github/control-plane/context/retrieval
+.github/control-plane/contracts
+.github/control-plane/contracts/common.schema.json
+.github/control-plane/contracts/escalation.schema.json
+.github/control-plane/contracts/evidence.schema.json
+.github/control-plane/contracts/examples
+.github/control-plane/contracts/handoff.schema.json
+.github/control-plane/contracts/plan.schema.json
+.github/control-plane/contracts/result.schema.json
+.github/control-plane/contracts/review.schema.json
+.github/control-plane/contracts/task.schema.json
+.github/control-plane/evals
+.github/control-plane/evals/datasets
+.github/control-plane/evals/fixtures
+.github/control-plane/evals/graders
+.github/control-plane/observability
+.github/control-plane/observability/audit
+.github/control-plane/observability/metrics
+.github/control-plane/observability/traces
+.github/control-plane/orchestration
+.github/control-plane/orchestration/routing.yaml.disabled
+.github/control-plane/orchestration/state-machine.yaml
+.github/control-plane/policies
+.github/control-plane/policies/approvals.yaml
+.github/control-plane/policies/budgets.yaml.disabled
+.github/control-plane/policies/concurrency.yaml.disabled
+.github/control-plane/policies/network-access.yaml.disabled
+.github/control-plane/policies/permissions.yaml.disabled
+.github/control-plane/policies/retention.yaml.disabled
+.github/control-plane/policies/retries.yaml.disabled
+.github/control-plane/policies/tool-access.yaml
+.github/control-plane/settings
+.github/control-plane/settings/environments.json.disabled
+.github/control-plane/settings/labels.json
+.github/control-plane/settings/oidc.json.disabled
+.github/control-plane/settings/repository.json.disabled
+.github/control-plane/settings/rulesets.json
+.github/control-plane/settings/runners.json.disabled
+.github/control-plane/settings/secrets.json.disabled
+.github/control-plane/settings/variables.json.disabled
+.github/copilot-instructions.md
+.github/dependabot.yml
+.github/hooks
+.github/hooks/session-audit.json.disabled
+.github/hooks/tool-policy.json.disabled
+.github/instructions
+.github/instructions/implementation.instructions.md
+.github/instructions/planning.instructions.md
+.github/instructions/review.instructions.md
+.github/instructions/rust-coder.instructions.md
+.github/instructions/security.instructions.md
+.github/instructions/testing.instructions.md
+.github/prompts
+.github/prompts/implement.prompt.md
+.github/prompts/plan.prompt.md
+.github/prompts/recover.prompt.md
+.github/prompts/review.prompt.md
+.github/skills
+.github/skills/acquire-codebase-knowledge
+.github/skills/acquire-codebase-knowledge/NOTICE.md
+.github/skills/acquire-codebase-knowledge/SKILL.md
+.github/skills/acquire-codebase-knowledge/assets
+.github/skills/acquire-codebase-knowledge/references
+.github/skills/acquire-codebase-knowledge/scripts
+.github/skills/context-engineering
+.github/skills/context-engineering/NOTICE.md
+.github/skills/context-engineering/SKILL.md
+.github/skills/implementation
+.github/skills/implementation/SKILL.md
+.github/skills/planning
+.github/skills/planning/SKILL.md
+.github/skills/planning/references
+.github/skills/review
+.github/skills/review/SKILL.md
+.github/skills/verification
+.github/skills/verification/SKILL.md
+.github/workflows
+.github/workflows/agent-evals.yml
+.github/workflows/ci.yml
+.github/workflows/merge-gate.yml
+.github/workflows/release.yml
+.github/workflows/repo-status.lock.yml
+.github/workflows/repo-status.md
+.github/workflows/settings-sync.yml
+.gitignore
+.idea
+.idea/.gitignore
+.idea/esp32p4.iml
+.idea/inspectionProfiles
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.review-domains.json
+.skills.registry.json
+.vars
+.vars.example
+.workflows.registry.json
+AGENTS.md
+CONTRIBUTING.md
+GLOSSARY.md
+PROJECT.md
+README.md
+docs
+docs/agents
+docs/agents/domain.md
+docs/agents/issue-tracker.md
+docs/agents/registry.schema.json
+docs/agents/triage-labels.md
+docs/architecture
+docs/architecture/adversarial-loop.md
+docs/architecture/agent-memory.md
+docs/architecture/contracts.md
+docs/architecture/section-one-roadmap-draft.md
+docs/codebase
+docs/codebase/.codebase-scan.txt
+docs/codebase/ARCHITECTURE.md
+docs/codebase/CONCERNS.md
+docs/codebase/CONVENTIONS.md
+docs/codebase/INTEGRATIONS.md
+docs/codebase/STACK.md
+docs/codebase/STRUCTURE.md
+docs/codebase/TESTING.md
+docs/decisions
+docs/decisions/0001-node-runtime-and-closed-contracts.md
+docs/decisions/0002-human-directed-template.md
+docs/decisions/0003-agent-operating-limits.md
+docs/evidence
+docs/evidence/.gitkeep
+docs/plans
+docs/plans/.gitkeep
+docs/plans/agent-team-github-roadmap-draft.md
+docs/plans/agent-team-skills-and-tools-draft.md
+docs/plans/esp32_p4_control_plane_hardware_wallet_specification.md
+docs/plans/multi-cli-fallback-spec.md
+docs/runbooks
+docs/runbooks/agent-team.md
+docs/runbooks/evidence-reporting.md
+docs/runbooks/overseer.md
+docs/runbooks/planner-setup.md
+docs/runbooks/settings-sync.md
+docs/runbooks/skill-switch-pr4-handoff.md
+docs/runbooks/template-adoption.md
+docs/runbooks/using-agents.md
+docs/templates
+docs/templates/custom-agent-foundry.agent.md
+docs/templates/github-actions-expert.agent.md
+docs/templates/plan.agent.md
+docs/templates/project-architecture-planner.agent.md
+docs/templates/project-brief.md
+docs/templates/prompt-builder.agent.md
+docs/templates/prompt-engineer.agent.md
+docs/templates/prompt.instructions.md
+docs/templates/quality-playbook.agent.md
+docs/templates/software-engineer-agent-v1.agent.md
+docs/templates/task-researcher.agent.md
+
+=== STACK DETECTION (manifest files) ===
+
+--- package-lock.json ---
+{
+  "name": "@control-plane/core",
+  "version": "0.1.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "@control-plane/core",
+      "version": "0.1.0",
+      "license": "MIT",
+      "dependencies": {
+        "ajv": "^8.17.1",
+        "ajv-formats": "^3.0.1",
+        "yaml": "^2.9.1"
+      },
+      "bin": {
+        "control-plane": "src/cli.js"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      }
+    },
+    "node_modules/ajv": {
+      "version": "8.20.0",
+      "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+      "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+      "license": "MIT",
+      "dependencies": {
+        "fast-deep-equal": "^3.1.3",
+        "fast-uri": "^3.0.1",
+        "json-schema-traverse": "^1.0.0",
+        "require-from-string": "^2.0.2"
+      },
+      "funding": {
+        "type": "github",
+        "url": "https://github.com/sponsors/epoberezkin"
+      }
+    },
+    "node_modules/ajv-formats": {
+      "version": "3.0.1",
+      "resolved": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
+      "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
+      "license": "MIT",
+      "dependencies": {
+        "ajv": "^8.0.0"
+      },
+      "peerDependencies": {
+        "ajv": "^8.0.0"
+      },
+      "peerDependenciesMeta": {
+        "ajv": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/fast-deep-equal": {
+      "version": "3.1.3",
+      "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==",
+      "license": "MIT"
+    },
+    "node_modules/fast-uri": {
+      "version": "3.1.8",
+      "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz",
+      "integrity": "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/fastify"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/fastify"
+        }
+      ],
+      "license": "BSD-3-Clause"
+    },
+    "node_modules/json-schema-traverse": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+
+[TRUNCATED] Showing first 80 of 109 lines.
+--- package.json ---
+{
+  "name": "@control-plane/core",
+  "version": "0.1.0",
+  "description": "Repo-agnostic GitHub control plane: contracts, settings reconciliation, and policy gates.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "control-plane": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test \"tests/unit/*.test.js\" \"tests/security/*.test.js\"",
+    "test:unit": "node --test \"tests/unit/*.test.js\"",
+    "test:security": "node --test \"tests/security/*.test.js\"",
+    "validate:examples": "node src/cli.js validate .github/control-plane/contracts/examples/*.json",
+    "settings:plan": "node src/cli.js settings plan",
+    "settings:check": "node src/cli.js settings check",
+    "settings:apply": "node src/cli.js settings apply"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.1"
+  }
+}
+
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+No linting or formatting config files found in project root.
+
+=== ENVIRONMENT CONFIGURATION ===
+Environment templates are excluded by repository policy. Identify variable names from permitted source and documentation.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:29: TODO_LIMIT = 60
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:334: return todos[:TODO_LIMIT]
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:637: # TODOs
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+
+=== GIT RECENT COMMITS (last 20) ===
+7f30d7e Refine manual agent pipeline and harden control-plane checks
+e8c653b Remove provider routing and document the working agent pipeline
+36de21f Align agent profiles with the manual team roadmap
+6a2b663 Add local agent updates and research documents
+f6bc422 Create planner agent for implementation planning
+04ff8b0 Delete implementation agent documentation
+7124e2d Record the agreed agent team and published Wayfinder roadmap
+66e499d Pause automated control-plane enforcement during manual development
+76fce2f fix(routing): account for floating point epsilon in probability tolerance and add Jev fuzz suite
+9b73c05 fix(settings): eliminate duplicate name change in label rename planning
+3a7aad9 feat(ci): informational merge-gate report and remove hosted paid eval benchmark
+3d04f8e fix(security): normalize repo paths in evidence scope and policy evaluation
+a31514e fix(ci): silence shellcheck sc2016 for inline node script in merge-gate
+3f180b6 feat(workflows): activate release, merge-gate, agent-evals and pin action shas
+c36052a fix(tests): use dynamic UTC date for spending cli unit tests
+d32ee2a Added repo-status workflow, agents.md, and docs/agent-templates
+bfdbd43 docs: update PROJECT.md current state and next immediate steps
+43be9e2 feat(compaction): add fast-jev context sieve log compaction module and cli command
+4174c6d fix(cli): guard task contract file loading in evidence command
+039b55a fix(orchestration): evaluate triage path globs bidirectionally
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+   9 tests/unit/cli.test.js
+   7 AGENTS.md
+   7 src/cli.js
+   6 .agents.registry.json
+   6 .github/copilot-instructions.md
+   6 tests/unit/orchestration.test.js
+   6 .github/workflows/ci.yml
+   5 .github/agents/implementer.agent.md
+   5 .github/agents/rust-coder.agent.md
+   5 docs/runbooks/agent-team.md
+   5 src/lib/orchestration.js
+   5 src/lib/report.js
+   5 README.md
+   5 src/jev.js
+   5 src/routing.js
+   5 src/run-jev.js
+   4 .github/agents/custom-agent-foundry.agent.md
+   4 .github/agents/planner.agent.md
+   4 src/evidence.js
+   4 src/lib/registry.js
+
+=== MONOREPO SIGNALS ===
+No monorepo signals detected.
+
+=== CODE METRICS ===
+Total files scanned: 193
+Total lines of code: 9977
+
+Files by language:
+  Other: 158
+  JavaScript: 34
+  Python: 1
+
+Top 10 largest files:
+.github/workflows/repo-status.lock.yml: 135.5KB
+tests/unit/cli.test.js: 29.9KB
+tests/unit/orchestration.test.js: 28.5KB
+.github/skills/acquire-codebase-knowledge/scripts/scan.py: 24.2KB
+docs/architecture/agent-memory.md: 22.1KB
+src/cli.js: 21.7KB
+.github/agents/rust-coder.agent.md: 18.6KB
+docs/templates/project-architecture-planner.agent.md: 18.5KB
+docs/templates/prompt-builder.agent.md: 18.1KB
+src/lib/orchestration.js: 15.9KB
+
+=== CI/CD PIPELINES ===
+CI/CD: GitHub Actions
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+No security configs detected.
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===

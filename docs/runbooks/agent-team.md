@@ -2,10 +2,9 @@
 
 ## Current mode: build the repository manually
 
-The owner has paused automated control-plane enforcement. For ordinary
+For ordinary
 owner-directed work, make small changes, run relevant checks, and let the owner
-commit or merge. The formal contracts and approval stages below are preparation
-for the future automated team, not required paperwork for every edit now.
+commit or merge.
 
 To resume automation, the owner must request it. Review the workflow, access,
 spending and protection settings before enabling the relevant pieces. Do not
@@ -28,7 +27,7 @@ and [approval policy](../../.github/control-plane/policies/approvals.yaml).
 There is no running dispatcher or approval authenticator. People and agents
 must uphold these working agreements.
 
-The merge-gate workflow is informational. A successful report is not proof of task scope, completed reviews or human approval. There is no authenticated automatic approval gate.
+A successful report is not proof of task scope, completed reviews or human approval. There is no authenticated automatic approval gate.
 
 ## 1. Establish the project and task
 

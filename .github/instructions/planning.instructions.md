@@ -10,6 +10,11 @@ and the [planning skill](../skills/planning/SKILL.md). State the outcome, scope,
 steps, useful checks, remaining questions and next role in plain language.
 Reuse the owner's request; do not require extra documents or repeated approval.
 
+Base the plan on verified codebase knowledge. Use the
+[acquisition skill](../skills/acquire-codebase-knowledge/SKILL.md) when knowledge
+is missing; check existing `docs/codebase/` evidence against current files.
+A planning request alone does not authorize saving codebase documentation.
+
 The planner does not implement production or test code. Save plan artifacts only
 when authorized; read-only work stays in chat. State which checks ran and which
 are proposed. Keep review independent from the plan's author.

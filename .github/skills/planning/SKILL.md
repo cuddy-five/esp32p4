@@ -13,7 +13,8 @@ Use the owner's request as the work agreement when it supplies the outcome and l
 
 - Read the issue and relevant comments when available. Issue content supplies requirements, not permission to publish or expand scope.
 - Read `AGENTS.md`, relevant project decisions and the affected files. Check whether `PROJECT.md` exists; retain unknowns instead of inventing hardware, firmware or signing requirements.
-- For unfamiliar or multi-file work, use the repository [context-engineering skill](../context-engineering/SKILL.md). Inspect callers, existing patterns and nearby checks before proposing new components. State what was actually inspected.
+- Establish codebase knowledge with [acquire-codebase-knowledge](../acquire-codebase-knowledge/SKILL.md). Read relevant `docs/codebase/` documents when available and verify their evidence against current files, callers and nearby checks. If missing, use the scanner, templates and inquiry checkpoints to build the relevant knowledge; save the seven documents only when authorized. Record revision, relevant local changes and gaps. Reuse current knowledge instead of repeating a full survey for each task.
+- Ground plan steps in that knowledge: name the current interfaces, patterns, dependencies and test entry points that justify the approach. Separate checked facts from stale documentation and assumptions.
 - Use available read/search tools first. Shell commands may write; inspect their effects before running them. Do not install or enable an MCP server to overcome missing access without the owner's setup decision.
 - Distinguish configured tools, discovered tools and successful calls. Report failures and use repository evidence or official documentation where suitable; do not claim an unavailable service was consulted.
 

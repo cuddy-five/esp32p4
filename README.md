@@ -24,8 +24,6 @@ resume tasks. Copy the [project brief](docs/templates/project-brief.md) to
 `PROJECT.md` to record requirements and owner choices.
 New to the agents? Start with
 [Using this repository's agents](docs/runbooks/using-agents.md).
-The [original skeleton prompt](docs/architecture/skeleton-prompt.md)
-preserves the starting layout and its historical scope.
 
 The generic baseline also includes CODEOWNERS, security reporting guidance,
 and weekly Dependabot proposals after publication to the default branch.
@@ -142,7 +140,7 @@ the next stage.
 | `CONTRIBUTING.md` | File-to-file path from request through review and owner merge |
 | `src/` | CLI and library (plain ESM, Node 20+) |
 | `tests/unit/`, `tests/security/` | `node:test` suites |
-| `docs/architecture/` | Contracts, planned team loop, historical skeleton prompt |
+| `docs/architecture/` | Contracts and planned team loop |
 | `docs/threat-models/` | `adversarial-loop.md` |
 | `docs/runbooks/` | Manual team process, overseer decisions, settings sync, and template adoption |
 | `docs/templates/` | Project brief to copy to `PROJECT.md` |
