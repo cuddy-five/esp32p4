@@ -33,8 +33,15 @@ roles:
       - edit
       - execute # Shell access is not a write restriction.
       - todo
-    forbidden_tools: []
-    mcp_servers: [github, context7]
+      - basic-memory/search_notes
+      - basic-memory/read_note
+      - basic-memory/build_context
+      - basic-memory/recent_activity
+      - basic-memory/read_content
+      - basic-memory/list_directory
+    forbidden_tools:
+      - basic-memory/* # Read tools only; shared notes are written by the coordinator.
+    mcp_servers: [github, context7, basic-memory]
 
   implementer:
     allowed_tools:
@@ -43,10 +50,10 @@ roles:
       - search
       - execute
       - context7/*
-      - rust-mcp/*
+      - lsp # rust-coder: rust-analyzer from .github/lsp.json, not an MCP server.
       - todo
     forbidden_tools: []
-    mcp_servers: [context7, rust-mcp]
+    mcp_servers: [context7]
 
   reviewer:
     allowed_tools:

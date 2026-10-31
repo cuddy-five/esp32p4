@@ -33,6 +33,7 @@ skill loads and calls; do not infer them from the profile header.
 ## What connects to what
 
 - [Planner profile](../../.github/agents/planner.agent.md) selects the role and intended tools.
+- [Agent tools and setup](agent-tools.md) records the planner's live tool check (2026-10-30) and the GitHub launch flags it needs.
 - [Planning skill](../../.github/skills/planning/SKILL.md) supplies the procedure.
 - [Acquire-codebase-knowledge](../../.github/skills/acquire-codebase-knowledge/SKILL.md) supplies the knowledge foundation. Context-engineering remains available for other workflows.
 - [Planning instructions](../../.github/instructions/planning.instructions.md) apply to plan artifacts.

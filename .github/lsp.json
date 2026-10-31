@@ -1,0 +1,21 @@
+{
+  "lspServers": {
+    "rust-analyzer": {
+      "command": "rust-analyzer",
+      "fileExtensions": {
+        ".rs": "rust"
+      },
+      "initializationOptions": {
+        "cargo": {
+          "buildScripts": {
+            "enable": false
+          }
+        },
+        "procMacro": {
+          "enable": false
+        },
+        "checkOnSave": false
+      }
+    }
+  }
+}

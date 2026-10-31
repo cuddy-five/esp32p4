@@ -92,6 +92,8 @@ permission to write, publish, install, or change GitHub.
 - `.github/skills/` — reusable project procedures. A profile mentioning a
   skill does not guarantee that the client loaded it.
 - `.github/prompts/` — reusable prompt files; client support varies.
+- [Agent tools and setup](agent-tools.md) — each agent's skills and tools, what
+  was tried live, and the setup steps.
 - `docs/templates/custom-agent-foundry.agent.md` — Foundry design reference.
 
 The [manual team runbook](agent-team.md) explains the broader working
