@@ -1,7 +1,7 @@
 # Differential Security Review Report
 
 **Subject**: Uncommitted working tree & staged changes vs `HEAD` (`7f30d7e82f9bf56f3b5e80108576b5e54a42b1f5`)  
-**Repository**: `/var/home/cb/src/esp32p4`  
+**Repository**: `cuddy-five/esp32p4`  
 **Review Type**: Differential Security & Regression Review  
 **Date**: 2026-10-30  
 **Evaluator**: Antigravity (`differential-review` autonomous evaluation)
@@ -59,7 +59,7 @@
 
 ### 🟡 Finding MED-01: Broken Documentation Reference via Deleted `skeleton-prompt.md` [RESOLVED]
 
-- **File**: [`README.md:27`](file:///var/home/cb/src/esp32p4/README.md#L27), [`CONTRIBUTING.md:93`](file:///var/home/cb/src/esp32p4/CONTRIBUTING.md#L93), [`.review-domains.json:20`](file:///var/home/cb/src/esp32p4/.review-domains.json#L20)
+- **File**: [`README.md:27`](README.md#L27), [`CONTRIBUTING.md:93`](CONTRIBUTING.md#L93), [`.review-domains.json:20`](.review-domains.json#L20)
 - **Subject**: Deletion of `docs/architecture/skeleton-prompt.md` and `NEXT-AGENT.md` in working tree
 - **Resolution**: Owner confirmed deletion. Updated `README.md` and `CONTRIBUTING.md` to prune dead links to `skeleton-prompt.md`. Removed `NEXT-AGENT.md` from `.review-domains.json` and adjusted reference in `docs/codebase/CONCERNS.md`. Link integrity is fully restored.
 
@@ -67,7 +67,7 @@
 
 ### 🟢 Finding LOW-01: Remote Ruleset Re-synchronization Prerequisite
 
-- **File**: [`.github/control-plane/settings/rulesets.json:9`](file:///var/home/cb/src/esp32p4/.github/control-plane/settings/rulesets.json#L9)
+- **File**: [`.github/control-plane/settings/rulesets.json:9`](.github/control-plane/settings/rulesets.json#L9)
 - **Description**: Ruleset enforcement was changed from `"disabled"` to `"active"` for both `"control-plane: protect default branch"` and `"control-plane: protect release tags"`.
 - **Security Posture**: Positive security hardening. When reconciled via GitHub API, this enforces required status checks (`test`, `validate-examples`, `lint-workflows`), blocks deletions, and prevents non-fast-forward pushes.
 - **Operational Requirement**: Because `settings apply` requires an authenticated token (`GH_TOKEN`) with admin permissions, local edits alone do not mutate remote GitHub branch protections. The change must be applied via `node src/cli.js settings apply --yes` or via manual workflow dispatch of `.github/workflows/settings-sync.yml`.
@@ -76,13 +76,13 @@
 
 ### 🟢 Finding LOW-02: `scan.py` Local Process Execution Hardening Verified
 
-- **File**: [`.github/skills/acquire-codebase-knowledge/scripts/scan.py:340`](file:///var/home/cb/src/esp32p4/.github/skills/acquire-codebase-knowledge/scripts/scan.py#L340)
+- **File**: [`.github/skills/acquire-codebase-knowledge/scripts/scan.py:340`](.github/skills/acquire-codebase-knowledge/scripts/scan.py#L340)
 - **Description**: `scan.py` executes `subprocess.run` to invoke `git log` and `git rev-parse`.
 - **Security Posture**: Verified secure:
   - Invoked with list arguments (`shell=False`), eliminating shell command injection risks.
   - Path traversal is strictly bounded: `should_exclude()` enforces path canonicalization within `Path.cwd()` and returns `True` (excluding) for any path containing `..`, symlinks, or forbidden patterns (`.env*`, `.ssh`, `*.key`, `*.pem`, `*.wallet`, `id_*`).
   - `--output` flag requires destination paths to be strictly internal and non-symlinked.
-  - Dedicated security suite in [`tests/security/codebase-scan.test.js`](file:///var/home/cb/src/esp32p4/tests/security/codebase-scan.test.js) verifies path traversal rejection, symlink exclusion, and secret file exclusion.
+  - Dedicated security suite in [`tests/security/codebase-scan.test.js`](tests/security/codebase-scan.test.js) verifies path traversal rejection, symlink exclusion, and secret file exclusion.
 
 ---
 
@@ -98,12 +98,12 @@
 
 | Component | Test Suite | Pass/Fail | Verified Behaviors |
 |-----------|------------|-----------|---------------------|
-| Codebase Scanner Safety | [`tests/security/codebase-scan.test.js`](file:///var/home/cb/src/esp32p4/tests/security/codebase-scan.test.js) | PASS (2/2) | Secret exclusion (`.env`, `.ssh`), symlink pruning, output path boundary |
-| Contract Strictness Invariants | [`tests/security/contracts-strictness.test.js`](file:///var/home/cb/src/esp32p4/tests/security/contracts-strictness.test.js) | PASS (44/44) | Closed schema checks (`unevaluatedProperties: false`), prototype pollution prevention, mandatory `overseer_note` |
-| Planner Pipeline | [`tests/unit/planner-pipeline.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/planner-pipeline.test.js) | PASS (2/2) | Skill resolution, bundled templates/references presence, `policy stages` preservation |
-| Agent Team Fleet Integrity | [`tests/unit/agent-team-config.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/agent-team-config.test.js) | PASS (6/6) | All 8 profiles exist, valid tool aliases, no silent `npx -y` MCP installs |
-| Selection Registry Rules | [`tests/unit/selection-registry-lint.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/selection-registry-lint.test.js) | PASS (6/6) | Decision rule syntax (`Choose... Not for...`), character length limits (40-300), uniqueness |
-| Ruleset Planner & Reconciler | [`tests/unit/rulesets.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/rulesets.test.js) | PASS (16/16) | `declared` vs `strict` comparison, enforcement toggling (`active` vs `disabled`), bypass actor handling |
+| Codebase Scanner Safety | [`tests/security/codebase-scan.test.js`](tests/security/codebase-scan.test.js) | PASS (2/2) | Secret exclusion (`.env`, `.ssh`), symlink pruning, output path boundary |
+| Contract Strictness Invariants | [`tests/security/contracts-strictness.test.js`](tests/security/contracts-strictness.test.js) | PASS (44/44) | Closed schema checks (`unevaluatedProperties: false`), prototype pollution prevention, mandatory `overseer_note` |
+| Planner Pipeline | [`tests/unit/planner-pipeline.test.js`](tests/unit/planner-pipeline.test.js) | PASS (2/2) | Skill resolution, bundled templates/references presence, `policy stages` preservation |
+| Agent Team Fleet Integrity | [`tests/unit/agent-team-config.test.js`](tests/unit/agent-team-config.test.js) | PASS (6/6) | All 8 profiles exist, valid tool aliases, no silent `npx -y` MCP installs |
+| Selection Registry Rules | [`tests/unit/selection-registry-lint.test.js`](tests/unit/selection-registry-lint.test.js) | PASS (6/6) | Decision rule syntax (`Choose... Not for...`), character length limits (40-300), uniqueness |
+| Ruleset Planner & Reconciler | [`tests/unit/rulesets.test.js`](tests/unit/rulesets.test.js) | PASS (16/16) | `declared` vs `strict` comparison, enforcement toggling (`active` vs `disabled`), bypass actor handling |
 
 **Overall Test Suite Result**: 52 suites passed, 321 tests passed, 0 failures (`npm test`).
 
@@ -114,7 +114,9 @@
 1. **GitHub Branch & Tag Protection**:
    - Setting rulesets to `"enforcement": "active"` directly impacts all branch pushes and PR merges once synchronized to GitHub.
    - Required status checks specified: `test`, `validate-examples`, `lint-workflows`. All three jobs currently pass in `.github/workflows/ci.yml`.
-   - Threat of lock-out is mitigated by `bypass_actors` configuration and the owner's administrator authority.
+   - No bypass actors are configured (`"bypass_actors": []` in both rulesets), so nobody can push directly to the default branch
+     or move release tags once the rulesets are applied. Recovering from a lock-out means a repository administrator editing or
+     disabling the ruleset.
 
 2. **Planner Agent Operating Scope**:
    - The planner's charter and instructions were updated to make codebase discovery mandatory.
