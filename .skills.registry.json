@@ -4,7 +4,7 @@
     {
       "id": "code-reviewer",
       "name": "Code Reviewer",
-      "description": "Choose to review any code change for quality, maintainability and bugs, in any language. Not for Python-only style, database work or security-only audits.",
+      "description": "Choose to review any code change for quality, maintainability and bugs, in any language. Not for security-only audits.",
       "category": "review",
       "provider": "ecc",
       "cost": {
@@ -20,27 +20,6 @@
         "code-quality",
         "review",
         "architecture"
-      ]
-    },
-    {
-      "id": "python-reviewer",
-      "name": "Python Reviewer",
-      "description": "Choose to review Python code for PEP 8, idioms, type hints and Python-specific bugs. Not for other languages.",
-      "category": "review",
-      "provider": "ecc",
-      "cost": {
-        "ai_credits": 400,
-        "description": "Per Python file batch"
-      },
-      "prerequisites": [],
-      "enabled": true,
-      "models": [
-        "gpt-5.6-luna"
-      ],
-      "tags": [
-        "python",
-        "review",
-        "pep8"
       ]
     },
     {
@@ -65,72 +44,9 @@
       ]
     },
     {
-      "id": "database-reviewer",
-      "name": "Database Reviewer",
-      "description": "Choose for PostgreSQL schemas, SQL queries, migrations or database performance. Not for application logic without a database.",
-      "category": "review",
-      "provider": "ecc",
-      "cost": {
-        "ai_credits": 500,
-        "description": "Per database review"
-      },
-      "prerequisites": [],
-      "enabled": true,
-      "models": [
-        "gpt-5.6-luna"
-      ],
-      "tags": [
-        "database",
-        "postgresql",
-        "performance"
-      ]
-    },
-    {
-      "id": "build-error-resolver",
-      "name": "Build Error Resolver",
-      "description": "Choose when a TypeScript or build error is failing and needs the smallest fix to turn the build green. Not for new features or refactors.",
-      "category": "implementation",
-      "provider": "ecc",
-      "cost": {
-        "ai_credits": 300,
-        "description": "Per build error fix"
-      },
-      "prerequisites": [],
-      "enabled": true,
-      "models": [
-        "gpt-5.3-codex"
-      ],
-      "tags": [
-        "typescript",
-        "build",
-        "errors"
-      ]
-    },
-    {
-      "id": "e2e-runner",
-      "name": "E2E Test Runner",
-      "description": "Choose to create or run end-to-end browser tests of user journeys. Not for unit tests or non-browser work.",
-      "category": "testing",
-      "provider": "ecc",
-      "cost": {
-        "ai_credits": 800,
-        "description": "Per test session (includes artifacts)"
-      },
-      "prerequisites": [],
-      "enabled": true,
-      "models": [
-        "gpt-5.6-luna"
-      ],
-      "tags": [
-        "e2e",
-        "testing",
-        "browser"
-      ]
-    },
-    {
       "id": "tdd-guide",
       "name": "Test-Driven Development Guide",
-      "description": "Choose when building new behavior or fixing a bug test-first with high coverage. Not for writing a plan or design, and not for end-to-end browser tests.",
+      "description": "Choose when building new behavior or fixing a bug test-first with high coverage. Not for writing a plan or design.",
       "category": "testing",
       "provider": "ecc",
       "cost": {

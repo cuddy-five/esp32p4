@@ -122,7 +122,7 @@
       "description": "Available workflows for task orchestration",
       "items": {
         "type": "object",
-        "required": ["id", "name", "description", "states", "initial_state", "transitions", "enabled"],
+        "required": ["id", "name", "description", "states", "enabled"],
         "properties": {
           "id": {
             "type": "string",
@@ -142,16 +142,9 @@
           "states": {
             "type": "array",
             "items": {"type": "string"},
-            "minItems": 2,
-            "description": "Valid states in this workflow"
-          },
-          "initial_state": {
-            "type": "string",
-            "description": "Starting state when workflow is created"
-          },
-          "transitions": {
-            "type": "object",
-            "description": "State machine transitions (state -> {action: nextState})"
+            "minItems": 1,
+            "uniqueItems": true,
+            "description": "States from .github/control-plane/orchestration/state-machine.yaml that this workflow covers. That file is the only task lifecycle; workflows do not define their own transitions."
           },
           "agent": {
             "type": "string",

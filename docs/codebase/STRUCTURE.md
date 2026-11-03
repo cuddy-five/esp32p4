@@ -89,6 +89,6 @@ Agent guidance is described in three places; actual loading depends on the clien
 ### 9) Registries and Mapping Configurations
 
 - [`.agents.registry.json`](../../.agents.registry.json): Formal role declarations for models, budgets and scopes; not the full client roster. Registry lint checks this file; agent-team-config checks client profiles.
-- [`.skills.registry.json`](../../.skills.registry.json): Legacy ECC skill catalogue with declared models and costs. It does not enumerate the project skills above or prove that a skill is installed.
-- [`.workflows.registry.json`](../../.workflows.registry.json): Declared workflow catalogue; it does not start workers or implement the task lifecycle in state-machine.yaml.
+- [`.skills.registry.json`](../../.skills.registry.json): ECC skill catalogue with declared models and costs, limited to the reviewers and helpers this repository uses. It does not enumerate the project skills above or prove that a skill is installed.
+- [`.workflows.registry.json`](../../.workflows.registry.json): Declared workflow catalogue. Each workflow lists the `state-machine.yaml` states it covers; that file is the only task lifecycle. The catalogue does not start workers.
 - [`.review-domains.json`](../../.review-domains.json): Maps modified file paths to domain-specific review checklists (e.g. Control Plane JS vs. Rust `#![no_std]` firmware).
