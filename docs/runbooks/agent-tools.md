@@ -130,15 +130,17 @@ marked verified or unverified, with its source. State on 2026-11-03:
   166 Knots test vectors. BLAKE2b turned out to be used only for block-header
   proof of work, so a signer does not need it. The BIP-110 (RDTS) limits also
   apply from the fork height; they are located but not reviewed.
-- **Board schematic: read through its text labels.** The ESP32-C6 is enabled by
-  P4 GPIO54 through R54, with a pull-up that turns the C6 on whenever GPIO54 is
-  not driven low, and it shares the main 3.3 V rail with the P4. So the
-  historical plan of cutting the C6's power through the AXP2101 does not work
-  on this board. These facts are "Inferred (schematic labels)".
-- **Chip: more facts from vendor sources.** ESP-IDF's eFuse table and
-  programming guide cover JTAG disabling, download mode and the RNG. The RNG is
-  truly random only while its SAR ADC entropy source is enabled. The datasheet
-  itself is still unread (see [Still open](#still-open)).
+- **Board schematic: traced visually.** The ESP32-C6 is enabled by P4 GPIO54
+  through R54, with a 10 kΩ pull-up that turns the C6 on whenever GPIO54 is not
+  driven low. It runs from `ESP_3V3`, the AXP2101 DCDC1 output that also feeds
+  the P4. So the historical plan of cutting the C6's power through the AXP2101
+  does not work on this board.
+- **Chip: datasheet v0.7 read.** It confirms the 32 MB PSRAM variant, chip
+  revision v3.x, the internal memory sizes, the RNG's entropy sources and
+  power modes. The Key Manager hardware exists, but ESP-IDF does not support it
+  yet. ESP-IDF's eFuse table and programming guide cover JTAG disabling,
+  download mode and when the RNG is truly random. The address map and power
+  domains need the Technical Reference Manual.
 
 The skill folder is not called `wallet-references` because a local Claude Code
 hook blocks writes to any path containing "wallet", to protect wallet files.
@@ -297,14 +299,11 @@ or if anyone gets a tool outside the read list.
 
 ### Still open
 
-- The ESP32-P4 datasheet and Technical Reference Manual are unread: their text
-  is CID-encoded, and no PDF text tool is installed. Installing `poppler-utils`
-  in the `devbox` distrobox would provide `pdftotext`. Until then, the chip
-  file's memory map, power domains, ordering table and Key Management Unit
-  facts stay unverified.
-- The board schematic was read through its text labels only. Its radio
-  findings are marked "Inferred (schematic labels)" until someone checks the
-  drawing visually.
+- The ESP32-P4 Technical Reference Manual is unread, so the address map and
+  power-domain detail stay unverified. `poppler-utils` is installed in
+  `devbox` (2026-11-03): `pdftotext -layout <file> -` reads it.
+- Nothing on the board has been measured; the radio findings come from the
+  schematic.
 - Owner decisions recorded in `device-references`: whether the device also signs
   legacy sighashes, whether it enforces the RDTS limits, and how to isolate the
   ESP32-C6 physically.
@@ -392,7 +391,7 @@ something to index and was deleted afterwards. Results are in the table under
 
 ## Next slices
 
-1. The open items under [Still open](#still-open): datasheet, a visual schematic
-   check, and the owner's device decisions.
+1. The open items under [Still open](#still-open): the Technical Reference
+   Manual, and the owner's device decisions.
 2. Re-run the per-agent live check after any profile, skill or MCP change, with
    the recipe above.

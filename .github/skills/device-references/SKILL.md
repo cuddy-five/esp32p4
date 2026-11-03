@@ -24,6 +24,8 @@ reviewer and the security auditor. Read only the file you need:
   measured or tested it, for example a capability flag in vendor source.
 - **Verified (location)**: the cited file or symbol exists at the pinned commit;
   its content has not been reviewed yet.
+- **Verified (visual)**: a schematic connection traced by eye on a high-resolution
+  rendering of the vendor's schematic, with the parts and pins named.
 - **Inferred (schematic labels)**: net names and part values read exactly from
   a schematic's text, with connections inferred from where the labels sit on
   the page rather than traced along the wires.
