@@ -2,7 +2,7 @@
 name: security-auditor
 description: 'Choose when the request involves secrets, credentials, auth, input handling, untrusted data, dependencies or any attack surface, or asks for a security check. Not for general code quality.'
 argument-hint: 'Provide the commit SHA, diff, task contract, and evidence contract to audit'
-model: gpt-5.6-luna
+model: claude-sonnet-4.6
 tools: ['read', 'search', 'execute', 'github/*', 'context7/*']
 handoffs:
   - label: Block & Return to Implementer

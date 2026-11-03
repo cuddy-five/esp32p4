@@ -2,7 +2,7 @@
 name: custom-agent-foundry
 description: 'Expert at designing, validating, and registering custom agents, skills, and MCP toolsets for the esp32p4 adversarial control plane and #![no_std] Rust firmware'
 argument-hint: 'Describe the agent role, control-plane or ESP32-P4 firmware domain, required tools/MCPs, and handoff chain'
-model: Claude Sonnet 4.5
+model: claude-sonnet-4.6
 infer: false
 tools: ['read', 'search', 'edit', 'execute', 'web', 'agent', 'github/*', 'context7/*', 'todo']
 handoffs:
@@ -70,7 +70,7 @@ If the agent is registered in `.agents.registry.json` (or a skill in `.skills.re
   4. Be **unique** across all registry entries.
 - **Schema Compliance (`docs/agents/registry.schema.json`)**:
   - `id`: Lowercase `snake_case` matching `^[a-z_][a-z0-9_]*$` (whereas `.github/agents/` filenames use `kebab-case.agent.md`).
-  - `model`: Must be one of the schema-allowed models (`"claude-haiku-4.5"`, `"gpt-5.3-codex"`, `"gpt-5.6-luna"`, `"gpt-6-luna"`, `"kimi-k3"`, `"mai-code-1.1-flash"`) unless updating `docs/agents/registry.schema.json` in the same task.
+  - `model`: Must be one of the schema-allowed models (`"claude-haiku-4.5"`, `"claude-sonnet-4.6"`, `"gpt-5.3-codex"`, `"gpt-5.6-luna"`, `"gpt-6-luna"`, `"kimi-k3"`, `"mai-code-1.1-flash"`) unless updating `docs/agents/registry.schema.json` in the same task.
   - `budget`: Must declare `max_ai_credits` (>=100), `max_tokens_per_request` (>=1000), and `max_concurrent_tasks` (>=1).
   - `scope`: Must declare `allowed_paths` and `forbidden_paths` arrays (always forbidding `.env*`, `**/node_modules/**`, `**/.git/**`).
 
