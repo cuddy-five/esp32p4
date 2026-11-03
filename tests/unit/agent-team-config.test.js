@@ -156,6 +156,32 @@ describe("Owner-directed agent team configuration", () => {
     }
   });
 
+  test("NotebookLM access is read-only and limited to the planner, rust-coder and security-auditor", () => {
+    const readTools = new Set(["notebook_list", "notebook_get", "notebook_describe", "source_describe",
+      "source_get_content", "notebook_query", "notebook_query_start", "notebook_query_status", "cross_notebook_query"]);
+    const readers = new Set(["planner", "rust-coder", "security-auditor"]);
+    for (const name of expectedAgents) {
+      const { header, body } = readProfile(path.join(agentsDir, `${name}.agent.md`));
+      const notebook = header.tools.filter((tool) => tool.startsWith("notebooklm/"));
+      for (const tool of notebook) {
+        assert.ok(readTools.has(tool.slice("notebooklm/".length)), `${name} has a NotebookLM tool that is not read-only: ${tool}`);
+      }
+      assert.equal(notebook.length > 0, readers.has(name), `${name} ${readers.has(name) ? "needs" : "must not have"} NotebookLM tools`);
+      if (readers.has(name)) {
+        assert.match(body, /\*\*NotebookLM\*\*/, `${name} must say which notebooks it may read`);
+        assert.match(body, /secondary source/, `${name} must treat notebook answers as unverified`);
+      }
+    }
+  });
+
+  test("agents without an edit tool are told never to use lsp rename", () => {
+    for (const name of expectedAgents) {
+      const { header, body } = readProfile(path.join(agentsDir, `${name}.agent.md`));
+      if (!header.tools.includes("lsp") || name === "rust-coder") continue;
+      assert.match(body, /Never call its `rename` operation/, `${name} lists lsp and must forbid rename`);
+    }
+  });
+
   test("no proposed tool policy role forbids a tool it also allows", () => {
     const policy = YAML.parse(fs.readFileSync(".github/control-plane/policies/tool-access.yaml", "utf8"));
     const covers = (pattern, tool) => pattern === tool || (pattern.endsWith("/*") && tool.startsWith(pattern.slice(0, -1)));
