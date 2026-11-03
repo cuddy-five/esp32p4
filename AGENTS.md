@@ -173,6 +173,12 @@ Testing expectations:
 
 ## Agent skills
 
+Project skills live in `.github/skills/`. Each agent profile preloads one to
+three of them through `skills:` and names its optional ones in its **Skills**
+line; every agent can see every enabled skill, so load only those meant for
+your role. The per-agent table and sources are in
+[`docs/runbooks/agent-tools.md`](docs/runbooks/agent-tools.md#skills).
+
 ### Issue tracker
 
 Track plans and tickets in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.

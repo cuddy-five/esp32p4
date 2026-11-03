@@ -4,6 +4,8 @@ Start with a small set of useful skills and tools for each agent. Reuse what we 
 
 Status: accepted starting design. The owner accepted the recommended skills, MCP connections and file layout on 2026-10-27. These choices can be adjusted as the team is built. This document does not install tools or change any agent's access.
 
+Implementation, 2026-11-03: the starting skills below are in `.github/skills/`, adapted with their sources and licenses. Three skills from the Awesome Copilot catalogue fill gaps: `github-actions-hardening`, `test-gap-audit` and `mcp-security-audit`. The coordinator's skill is `handoff` (adapted from Matt Pocock's), and `triage` is optional because only the owner starts it. The shared wallet knowledge is the `device-references` skill. The [agent tools runbook](../runbooks/agent-tools.md) has the per-agent table, the source list and what is still open.
+
 ## Choices already made
 
 There are seven working agents plus the Foundry. The wallet engineer combines Rust, Bitcoin and ESP32 knowledge. Each agent can be used directly or through the coordinator. Specialists can look up information themselves. The coordinator handles routine GitHub updates and keeps each review's author clear; another agent publishes directly only when the owner asks.
@@ -74,7 +76,7 @@ These folders have different jobs. We can use several without creating competing
 
 Keep the rules in one place and reuse the code that checks them. For example, a hook can ask the existing control-plane code whether a proposed action is allowed. The hook should not invent a separate version of the approval rules. We still need to build and check the parts that are missing.
 
-Copilot's documentation says delegated agents need `include-custom-instructions: true` to receive repository instructions. Directly selected agents already receive them. The Foundry should account for this difference so both ways of using the team follow the same rules. Exact per-agent skill preloading in CLI Markdown profiles remains unverified; do not assume an SDK-only setting works there.
+Copilot's documentation says delegated agents need `include-custom-instructions: true` to receive repository instructions. Directly selected agents already receive them. The Foundry should account for this difference so both ways of using the team follow the same rules. Per-agent skill preloading was checked live on 2026-11-03. Copilot CLI 1.0.105 preloads the skills a profile lists in `skills:`, and every agent can load any other enabled skill with its `skill` tool. No agent can be kept from seeing a skill. See the [agent tools runbook](../runbooks/agent-tools.md#skills).
 
 ## What informed this proposal
 
