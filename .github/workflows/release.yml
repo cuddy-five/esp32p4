@@ -64,6 +64,7 @@ jobs:
 
           tarball="$(npm pack --pack-destination "$out_dir" | tail -n 1)"
           tarball_path="${out_dir}/${tarball}"
+          bash scripts/gates/package-smoke.sh "$tarball_path"
 
           sha256sum "$tarball_path" "$sbom_file" > "${out_dir}/SHA256SUMS.txt"
 

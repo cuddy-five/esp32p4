@@ -59,15 +59,17 @@ and manual dispatch:
 
 | Job | What it proves |
 |---|---|
-| `test` | Existing unit/security tests pass, and policy declarations agree with contracts. |
+| `test` | Existing unit/security tests pass, policy declarations agree with contracts, and the change adds no whitespace errors. |
 | `validate-examples` | Example JSON documents satisfy their schemas. |
 | `lint-workflows` | Active GitHub Actions workflows pass actionlint. |
+| `dependency-review` | Pull requests add no dependency with a known high-severity vulnerability. |
 | `settings-check` | Live settings can be read and compared. Drift is a notice; API/validation errors fail. |
 
 A green run does not prove the complete agent loop ran or that the owner
 approved a merge. Intake dispatch, agent routing, approval-comment handling,
-evidence collection, and the merge gate are not implemented. Their
-`.disabled` files are placeholders. The
+automatic evidence collection, and an enforcing merge gate are not implemented.
+[merge-gate.yml](.github/workflows/merge-gate.yml) only reports changed paths
+and declared approval stages. The `.disabled` files are placeholders. The
 [state machine](.github/control-plane/orchestration/state-machine.yaml) and
 approval policy describe the intended process; no coordinator executes them.
 The [settings-sync guide](docs/runbooks/settings-sync.md) covers the separate
@@ -81,11 +83,17 @@ With the repository's Node dependencies available, run the existing checks:
 npm test
 npm run validate:examples
 node src/cli.js policy check
+npm run package:smoke
 ```
 
 `npm test` runs the test script in `package.json`; it has no options.
 `npm run` runs a named script, here `validate:examples` for the example
 contracts. `node` executes `src/cli.js`; `policy check` asks the CLI to
 check that state-machine and approval declarations agree with the schemas.
+`package:smoke` packs the release tarball, installs it into an empty
+temporary project, and runs the installed CLI there. The CLI reads contracts
+and policies from its install directory, so a file missing from the
+`package.json` `files` list fails this check. Install needs registry access
+for the runtime dependencies.
 These commands take no additional flags and do not change GitHub settings.
 Workflow edits also need actionlint, as required by `AGENTS.md`.

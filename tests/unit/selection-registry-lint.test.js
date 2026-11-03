@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import { Registry } from '../../src/lib/registry.js';
+import { loadStateMachine } from '../../src/lib/orchestration.js';
 
 const registry = new Registry();
 const kinds = { workflow: 'workflows', agent: 'agents', skill: 'skills' };
@@ -27,11 +28,14 @@ test('agents declare required budgets and scopes', () => {
   }
 });
 
-test('workflows declare transitions', () => {
-  const workflows = registry.loadRegistry('workflows').workflows;
-  for (const workflow of workflows) {
-    assert.ok(workflow.transitions && typeof workflow.transitions === 'object', `${workflow.id} missing transitions`);
-    assert.ok(Object.keys(workflow.transitions).length > 0, `${workflow.id} has empty transitions`);
+test('workflows cover state-machine.yaml states and define no lifecycle of their own', () => {
+  const { doc } = loadStateMachine();
+  const canonical = new Set(Object.keys(doc.states));
+  for (const workflow of registry.loadRegistry('workflows').workflows) {
+    assert.ok(!('transitions' in workflow) && !('initial_state' in workflow), `${workflow.id} must not redefine the task lifecycle`);
+    for (const state of workflow.states) {
+      assert.ok(canonical.has(state), `${workflow.id} state ${state} is not in state-machine.yaml`);
+    }
   }
 });
 

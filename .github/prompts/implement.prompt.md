@@ -10,7 +10,7 @@ argument-hint: 'Describe the change and relevant files'
 
 ## Current manual mode
 
-Make the small owner-requested change, preserve unrelated work, and run checks appropriate to the change. Summarize the result; no plan contract is required. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Make the small owner-requested change, preserve unrelated work, and run checks appropriate to the change. Summarize the result; no plan contract is required. Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team Mission
 Execute the implementation steps of an approved `plan` contract strictly within `task.scope.allowed_paths`, verify all unit and security tests pass, and emit a validated `handoff` contract for the adversarial reviewer.

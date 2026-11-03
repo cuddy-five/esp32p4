@@ -7,7 +7,7 @@ description: 'Plan an owner-requested change or GitHub issue: inspect relevant f
 
 ## Current manual mode
 
-Use the owner's request as the work agreement when it supplies the outcome and limits. Return a plain-language plan in chat unless the owner requests a saved artifact. A formal task or plan contract is not required; automated control-plane enforcement stays paused.
+Use the owner's request as the work agreement when it supplies the outcome and limits. Return a plain-language plan in chat unless the owner requests a saved artifact. A formal task or plan contract is not required; automatic worker dispatch and approval routing remain deferred; repository protections remain active.
 
 ## Inspect before planning
 

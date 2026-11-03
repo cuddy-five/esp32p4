@@ -10,7 +10,7 @@ argument-hint: 'Provide the plan or change to review'
 
 ## Current manual mode
 
-Read the change without editing it. Return findings with paths and consequences. A coordinator can save a formal record later if needed. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Read the change without editing it. Return findings with paths and consequences. A coordinator can save a formal record later if needed. Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team Mission
 Inspect a proposed `plan` or committed change + `evidence` contract using the `.review-domains.json` checklists and emit a schema-validated `review` contract containing structured findings and a plain-language `overseer_note`.

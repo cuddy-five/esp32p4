@@ -6,19 +6,9 @@
       "name": "Request Intake",
       "description": "Choose only when the request is vague, contradictory or undecided about what outcome is wanted, so it must be clarified first. Not when a concrete plan, change, or review is requested.",
       "states": [
-        "received",
-        "classified",
-        "routed"
+        "proposed",
+        "accepted"
       ],
-      "initial_state": "received",
-      "transitions": {
-        "received": {
-          "classify": "classified"
-        },
-        "classified": {
-          "route": "routed"
-        }
-      },
       "agent": "coordinator",
       "timeout_ms": 60000,
       "enabled": true
@@ -29,28 +19,8 @@
       "description": "Choose whenever the request asks to write a plan, design architecture, or decide how to structure a feature (including its test and rollback plan) before coding. Not when a plan is already approved.",
       "states": [
         "planning",
-        "plan_ready",
-        "review_in_progress",
-        "review_complete",
-        "approved",
-        "rejected"
+        "awaiting_approval"
       ],
-      "initial_state": "planning",
-      "transitions": {
-        "planning": {
-          "plan_complete": "plan_ready"
-        },
-        "plan_ready": {
-          "request_review": "review_in_progress"
-        },
-        "review_in_progress": {
-          "review_complete": "review_complete"
-        },
-        "review_complete": {
-          "approve": "approved",
-          "reject": "rejected"
-        }
-      },
       "roles": {
         "planner": "creates plan with tests and rollback",
         "reviewer": "adversarially reviews plan before approval"
@@ -63,29 +33,9 @@
       "name": "Implementation",
       "description": "Choose when the request is to make a concrete change (write code, fix a build, add tests, update docs, remove dead code) or re-run test suites. Not for writing a plan or reviewing existing code/SQL.",
       "states": [
-        "ready",
         "in_progress",
-        "implementation_complete",
-        "verification_in_progress",
-        "verified",
-        "failed"
+        "verifying"
       ],
-      "initial_state": "ready",
-      "transitions": {
-        "ready": {
-          "start": "in_progress"
-        },
-        "in_progress": {
-          "complete": "implementation_complete"
-        },
-        "implementation_complete": {
-          "request_verification": "verification_in_progress"
-        },
-        "verification_in_progress": {
-          "pass": "verified",
-          "fail": "failed"
-        }
-      },
       "roles": {
         "implementer": "writes code following approved plan",
         "verifier": "re-runs tests and re-derives results independently"
@@ -98,25 +48,8 @@
       "name": "Security Review",
       "description": "Choose when the request is a hostile security audit of a change or area, or checks for secret leaks, auth flaws, untrusted input or injection. Not for general code style or database index reviews.",
       "states": [
-        "ready",
-        "audit_in_progress",
-        "audit_complete",
-        "approved",
-        "blocked"
+        "in_review"
       ],
-      "initial_state": "ready",
-      "transitions": {
-        "ready": {
-          "start": "audit_in_progress"
-        },
-        "audit_in_progress": {
-          "complete": "audit_complete"
-        },
-        "audit_complete": {
-          "approve": "approved",
-          "block": "blocked"
-        }
-      },
       "agent": "security_auditor",
       "required_for_risk_levels": [
         "medium",
@@ -131,21 +64,9 @@
       "name": "Merge Gate",
       "description": "Choose when the request asks whether finished work with passing reviews may merge into the branch. Not for re-running tests, reviewing code quality, or making changes.",
       "states": [
-        "ready",
-        "checking",
-        "approved",
-        "rejected"
+        "verifying",
+        "awaiting_approval"
       ],
-      "initial_state": "ready",
-      "transitions": {
-        "ready": {
-          "check": "checking"
-        },
-        "checking": {
-          "approve": "approved",
-          "reject": "rejected"
-        }
-      },
       "prerequisites": [
         "plan-review",
         "implement"

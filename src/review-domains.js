@@ -8,11 +8,10 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { globMatch } from "./lib/orchestration.js";
+import { REPO_ROOT } from "./lib/paths.js";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-export const REVIEW_DOMAINS_FILE = path.join(repoRoot, ".review-domains.json");
+export const REVIEW_DOMAINS_FILE = path.join(REPO_ROOT, ".review-domains.json");
 
 const ID_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const ROLES = new Set(["reviewer", "security_auditor"]);

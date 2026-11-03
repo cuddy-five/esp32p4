@@ -20,15 +20,15 @@
 ### 3) Secrets and Credentials Handling
 
 - Credential sources: Environment variables (`GH_TOKEN`, `GITHUB_TOKEN`) or GitHub CLI authentication tokens (`gh auth token`).
-- Hardcoding checks: Zero tokens, passwords, or secret keys exist in tracked files. Contract schemas forbid undeclared credential fields.
-- Protection boundary: Repository policy strictly excludes inspection or reading of `.env`, `.vars`, `.env.example`, `.vars.example`, SSH keys, or API tokens ([AGENTS.md](../../AGENTS.md#L107), [README.md](../../README.md#L111)).
+- Secret policy: never store secrets in tracked files. Closed contract schemas reject undeclared fields; this does not prove that arbitrary string values contain no secrets.
+- Protection boundary: Repository policy strictly excludes inspection or reading of `.env`, `.vars`, `.env.example`, `.vars.example`, SSH keys, or API tokens ([AGENTS.md](../../AGENTS.md), [README.md](../../README.md)).
 - Rotation & lifecycle: Tokens are ephemeral in CI (`GITHUB_TOKEN` expires after job completion); local development uses user-managed personal access tokens.
 
 ### 4) Reliability and Failure Behavior
 
-- Retry/backoff behavior: Implemented in [src/lib/github.js](../../src/lib/github.js#L6-L10). Retries with exponential backoff on retryable HTTP statuses (`429`, `500`, `502`, `503`, `504`).
-- Safety on non-idempotent methods: Retries are strictly limited to idempotent methods (`GET`, `HEAD`, `PUT`, `DELETE`, `OPTIONS`). `POST` or `PATCH` failures are never retried to prevent duplicating resources or corrupting live state ([src/lib/github.js](../../src/lib/github.js#L8-L10)).
-- Timeout policy: GitHub Actions workflows enforce a strict 10-minute timeout ceiling ([.github/workflows/ci.yml](../../.github/workflows/ci.yml#L20)).
+- Retry/backoff behavior: Implemented in [src/lib/github.js](../../src/lib/github.js). Retries with exponential backoff on retryable HTTP statuses (`429`, `500`, `502`, `503`, `504`).
+- Retry limits: consult [GitHub transport](../../src/lib/github.js). HTTP 429 may be retried for any method; other retryable statuses require an idempotent method.
+- Timeouts are workflow-specific; consult the relevant job rather than assuming one repository-wide ceiling.
 - Circuit-breaker / Fallback: If GitHub API connectivity is unavailable, offline commands (`validate`, `schema`, `policy check`, `compact`) continue to function without network dependencies.
 
 ### 5) Observability for Integrations
@@ -50,24 +50,22 @@
 
 ### 7) Agent MCP & Tool Ecosystem
 
-Agents are configured with scoped tool aliases and MCP server connections:
-- **Tool Aliases**: Validated by [`tests/unit/agent-team-config.test.js`](../../tests/unit/agent-team-config.test.js#L12) against allowed set: `read`, `search`, `edit`, `execute`, `web`, `agent`, `todo`.
-- **MCP Servers**:
-  - `basic-memory`: Persistent local memory knowledge graph for recording lessons and cross-agent handoffs.
-  - `atuin`: Shell command history search without command execution side-effects.
-- **Safety Policy**: Silent installation of MCP servers (such as `npx -y`) is strictly prohibited in agent frontmatter ([tests/unit/agent-team-config.test.js](../../tests/unit/agent-team-config.test.js#L46)).
+The current roster has seven working agents plus Foundry. Profiles declare
+intended tools; client availability and successful use require separate checks.
+See [Agent tools and setup](../runbooks/agent-tools.md) for dated results,
+GitHub, Context7 and Basic Memory access, and rust-analyzer through `lsp`.
+NotebookLM setup remains pending in that client. No Atuin integration is declared
+by the current agent profiles.
 
-### 8) Multi-Model Family Independence Strategy
+### 8) Model selection and independent review
 
-The adversarial team loop relies on model diversity to prevent blind spots:
-- Implementer and Planner run primarily on OpenAI / GPT-5.6-Luna.
-- Reviewer and Security Auditor run primarily on Anthropic / Claude 3.7 Sonnet.
-- This is codified in invariant `distinct_review_model` in [.github/control-plane/orchestration/state-machine.yaml](../../.github/control-plane/orchestration/state-machine.yaml#L162) and checked during evidence and review generation.
+Profile model entries are requests, not proof of the model used. Use a separate
+reviewer and verifier. Ordinary work permits the same model family when another
+is unavailable; security-critical review requires a different family. The state
+machine declares policy but does not dispatch or authenticate running workers.
 
-### 9) Hardware Target & Peripheral Integration (Firmware Target)
+### 9) Hardware research candidates
 
-Specified in [docs/plans/esp32_p4_control_plane_hardware_wallet_specification.md](../../docs/plans/esp32_p4_control_plane_hardware_wallet_specification.md#L17-L38):
-- **Board Target**: Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5 (`ESP32-P4NRW32X`).
-- **Camera (Optical Input)**: OmniVision OV5647 over MIPI-CSI for QR scanning. Unchecked QR data is treated as hostile input.
-- **Display (Optical Output)**: ST7796 3.5-inch LCD over MIPI-DSI for rendering signed PSBT animated QR codes.
-- **Radio Quarantine**: Physical or GPIO-asserted reset/power-down of onboard ESP32-C6 Wi-Fi/BLE module via AXP2101 PMIC to ensure strict air-gap integrity.
+Board, peripherals, signing rules and libraries remain research inputs. Use
+[Rust firmware instructions](../../.github/instructions/rust-coder.instructions.md)
+and verify sources before selecting hardware or starting firmware work.

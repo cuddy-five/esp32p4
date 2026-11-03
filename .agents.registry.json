@@ -109,7 +109,7 @@
       "id": "security_auditor",
       "name": "Security Auditor",
       "description": "Choose when the request involves secrets, credentials, auth, input handling, untrusted data, dependencies or any attack surface, or asks for a security check. Not for general code quality.",
-      "model": "gpt-5.6-luna",
+      "model": "claude-sonnet-4.6",
       "reasoning_effort": "high",
       "budget": {
         "max_ai_credits": 4000,

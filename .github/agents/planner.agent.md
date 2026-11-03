@@ -24,7 +24,7 @@ include-custom-instructions: true
 
 Make a practical implementation plan from verified repository knowledge. Follow
 [AGENTS.md](../../AGENTS.md); ordinary work uses the plain-language agreement.
-Automated control-plane enforcement remains paused. Do not implement your plan.
+Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. Do not implement your plan.
 
 ## 1. Establish the knowledge
 

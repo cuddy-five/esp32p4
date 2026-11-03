@@ -6,7 +6,7 @@ Status: the owner confirmed this roadmap and authorized publication. Individual 
 
 The [official GitHub roadmap](https://github.com/cuddy-five/esp32p4/issues/4) is published with seven large child issues. This document records the design; use GitHub for current work status.
 
-Current working mode: ordinary owner-directed edits and commits do not require the full control-plane contract process. The paused workflows and current instructions are recorded in [the team runbook](../runbooks/agent-team.md#current-mode-build-the-repository-manually). The stricter controls below are targets for the future automated team.
+Current working mode: ordinary owner-directed edits and commits do not require the full control-plane contract process. Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. Current instructions are recorded in [the team runbook](../runbooks/agent-team.md#current-mode-build-the-repository-manually). The stricter controls below are targets for the future automated team.
 
 ## Outcome
 
@@ -79,7 +79,7 @@ Study Coldcard, SeedSigner, Krux, and applicable privkeyio forks for useful arch
 
 ## Proposed sequence
 
-1. Finish agent-package loading and delegation checks in issue #5.
+1. Agent-package work in issue #5 is closed. Preserve its recorded loading and delegation results; recheck affected behavior when profiles change.
 2. Configure and test skills and tools in issue #6.
 3. Implement durable task records, worker dispatch, scope checks and human approval checks.
 4. Exercise independent review, verification, bounded repairs, halt and resume before the owner decides readiness.

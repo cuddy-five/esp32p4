@@ -26,4 +26,3 @@ Read this reference only when the owner requests a JSON plan or the formal team 
    - Validate output via `node src/cli.js validate <output-plan.json> --kind plan` (e.g., `.runtime/plan.json` or `docs/plans/<name>.plan.json`).
 5. **Handoff to Reviewer**:
    - Hand off to `reviewer` with prompt: *"Independently review this plan for scope, useful checks, and practical risks."*
-

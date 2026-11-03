@@ -18,7 +18,7 @@
 
 ### 2) Entry Points
 
-- Main runtime entry: [src/cli.js](../../src/cli.js#L1-L120) — Executable CLI script providing commands: `validate`, `schema`, `policy`, `evidence`, `compact`, and `settings`. Configured in [package.json](../../package.json#L11) under `"bin": { "control-plane": "./src/cli.js" }`.
+- Main runtime entry: [src/cli.js](../../src/cli.js) — Executable CLI script providing commands: `validate`, `schema`, `policy`, `evidence`, `compact`, and `settings`. Configured in [package.json](../../package.json) under `"bin": { "control-plane": "./src/cli.js" }`.
 - Secondary entry points:
   - [.github/actions/validate-contract/action.yml](../../.github/actions/validate-contract/action.yml) — Composite GitHub Action used across consumer repositories to validate contract files.
   - [.github/workflows/ci.yml](../../.github/workflows/ci.yml) — Continuous integration workflow running tests, policy checks, whitespace linting, and contract validation.
@@ -42,7 +42,7 @@
 
 ### 4) Naming and Organization Rules
 
-- File naming pattern: Strict kebab-case across all source, schema, and documentation files (e.g. `state-machine.yaml`, `common.schema.json`, `contracts-strictness.test.js`).
+- File naming pattern: Kebab-case is common in source and schema files; documentation also uses uppercase names such as PROJECT.md (e.g. `state-machine.yaml`, `common.schema.json`, `contracts-strictness.test.js`).
 - Directory organization pattern: Layer-based within `src/` (`src/` entry points, `src/lib/` domain logic and transport, `src/lib/settings/` resource reconciliation) and contract-based in `.github/control-plane/` (`contracts/`, `orchestration/`, `policies/`, `settings/`).
 - Import aliasing or path conventions: Standard ECMAScript Modules with relative paths and explicit `.js` extensions (e.g. `import { ContractRegistry } from "./lib/contracts.js"`). No path aliases (`@/`) or package self-references in source imports.
 
@@ -62,38 +62,33 @@
 
 The repository configures eight specialized agent charters under [`.github/agents/`](../../.github/agents):
 
-| Profile File | Agent Role | Primary Focus | Designated Handoff Target |
-|--------------|------------|---------------|---------------------------|
-| [coordinator.agent.md](../../.github/agents/coordinator.agent.md) | `coordinator` | Neutral task routing, gate validation, budget holding | `planner`, `implementer`, `verifier` |
-| [planner.agent.md](../../.github/agents/planner.agent.md) | `planner` | Codebase discovery (`acquire-codebase-knowledge`), step planning | `reviewer`, `coordinator` |
-| [implementer.agent.md](../../.github/agents/implementer.agent.md) | `implementer` | Constructive code execution strictly within `task.scope` | `reviewer` |
-| [rust-coder.agent.md](../../.github/agents/rust-coder.agent.md) | `rust-coder` | Embedded Rust `#![no_std]` firmware, ESP32-P4 drivers, Blake2b | `reviewer`, `security-auditor` |
-| [reviewer.agent.md](../../.github/agents/reviewer.agent.md) | `reviewer` | Adversarial code and plan inspection, regression detection | `implementer` (request changes), `verifier` |
-| [security-auditor.agent.md](../../.github/agents/security-auditor.agent.md) | `security-auditor` | Hostile inspection of secret handling, crypto hygiene, untrusted input | `implementer` (findings), `verifier` |
-| [verifier.agent.md](../../.github/agents/verifier.agent.md) | `verifier` | Skeptical independent test re-runs, merge readiness verification | `coordinator` (terminal result) |
-| [custom-agent-foundry.agent.md](../../.github/agents/custom-agent-foundry.agent.md) | `custom-agent-foundry` | Generates, audits, and tunes agent packages and charters | `coordinator` |
+Use the [role guide](../runbooks/using-agents.md) for responsibilities and each
+profile's frontmatter for current handoff targets. The owner directs handoffs;
+a target declaration does not start a worker.
 
 ### 7) Instruction and Prompt Mapping
 
-Agent behavior is governed through a three-layer hierarchy:
+Agent guidance is described in three places; actual loading depends on the client:
 1. **Charter (`.github/agents/*.agent.md`)**: Declares identity, tools, skills, model allocation, and valid handoff targets.
-2. **Instructions (`.github/instructions/*.instructions.md`)**: Persistent static rules applied to all operations in a domain (e.g. [rust-coder.instructions.md](../../.github/instructions/rust-coder.instructions.md) applies strictly to `firmware/**/*.rs`).
+2. **Instructions (`.github/instructions/*.instructions.md`)**: Domain guidance whose actual delivery must be checked in the client (e.g. [rust-coder.instructions.md](../../.github/instructions/rust-coder.instructions.md) applies strictly to `firmware/**/*.rs`).
 3. **Prompts (`.github/prompts/*.prompt.md`)**: Concrete phase execution templates (e.g. [plan.prompt.md](../../.github/prompts/plan.prompt.md), [implement.prompt.md](../../.github/prompts/implement.prompt.md), [review.prompt.md](../../.github/prompts/review.prompt.md), [recover.prompt.md](../../.github/prompts/recover.prompt.md)).
 
 ### 8) Project Skills Directory (`.github/skills/`)
 
 | Skill Directory | Purpose | Primary Consumer |
 |-----------------|---------|------------------|
-| [acquire-codebase-knowledge/](../../.github/skills/acquire-codebase-knowledge) | Generates and updates the seven foundational knowledge documents in `docs/codebase/` using static AST and directory scans | `planner` |
+| [acquire-codebase-knowledge/](../../.github/skills/acquire-codebase-knowledge) | Generates and updates the seven foundational knowledge documents in `docs/codebase/` using file and text discovery plus source inspection | `planner` |
 | [planning/](../../.github/skills/planning) | Decomposes task intent into step-by-step implementation plans with acceptance checks and rollback | `planner` |
 | [implementation/](../../.github/skills/implementation) | Guides scoped code edits, test writing, and generation of handoff contracts | `implementer`, `rust-coder` |
 | [review/](../../.github/skills/review) | Enforces adversarial inspection across code quality, regressions, and design | `reviewer` |
 | [verification/](../../.github/skills/verification) | Independent execution of test suites and re-derivation of evidence contracts | `verifier` |
-| [context-engineering/](../../.github/skills/context-engineering) | Optimizes token budgets, prompt compaction, and memory retrieval | All agents |
+| [rust-patterns/](../../.github/skills/rust-patterns) | Rust ownership, bounded buffers, errors and secret handling guidance | `rust-coder` |
+| [rust-testing/](../../.github/skills/rust-testing) | Boundary tests, protocol vectors and actual host/target checks | `rust-coder` |
+| [context-engineering/](../../.github/skills/context-engineering) | Guides focused context mapping and refactor planning | All agents |
 
 ### 9) Registries and Mapping Configurations
 
-- [`.agents.registry.json`](../../.agents.registry.json): Formal machine-readable registry of all agents, allocating models, budgets, and scopes. Verified by [`tests/unit/agent-team-config.test.js`](../../tests/unit/agent-team-config.test.js).
-- [`.skills.registry.json`](../../.skills.registry.json): Declares available project skills, category tags, and estimated token/credit costs.
-- [`.workflows.registry.json`](../../.workflows.registry.json): Maps control plane workflows to risk levels and task state transitions.
+- [`.agents.registry.json`](../../.agents.registry.json): Formal role declarations for models, budgets and scopes; not the full client roster. Registry lint checks this file; agent-team-config checks client profiles.
+- [`.skills.registry.json`](../../.skills.registry.json): ECC skill catalogue with declared models and costs, limited to the reviewers and helpers this repository uses. It does not enumerate the project skills above or prove that a skill is installed.
+- [`.workflows.registry.json`](../../.workflows.registry.json): Declared workflow catalogue. Each workflow lists the `state-machine.yaml` states it covers; that file is the only task lifecycle. The catalogue does not start workers.
 - [`.review-domains.json`](../../.review-domains.json): Maps modified file paths to domain-specific review checklists (e.g. Control Plane JS vs. Rust `#![no_std]` firmware).

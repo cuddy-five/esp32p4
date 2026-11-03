@@ -9,4 +9,4 @@ applyTo: 'src/**,tests/security/**,.github/workflows/**,.github/actions/**,.gith
 - You MUST keep every JSON Schema object closed (`additionalProperties: false` or `unevaluatedProperties: false`) so `tests/security/contracts-strictness.test.js` passes.
 - You WILL pin all GitHub Actions in `.github/workflows/**` and `.github/actions/**` to full 40-character commit SHAs with version comments and default workflow permissions to `contents: read` or `{}`.
 - You WILL NEVER log, hardcode, or embed secrets (`GH_TOKEN`, `CONTROL_PLANE_TOKEN`, or cryptographic seeds/keys) in contracts, test fixtures, or step summaries.
-- You MUST enforce atomic writes and fail-closed corruption handling on local state and spending ledgers.
+- You MUST enforce atomic writes and fail-closed corruption handling on local state files.

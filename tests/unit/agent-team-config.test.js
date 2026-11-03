@@ -60,6 +60,20 @@ describe("Owner-directed agent team configuration", () => {
     assert.ok(!tools("reviewer").includes("github/*"));
   });
 
+  test("profiles pin model IDs, matching the registry for registered roles", () => {
+    const registered = new Map(JSON.parse(fs.readFileSync(".agents.registry.json", "utf8")).agents
+      .map((agent) => [agent.id.replaceAll("_", "-"), agent.model]));
+    for (const name of expectedAgents) {
+      const { model } = readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
+      if (model !== undefined) assert.match(model, /^[a-z0-9][a-z0-9.-]*$/, `${name} model must be an ID, not a display name`);
+      if (registered.has(name)) assert.equal(model, registered.get(name), `${name} profile and registry models differ`);
+    }
+    const family = (name) => readProfile(path.join(agentsDir, `${name}.agent.md`)).header.model.split("-")[0];
+    for (const name of ["reviewer", "security-auditor"]) {
+      assert.notEqual(family(name), family("implementer"), `${name} must not share the implementer's model family`);
+    }
+  });
+
   test("the planner reads Basic Memory but cannot write it", () => {
     const tools = readProfile(path.join(agentsDir, "planner.agent.md")).header.tools;
     const memory = tools.filter((tool) => tool.startsWith("basic-memory/"));
@@ -97,7 +111,9 @@ describe("Owner-directed agent team configuration", () => {
 
   test("the coordinator preserves manual mode without invoking intake", () => {
     const { body } = readProfile(path.join(agentsDir, "coordinator.agent.md"));
-    assert.match(body, /Automated control-plane enforcement is paused/i);
+    assert.match(body, /Repository protections are required/i);
+    assert.match(body, /verify live settings separately/i);
+    assert.match(body, /Automatic worker dispatch and approval routing remain deferred/i);
     assert.doesNotMatch(body, /node\s+src\/cli\.js\s+triage\b/);
   });
 
