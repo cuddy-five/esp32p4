@@ -13,7 +13,8 @@ reviewer and the security auditor. Read only the file you need:
 | [references/chip-esp32-p4.md](references/chip-esp32-p4.md) | ESP32-P4 cores, memory, radio, crypto peripherals, secure boot, flash encryption |
 | [references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md](references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md) | The candidate board and its components |
 | [references/bitcoin-standards.md](references/bitcoin-standards.md) | BIPs and RFCs for keys, addresses, transactions, PSBT and hashing, with their test vectors |
-| [references/fork-rules.md](references/fork-rules.md) | The BLAKE2b fork (Bitcoin Knots) and its unified sighash: reference implementation pinned, rules **not yet reviewed** for the device |
+| [references/fork-rules.md](references/fork-rules.md) | The BLAKE2b fork (Bitcoin Knots) and its unified sighash: rules reviewed and reproduced from the specification; two owner decisions open |
+| [scripts/unified_sighash_check.py](scripts/unified_sighash_check.py) | An independent unified-sighash implementation, written from the specification, that checks the Knots test vectors |
 
 ## Status words
 
@@ -23,6 +24,9 @@ reviewer and the security auditor. Read only the file you need:
   measured or tested it, for example a capability flag in vendor source.
 - **Verified (location)**: the cited file or symbol exists at the pinned commit;
   its content has not been reviewed yet.
+- **Inferred (schematic labels)**: net names and part values read exactly from
+  a schematic's text, with connections inferred from where the labels sit on
+  the page rather than traced along the wires.
 - **Inferred**: a reasoned link between verified facts, not itself checked.
   Confirm it before relying on it.
 - **Unverified**: anything else, including secondary articles, retailer
