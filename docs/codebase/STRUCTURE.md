@@ -75,16 +75,19 @@ Agent guidance is described in three places; actual loading depends on the clien
 
 ### 8) Project Skills Directory (`.github/skills/`)
 
-| Skill Directory | Purpose | Primary Consumer |
-|-----------------|---------|------------------|
-| [acquire-codebase-knowledge/](../../.github/skills/acquire-codebase-knowledge) | Generates and updates the seven foundational knowledge documents in `docs/codebase/` using file and text discovery plus source inspection | `planner` |
-| [planning/](../../.github/skills/planning) | Decomposes task intent into step-by-step implementation plans with acceptance checks and rollback | `planner` |
-| [implementation/](../../.github/skills/implementation) | Guides scoped code edits, test writing, and generation of handoff contracts | `implementer`, `rust-coder` |
-| [review/](../../.github/skills/review) | Enforces adversarial inspection across code quality, regressions, and design | `reviewer` |
-| [verification/](../../.github/skills/verification) | Independent execution of test suites and re-derivation of evidence contracts | `verifier` |
-| [rust-patterns/](../../.github/skills/rust-patterns) | Rust ownership, bounded buffers, errors and secret handling guidance | `rust-coder` |
-| [rust-testing/](../../.github/skills/rust-testing) | Boundary tests, protocol vectors and actual host/target checks | `rust-coder` |
-| [context-engineering/](../../.github/skills/context-engineering) | Guides focused context mapping and refactor planning | All agents |
+Each skill is a folder with a `SKILL.md` (frontmatter `name`, `description`,
+optional `license`) and any supporting `references/` or text files. A profile's
+`skills:` list preloads one to three of them. Its **Skills** line names the
+optional ones, which the agent loads on demand. Adapted third-party skills also
+carry `NOTICE.md` (source, commit, changes) and the upstream license text.
+`tests/unit/agent-team-config.test.js` checks the frontmatter, the notices and
+the profile wiring.
+
+The per-agent table, every skill's source and license, and the live checks are
+in the [agent tools runbook](../runbooks/agent-tools.md#skills). That runbook is
+the one place to update when a skill is added or reassigned. `device-references`
+holds the shared, sourced facts about the chip, board, Bitcoin standards and
+the intended fork.
 
 ### 9) Registries and Mapping Configurations
 

@@ -4,6 +4,8 @@ Vendored from github/awesome-copilot, commit `5269f7ea2d6c3a9bfda5ed878b6726cf50
 
 Source: https://github.com/github/awesome-copilot/tree/5269f7ea2d6c3a9bfda5ed878b6726cf509121fd/skills/acquire-codebase-knowledge
 
+License: MIT (Copyright GitHub, Inc.). The full text is below and in `LICENSE` in this folder.
+
 Local adaptations: owner authority and read-only behavior; reuse of existing knowledge; scanner excludes protected files and symlinks, does not read environment templates, and rejects unsafe output paths. Templates and inquiry references are retained.
 
 ## Upstream license

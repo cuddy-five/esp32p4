@@ -35,26 +35,102 @@ Status words:
 
 ## Agents
 
-| Agent | Skills | Tools and MCP | Live status |
-| --- | --- | --- | --- |
-| coordinator | planning | read, search, execute, `github/*`, agent, todo | Not tried. Basic Memory writing is planned for this role but not configured. |
-| planner | acquire-codebase-knowledge, planning | read, search, edit, execute, web, `github/*`, `context7/*`, todo, six Basic Memory read tools | **Tried 2026-10-30**: Basic Memory search, Context7 library lookup, and GitHub issue read (with the launch flags below). |
-| implementer | implementation, context-engineering | read, search, edit, execute, `context7/*`, todo | Not tried. |
-| rust-coder | implementation, rust-patterns, rust-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo | **Tried 2026-10-30**: `lsp` symbol search and find references through rust-analyzer. |
-| reviewer | review | read, search, execute | Not tried. No MCP by design. |
-| security-auditor | review | read, search, execute, `github/*`, `context7/*` | Not tried. |
-| verifier | verification | read, search, execute, `github/*` | Not tried. |
-| custom-agent-foundry | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | Not tried. |
+"Preloaded" skills are listed in the profile's `skills:` and load in full on
+every run. "Optional" skills are named in the profile's **Skills** line; the
+agent loads them with the `skill` tool when the task fits. See
+[Skills](#skills) for how this works.
 
-The Rust patterns and testing skills are present and declared in the profile as
-of 2026-11-03. Their live loading has not been verified; the 2026-10-30 LSP
-results above apply only to that recorded client and profile.
+| Agent | Preloaded skills | Optional skills | Tools and MCP | Live status |
+| --- | --- | --- | --- | --- |
+| coordinator | handoff | triage (the owner starts it with `/triage`), domain-modeling | read, search, execute, `github/*`, agent, todo, six Basic Memory read tools, Basic Memory `write_note` and `edit_note` | Not tried. Basic Memory writing configured 2026-11-03; the owner deferred the live check. |
+| planner | planning, acquire-codebase-knowledge, investigate-first | codebase-design, context-engineering, domain-modeling | read, search, edit, execute, web, `github/*`, `context7/*`, todo, six Basic Memory read tools | **Tried 2026-10-30**: Basic Memory search, Context7 library lookup, GitHub issue read (with the launch flags below). **Tried 2026-11-03**: preloading of `planning` and `acquire-codebase-knowledge`, before `investigate-first` was added. |
+| implementer | implementation, surgical-patch, lean-build | context-engineering, github-actions-hardening, property-based-testing | read, search, edit, execute, `context7/*`, todo | Not tried. |
+| rust-coder | rust-patterns, rust-testing, device-references | implementation, property-based-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo | **Tried 2026-10-30**: `lsp` symbol search and find references through rust-analyzer. Skills not tried. |
+| reviewer | review, code-review | test-gap-audit, device-references | read, search, execute | **Tried 2026-11-03**: exact tool list, and loading a skill through the `skill` tool, before its `skills:` list was added. No MCP by design. |
+| security-auditor | review, differential-review | agent-security-hardening, github-actions-hardening, agentic-actions-auditor, mcp-security-audit, device-references | read, search, execute, `github/*`, `context7/*` | Not tried. |
+| verifier | verification, verify-and-stop | test-gap-audit | read, search, execute, `github/*` | Not tried. |
+| custom-agent-foundry | skill-creator | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | Not tried. |
 
 The planner's Basic Memory tools are `search_notes`, `read_note`,
 `build_context`, `recent_activity`, `read_content` and `list_directory`. The
-server marks all six as read-only. Write, edit, move and delete tools are left
-out on purpose, so the coordinator stays the default writer of shared notes. A
-test (`tests/unit/agent-team-config.test.js`) fails if a write tool is added.
+server marks all six as read-only. The coordinator has the same six plus
+`write_note` and `edit_note`, so it is the only agent that writes shared notes.
+No agent has `delete_note`, `move_note` or the project tools. A test
+(`tests/unit/agent-team-config.test.js`) fails if any other agent gets a write
+tool or if anyone gets a delete, move or project tool.
+
+## Skills
+
+Skills live in `.github/skills/<name>/SKILL.md`. A skill is written guidance:
+it never adds a tool, and the profile's `tools` list still decides what an
+agent can do.
+
+### How Copilot CLI loads skills
+
+Verified with Copilot CLI 1.0.105 on 2026-11-03 (see the
+[live check record](#live-check-record)):
+
+- **Every agent sees every enabled skill's name and description.** That
+  includes project skills, personal skills (`~/.copilot/skills`,
+  `~/.agents/skills`), plugin skills and built-in skills. There is no
+  per-agent filter.
+- **`skills:` preloads full skill text.** The CLI's command reference does not
+  list `skills` as a custom-agent field, but the CLI honors it. VS Code's
+  custom-agent reference documents it as "Names of skills to load into the
+  agent's context in Copilot".
+- **Every custom agent has the `skill` tool**, even with an explicit `tools`
+  list, and uses it to load any other skill on demand. It also gets a `sql`
+  tool.
+- **`allowed-tools` in a skill pre-approves tools** while that skill is active.
+  No project skill may set it; a test checks this.
+
+So each profile preloads one to three core skills (a test enforces the limit),
+names its optional skills in its **Skills** line, and tells the agent to leave
+other roles' skills alone. Each skill's description says when it applies.
+
+Your own personal and plugin skills also reach every agent in this repository:
+`agent-architecture`, `context-map`, `refactor-plan`, `what-context-needed` and
+`rust-mcp-server-generator`, plus the built-in `customize-cloud-agent` and
+`github-pr-media`. The project's `github-actions-hardening` takes priority over
+your personal copy with the same name. `copilot skill list` shows what is
+enabled. `copilot skill disable <name>` turns a skill off without deleting it,
+and `copilot skill enable <name>` turns it back on. Both change your setup for
+every project, not just this one.
+
+### Sources and licenses
+
+| Skills | Source | License |
+| --- | --- | --- |
+| handoff, triage, codebase-design, code-review, domain-modeling | [mattpocock/skills](https://github.com/mattpocock/skills) at `4ae2317` | MIT |
+| differential-review, property-based-testing, agentic-actions-auditor | [trailofbits/skills](https://github.com/trailofbits/skills) at `196a907` | CC-BY-SA-4.0; the adaptations are shared alike |
+| github-actions-hardening, test-gap-audit, mcp-security-audit | [github/awesome-copilot](https://github.com/github/awesome-copilot) at `8178d19`, listed on [awesome-copilot.github.com/skills](https://awesome-copilot.github.com/skills/) | MIT |
+| acquire-codebase-knowledge, context-engineering | github/awesome-copilot (earlier versions) | MIT |
+| agent-security-hardening, rust-patterns, rust-testing | [affaan-m/ECC](https://github.com/affaan-m/ECC) at `b38be6a` | MIT |
+| skill-creator | The Codex CLI's bundled `skill-creator` (OpenAI) | Apache-2.0 |
+| investigate-first, surgical-patch, lean-build, verify-and-stop | The owner's local Codex skill library; no upstream recorded | This repository's license |
+| planning, implementation, review, verification, device-references | Written for this repository | This repository's license |
+
+Each adapted folder has a `NOTICE.md` (source, commit, every change) and the
+upstream license text, and its `SKILL.md` has a `license` field. A test checks
+all three. Not copied: the `coverage_map.py` script from `test-gap-audit`, which
+reads files without this repository's secret-file exclusions, and
+`skill-creator`'s Codex-only scripts and metadata.
+
+### Device references
+
+`device-references` is the shared fact sheet for the wallet engineer, reviewer
+and security auditor: the ESP32-P4 chip, the candidate Waveshare board, the
+Bitcoin standards with their test vectors, and the intended fork. Every fact is
+marked verified or unverified, with its source. Open items:
+
+- The ESP32-P4 datasheet is downloaded but unread: no PDF text tool is installed.
+- The board schematic is unread, so the radio-isolation method is unverified.
+- The fork's rules come from Bitcoin Knots `v29.4.3.knots20260508` (commit
+  `a7c4617`): `doc/unified-sighash.md` (a draft; no BIP exists) and the source.
+  They are located and pinned but not yet reviewed for the device.
+
+The skill folder is not called `wallet-references` because a local Claude Code
+hook blocks writes to any path containing "wallet", to protect wallet files.
 
 ## Setup guide
 
@@ -155,7 +231,11 @@ of `dexwritescode/rust-mcp`:
 - **NotebookLM**: needs the owner's Google sign-in (`nlm login`) and a decision
   on which notebooks each specialist may read. Reading must not include deleting
   sources, uploading files or changing sharing.
-- **Basic Memory for the coordinator**: write access, once its role is checked.
+- **A live check of every agent with its new skills and tools**: deferred by the
+  owner on 2026-11-03. Each `copilot -p` run costs one premium request, so a
+  pass over all eight agents costs about eight. The recipe is under
+  [Live check record](#live-check-record). The coordinator's Basic Memory
+  writing is configured but has never been tried live.
 
 ## Live check record
 
@@ -195,9 +275,29 @@ in a scratch folder outside `~` showed no `lsp` tool.
 | Search symbols for `next_index` | `lsp` `workspaceSymbol` | First call found nothing while indexing; the retry found it at `lib.rs:3:8`. |
 | Find references | `lsp` `findReferences` | First call failed with `content modified`; the retry found all 3. |
 
+**2026-11-03, skills.** Three runs, each with `--no-ask-user --output-format json
+--deny-tool write --deny-tool shell`, before the skill changes in this
+repository. Each cost one premium request.
+
+The JSON output's `session.usage_checkpoint` event holds the exact tool list
+sent to the model, under `promptCacheBreakState[].models[<model>].tools[].name`.
+That is better evidence than asking the model to list its tools.
+`session.skills_loaded` lists every skill the session discovered.
+
+| Agent | Prompt | Result |
+| --- | --- | --- |
+| reviewer (`tools: ['read', 'search', 'execute']`, no `skills:`) | List your tools; load the `verification` skill with the skill tool and quote its first heading | Tool list sent to `kimi-k3`: view, grep, glob, bash, read_bash, stop_bash, list_bash, skill, sql. The `skill` call returned "Skill \"verification\" loaded successfully" and the agent quoted the right heading. The session discovered 16 skills: 8 project, 2 personal, 4 plugin, 2 built-in. |
+| planner (`skills: [acquire-codebase-knowledge, planning]`) | Without calling a tool, quote the first heading of `planning` and `acquire-codebase-knowledge` if their full text is in context | No tool call; both exact headings quoted: preloaded. |
+| planner, control | The same for `verification`, `review` and `planning` | `verification` and `review`: description only. `planning`: heading quoted. |
+
 ## Next slices
 
-Repeat the same path for one agent at a time: configure, check that the server
-is on, run one read-only live call, and record it here. Suggested order:
-reviewer, coordinator (Basic Memory writing), `lsp` for read-only agents, then
-the remaining skills from the [starting design](../plans/agent-team-skills-and-tools-draft.md).
+1. When the owner agrees to the cost, run one read-only live check per agent:
+   confirm the preloaded skill headings, load one optional skill, and record
+   the tool list from `session.usage_checkpoint`.
+2. `lsp` for read-only agents, after checking how rename interacts with each
+   agent's permissions.
+3. NotebookLM, after the owner's sign-in and a decision on which notebooks each
+   specialist may read.
+4. The device references' open items: the datasheet, the board schematic, and
+   a full review of the fork's unified-sighash and BLAKE2b rules.

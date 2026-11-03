@@ -19,9 +19,21 @@ roles:
       - github/*
       - agent
       - todo
+      - basic-memory/search_notes
+      - basic-memory/read_note
+      - basic-memory/build_context
+      - basic-memory/recent_activity
+      - basic-memory/read_content
+      - basic-memory/list_directory
+      - basic-memory/write_note
+      - basic-memory/edit_note
     forbidden_tools:
       - edit
-    mcp_servers: [github, safeoutputs]
+      - basic-memory/delete_note
+      - basic-memory/move_note
+      - basic-memory/create_memory_project
+      - basic-memory/delete_project
+    mcp_servers: [github, safeoutputs, basic-memory]
 
   planner:
     allowed_tools:
