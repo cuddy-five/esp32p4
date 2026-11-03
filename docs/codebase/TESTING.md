@@ -5,7 +5,7 @@
 ### 1) Test Stack and Commands
 
 - Primary test framework: Node.js native test runner (`node:test`) on Node.js >= 20.0.0
-- Assertion/mocking tools: `node:assert/strict` and in-memory test doubles ([tests/helpers/fake-github.js](file:///var/home/cb/src/esp32p4/tests/helpers/fake-github.js))
+- Assertion/mocking tools: `node:assert/strict` and in-memory test doubles ([tests/helpers/fake-github.js](../../tests/helpers/fake-github.js))
 - Commands:
 
 ```bash
@@ -50,8 +50,8 @@ node src/cli.js compact --file /path/to/test.log --offline --max-chars 2000
 
 - Main mocking approach: In-memory fake objects and dependency injection.
   - The `GitHubClient` constructor accepts custom `fetch` implementations.
-  - `FakeGitHub` ([tests/helpers/fake-github.js](file:///var/home/cb/src/esp32p4/tests/helpers/fake-github.js)) intercepts REST calls, maintaining state in JavaScript Maps to verify create, update, delete, and rename HTTP calls.
-  - CLI tests ([tests/unit/cli.test.js](file:///var/home/cb/src/esp32p4/tests/unit/cli.test.js)) inject custom `stdout`, `stderr`, and `env` streams to test command exit codes and output formatting without spawning external processes.
+  - `FakeGitHub` ([tests/helpers/fake-github.js](../../tests/helpers/fake-github.js)) intercepts REST calls, maintaining state in JavaScript Maps to verify create, update, delete, and rename HTTP calls.
+  - CLI tests ([tests/unit/cli.test.js](../../tests/unit/cli.test.js)) inject custom `stdout`, `stderr`, and `env` streams to test command exit codes and output formatting without spawning external processes.
 - Isolation guarantees: Each test creates independent instances of `ContractRegistry` or `FakeGitHub`; tests do not persist global state or mutate external systems.
 - Common failure mode in tests: Filesystem drift or missing referenced files in mock directory structures.
 
@@ -66,34 +66,34 @@ node src/cli.js compact --file /path/to/test.log --offline --max-chars 2000
 
 ### 6) Evidence
 
-- [package.json](file:///var/home/cb/src/esp32p4/package.json#L13-L16)
-- [tests/helpers/fake-github.js](file:///var/home/cb/src/esp32p4/tests/helpers/fake-github.js)
-- [tests/security/contracts-strictness.test.js](file:///var/home/cb/src/esp32p4/tests/security/contracts-strictness.test.js)
-- [tests/unit/cli.test.js](file:///var/home/cb/src/esp32p4/tests/unit/cli.test.js)
-- [tests/unit/orchestration.test.js](file:///var/home/cb/src/esp32p4/tests/unit/orchestration.test.js)
-- [.github/workflows/ci.yml](file:///var/home/cb/src/esp32p4/.github/workflows/ci.yml)
+- [package.json](../../package.json#L13-L16)
+- [tests/helpers/fake-github.js](../../tests/helpers/fake-github.js)
+- [tests/security/contracts-strictness.test.js](../../tests/security/contracts-strictness.test.js)
+- [tests/unit/cli.test.js](../../tests/unit/cli.test.js)
+- [tests/unit/orchestration.test.js](../../tests/unit/orchestration.test.js)
+- [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
 
 ## Extended Sections (Optional)
 
 ### 7) Agent Specification & Registry Integrity Testing
 
 Specific test suites continuously guard agent and registry integrity:
-- [`tests/unit/agent-team-config.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/agent-team-config.test.js):
+- [`tests/unit/agent-team-config.test.js`](../../tests/unit/agent-team-config.test.js):
   - Asserts that all 8 agreed agent profiles exist and have matching filenames and frontmatter `name`.
   - Asserts that all referenced skills exist on disk in `.github/skills/`.
   - Asserts that tool aliases are valid and that silent installations (`npx -y`) are blocked.
-- [`tests/unit/rust-coder-agent-lint.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/rust-coder-agent-lint.test.js):
+- [`tests/unit/rust-coder-agent-lint.test.js`](../../tests/unit/rust-coder-agent-lint.test.js):
   - Checks frontmatter schema, path portability (no hardcoded host absolute paths), `#![no_std]` embedded purity prescriptions, and valid handoff targets.
-- [`tests/unit/selection-registry-lint.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/selection-registry-lint.test.js):
+- [`tests/unit/selection-registry-lint.test.js`](../../tests/unit/selection-registry-lint.test.js):
   - Validates that descriptions in `.agents.registry.json` are bounded decision rules starting with `Choose ` and unique.
-- [`tests/unit/planner-pipeline.test.js`](file:///var/home/cb/src/esp32p4/tests/unit/planner-pipeline.test.js):
+- [`tests/unit/planner-pipeline.test.js`](../../tests/unit/planner-pipeline.test.js):
   - Verifies that the planner agent can resolve its `acquire-codebase-knowledge` skill and all seven bundled templates and references.
 
 ### 8) Security Invariant Testing (`tests/security/`)
 
-- [`tests/security/contracts-strictness.test.js`](file:///var/home/cb/src/esp32p4/tests/security/contracts-strictness.test.js):
+- [`tests/security/contracts-strictness.test.js`](../../tests/security/contracts-strictness.test.js):
   - Dynamically traverses every contract schema to ensure `unevaluatedProperties: false` or `additionalProperties: false` is set everywhere.
   - Verifies that `overseer_note` is strictly required on all human-facing contracts (`review`, `result`, `escalation`) and that token notes are rejected.
   - Confirms prototype pollution keys (`__proto__`, `constructor`) are rejected as unknown properties.
-- [`tests/security/codebase-scan.test.js`](file:///var/home/cb/src/esp32p4/tests/security/codebase-scan.test.js):
+- [`tests/security/codebase-scan.test.js`](../../tests/security/codebase-scan.test.js):
   - Verifies that the codebase scanner script safely ignores protected secret patterns (`.env*`, `.vars*`, keys, tokens) and refuses to write reports to symlinks or external paths.

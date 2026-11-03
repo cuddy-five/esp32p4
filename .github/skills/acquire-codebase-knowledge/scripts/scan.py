@@ -213,8 +213,8 @@ def should_exclude(path: Path) -> bool:
         current = current / part
         name = part.lower()
         if (part == ".." or part in EXCLUDE_DIRS or current.is_symlink()
-                or name in {".env", ".netrc", ".authinfo", "auth.json"}
-                or name.startswith(".env.")
+                or name in {".env", ".vars", ".netrc", ".authinfo", "auth.json"}
+                or name.startswith((".env.", ".vars."))
                 or "token" in name or "credential" in name
                 or any(fnmatch.fnmatch(name, pattern) for pattern in
                        ("*.key", "*.pem", "*.priv", "*.kdbx", "*.wallet", "keyring*", "wallet.dat"))
@@ -322,10 +322,9 @@ def search_todos() -> List[str]:
                 try:
                     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
                         for line_num, line in enumerate(f, 1):
-                            for pattern in patterns:
-                                if pattern in line:
-                                    rel_path = filepath.relative_to(Path.cwd())
-                                    todos.append(f"{rel_path}:{line_num}: {line.strip()}")
+                            if any(pattern in line for pattern in patterns):
+                                rel_path = filepath.relative_to(Path.cwd())
+                                todos.append(f"{rel_path}:{line_num}: {line.strip()}")
                 except Exception:
                     pass
     except Exception:
@@ -375,13 +374,13 @@ def get_git_churn() -> List[str]:
 def is_git_repo() -> bool:
     """Check if current directory is a git repository."""
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["git", "rev-parse", "--git-dir"],
             capture_output=True,
             cwd=Path.cwd(),
             timeout=2
         )
-        return True
+        return result.returncode == 0
     except Exception:
         return False
 

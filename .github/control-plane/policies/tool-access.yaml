@@ -39,8 +39,13 @@ roles:
       - basic-memory/recent_activity
       - basic-memory/read_content
       - basic-memory/list_directory
-    forbidden_tools:
-      - basic-memory/* # Read tools only; shared notes are written by the coordinator.
+    forbidden_tools: # Read tools only; shared notes are written by the coordinator.
+      - basic-memory/write_note
+      - basic-memory/edit_note
+      - basic-memory/delete_note
+      - basic-memory/move_note
+      - basic-memory/create_memory_project
+      - basic-memory/delete_project
     mcp_servers: [github, context7, basic-memory]
 
   implementer:

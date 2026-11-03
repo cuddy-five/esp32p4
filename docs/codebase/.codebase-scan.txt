@@ -1,6 +1,8 @@
 
 === DIRECTORY TREE (max depth 3, source files only) ===
 .agents.registry.json
+.claude
+.claude/settings.local.json
 .devcontainer
 .devcontainer/Dockerfile.disabled
 .devcontainer/devcontainer.json.disabled
@@ -96,6 +98,7 @@
 .github/instructions/rust-coder.instructions.md
 .github/instructions/security.instructions.md
 .github/instructions/testing.instructions.md
+.github/lsp.json
 .github/prompts
 .github/prompts/implement.prompt.md
 .github/prompts/plan.prompt.md
@@ -139,11 +142,10 @@
 .idea/workspace.xml
 .review-domains.json
 .skills.registry.json
-.vars
-.vars.example
 .workflows.registry.json
 AGENTS.md
 CONTRIBUTING.md
+DIFFERENTIAL_REVIEW_REPORT.md
 GLOSSARY.md
 PROJECT.md
 README.md
@@ -181,6 +183,7 @@ docs/plans/esp32_p4_control_plane_hardware_wallet_specification.md
 docs/plans/multi-cli-fallback-spec.md
 docs/runbooks
 docs/runbooks/agent-team.md
+docs/runbooks/agent-tools.md
 docs/runbooks/evidence-reporting.md
 docs/runbooks/overseer.md
 docs/runbooks/planner-setup.md
@@ -197,9 +200,6 @@ docs/templates/project-brief.md
 docs/templates/prompt-builder.agent.md
 docs/templates/prompt-engineer.agent.md
 docs/templates/prompt.instructions.md
-docs/templates/quality-playbook.agent.md
-docs/templates/software-engineer-agent-v1.agent.md
-docs/templates/task-researcher.agent.md
 
 === STACK DETECTION (manifest files) ===
 
@@ -329,21 +329,16 @@ Environment templates are excluded by repository policy. Identify variable names
 === TODO / FIXME / HACK (production code only, test dirs excluded) ===
 .github/skills/acquire-codebase-knowledge/scripts/scan.py:29: TODO_LIMIT = 60
 .github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:303: """Search for TODO/FIXME/HACK comments."""
 .github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:305: patterns = ["TODO", "FIXME", "HACK"]
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:334: return todos[:TODO_LIMIT]
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:637: # TODOs
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:640: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
-.github/skills/acquire-codebase-knowledge/scripts/scan.py:642: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:333: return todos[:TODO_LIMIT]
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:636: # TODOs
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:639: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.github/skills/acquire-codebase-knowledge/scripts/scan.py:641: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
 
 === GIT RECENT COMMITS (last 20) ===
+95a9154 Merge pull request #12 from cuddy-five/issue-6-agent-tools
+b07802a Give the planner and rust-coder verified tool access (issue #6)
+a110255 Install codebase knowledge skill, integrate planner agent, and activate protection rules
 7f30d7e Refine manual agent pipeline and harden control-plane checks
 e8c653b Remove provider routing and document the working agent pipeline
 36de21f Align agent profiles with the manual team roadmap
@@ -361,41 +356,38 @@ a31514e fix(ci): silence shellcheck sc2016 for inline node script in merge-gate
 c36052a fix(tests): use dynamic UTC date for spending cli unit tests
 d32ee2a Added repo-status workflow, agents.md, and docs/agent-templates
 bfdbd43 docs: update PROJECT.md current state and next immediate steps
-43be9e2 feat(compaction): add fast-jev context sieve log compaction module and cli command
-4174c6d fix(cli): guard task contract file loading in evidence command
-039b55a fix(orchestration): evaluate triage path globs bidirectionally
 
 === HIGH-CHURN FILES (last 90 days, top 20) ===
    9 tests/unit/cli.test.js
-   7 AGENTS.md
+   8 AGENTS.md
+   7 .agents.registry.json
    7 src/cli.js
-   6 .agents.registry.json
+   6 .github/agents/planner.agent.md
+   6 .github/agents/rust-coder.agent.md
+   6 README.md
+   6 docs/runbooks/agent-team.md
    6 .github/copilot-instructions.md
    6 tests/unit/orchestration.test.js
    6 .github/workflows/ci.yml
+   5 PROJECT.md
    5 .github/agents/implementer.agent.md
-   5 .github/agents/rust-coder.agent.md
-   5 docs/runbooks/agent-team.md
    5 src/lib/orchestration.js
    5 src/lib/report.js
-   5 README.md
    5 src/jev.js
    5 src/routing.js
    5 src/run-jev.js
-   4 .github/agents/custom-agent-foundry.agent.md
-   4 .github/agents/planner.agent.md
-   4 src/evidence.js
-   4 src/lib/registry.js
+   4 docs/runbooks/using-agents.md
+   4 docs/templates/custom-agent-foundry.agent.md
 
 === MONOREPO SIGNALS ===
 No monorepo signals detected.
 
 === CODE METRICS ===
-Total files scanned: 193
-Total lines of code: 9977
+Total files scanned: 196
+Total lines of code: 10040
 
 Files by language:
-  Other: 158
+  Other: 161
   JavaScript: 34
   Python: 1
 
@@ -406,7 +398,7 @@ tests/unit/orchestration.test.js: 28.5KB
 .github/skills/acquire-codebase-knowledge/scripts/scan.py: 24.2KB
 docs/architecture/agent-memory.md: 22.1KB
 src/cli.js: 21.7KB
-.github/agents/rust-coder.agent.md: 18.6KB
+.github/agents/rust-coder.agent.md: 19.5KB
 docs/templates/project-architecture-planner.agent.md: 18.5KB
 docs/templates/prompt-builder.agent.md: 18.1KB
 src/lib/orchestration.js: 15.9KB
