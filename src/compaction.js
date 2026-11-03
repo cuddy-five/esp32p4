@@ -77,8 +77,7 @@ export function chunkLog(text, maxChunkLines = 6) {
 }
 
 /**
- * Fast deterministic heuristic scoring for offline mode or fallback.
- * Returns score from 0.0 to 3.0.
+ * Deterministic heuristic score for one chunk, from 0.0 to 3.0.
  *
  * @param {string} chunkText
  * @param {number} index
@@ -123,69 +122,18 @@ export function deterministicScoreChunk(chunkText, index, totalChunks) {
 export async function compactLogs(text, {
   maxChars = 2000,
 } = {}) {
-  if (typeof text !== "string" || text.length === 0) {
-    return {
-      compacted: "",
-      originalChars: 0,
-      compactedChars: 0,
-      reductionPercent: 0,
-      method: "deterministic",
-      prunedChunks: 0,
-    };
-  }
+  if (typeof text !== "string" || text.length === 0) return summarize("", 0, 0);
 
   const originalChars = text.length;
-  if (originalChars <= maxChars) {
-    return {
-      compacted: text,
-      originalChars,
-      compactedChars: originalChars,
-      reductionPercent: 0,
-      method: "deterministic",
-      prunedChunks: 0,
-    };
-  }
+  if (originalChars <= maxChars) return summarize(text, originalChars, 0);
+  if (maxChars < 15) return summarize(text.slice(0, maxChars), originalChars, 0);
 
-  if (maxChars < 15) {
-    const compacted = text.slice(0, maxChars);
-    return {
-      compacted,
-      originalChars,
-      compactedChars: compacted.length,
-      reductionPercent: Math.max(0, Number(((1 - compacted.length / originalChars) * 100).toFixed(1))),
-      method: "deterministic",
-      prunedChunks: 0,
-    };
-  }
-
-  if (maxChars < 120) {
-    const sliceLen = maxChars - 15;
-    const compacted = `${text.slice(0, sliceLen)}... [truncated]`;
-    return {
-      compacted,
-      originalChars,
-      compactedChars: compacted.length,
-      reductionPercent: Math.max(0, Number(((1 - compacted.length / originalChars) * 100).toFixed(1))),
-      method: "deterministic",
-      prunedChunks: 0,
-    };
-  }
+  const truncated = () => `${text.slice(0, maxChars - 15)}... [truncated]`;
+  if (maxChars < 120) return summarize(truncated(), originalChars, 0);
 
   const chunks = chunkLog(text);
-  if (chunks.length <= 1) {
-    const sliceLen = maxChars - 15;
-    const compacted = `${text.slice(0, sliceLen)}... [truncated]`;
-    return {
-      compacted,
-      originalChars,
-      compactedChars: compacted.length,
-      reductionPercent: Math.max(0, Number(((1 - compacted.length / originalChars) * 100).toFixed(1))),
-      method: "deterministic",
-      prunedChunks: 0,
-    };
-  }
+  if (chunks.length <= 1) return summarize(truncated(), originalChars, 0);
 
-  let method = "deterministic";
   const scores = new Map();
 
   // Populate deterministic heuristic scores as baseline for all chunks
@@ -273,16 +221,21 @@ export async function compactLogs(text, {
     }
   }
 
-  const finalCompacted = assemble(selectedMiddle);
   const prunedChunks = chunks.length - (1 + selectedMiddle.length + 1);
-  const reductionPercent = Number(((1 - finalCompacted.length / originalChars) * 100).toFixed(1));
+  return summarize(assemble(selectedMiddle), originalChars, Math.max(0, prunedChunks));
+}
 
+/** Build the result record shared by every compaction outcome. */
+function summarize(compacted, originalChars, prunedChunks) {
+  const reductionPercent = originalChars > 0
+    ? Math.max(0, Number(((1 - compacted.length / originalChars) * 100).toFixed(1)))
+    : 0;
   return {
-    compacted: finalCompacted,
+    compacted,
     originalChars,
-    compactedChars: finalCompacted.length,
-    reductionPercent: Math.max(0, reductionPercent),
-    method,
-    prunedChunks: Math.max(0, prunedChunks),
+    compactedChars: compacted.length,
+    reductionPercent,
+    method: "deterministic",
+    prunedChunks,
   };
 }

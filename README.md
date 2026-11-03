@@ -33,7 +33,9 @@ to choose its owner, actual protections, reporting contact, and license.
 ## The loop
 
 This is the intended team process. Roles can follow it manually today;
-the automated coordinator, evidence collector, and merge gate are not built.
+the automated coordinator is not built. The `evidence` command and the
+`merge-gate` workflow report scope and approval stages; no workflow enforces
+their results.
 
 ```
           ┌────────────────────────────────────────────────────────────┐
@@ -70,8 +72,8 @@ blind spots do not line up. See `docs/architecture/adversarial-loop.md`.
 | Humans are told what happened in plain language | `overseer_note` on review, result, escalation | available |
 | Mutating anything requires an explicit flag | `--yes` on apply; `settings-sync` applies only on manual dispatch behind an environment | available |
 
-Everything under `.github/` with a `.disabled` suffix is a placeholder for a
-later stage (agent charters, routing, budgets, tool policy, recovery).
+Every file with a `.disabled` suffix, mostly under `.github/`, is a placeholder
+for a later stage (agent charters, routing, budgets, tool policy, recovery).
 
 ## For the overseer
 
@@ -99,6 +101,7 @@ npm test
 
 node src/cli.js validate path/to/*.json           # validate contract documents
 node src/cli.js schema list
+node src/cli.js policy check                       # state machine and approvals agree with contracts
 
 node src/cli.js settings plan                      # what would change in this repo
 node src/cli.js settings check                     # exit 2 on drift
@@ -109,6 +112,8 @@ node src/cli.js settings apply --yes               # reconcile
 Token: `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token`. Target repository:
 `--repo owner/name`, `GH_REPO`, `GITHUB_REPOSITORY`, or the `origin` remote.
 Exit codes: `0` success or no drift, `1` error, `2` invalid document or drift.
+`node src/cli.js help` lists every command, including `evidence` (see
+[evidence reporting](docs/runbooks/evidence-reporting.md)) and `compact`.
 
 ## Using from another repository
 
@@ -131,19 +136,25 @@ the next stage.
 |---|---|
 | `.github/control-plane/contracts/` | Contract schemas and one example per contract on a shared trace |
 | `.github/control-plane/orchestration/` | `state-machine.yaml`: task states, transitions, actors, gates, invariants |
-| `.github/control-plane/policies/` | `approvals.yaml`: what requires a human, by risk level and by path |
+| `.github/control-plane/policies/` | `approvals.yaml`: what requires a human, by risk level and by path; `tool-access.yaml`: proposed role tool access, not enforced |
 | `.github/control-plane/settings/` | Desired labels and rulesets for this repository |
 | `.github/actions/validate-contract/` | Composite action, usable from any repository |
+| `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/prompts/` | Copilot agent profiles, project skills, file-scoped instructions, and editor prompts |
 | `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE.md` | Task/bug intake and the owner's PR reading guide |
 | `.github/CODEOWNERS`, `.github/SECURITY.md`, `.github/dependabot.yml` | Review routing, security reporting guidance, and dependency update proposals |
-| `.github/workflows/` | `ci.yml`, `settings-sync.yml` |
+| `.github/workflows/` | `ci.yml`, `settings-sync.yml`, informational `merge-gate.yml`, scheduled `agent-evals.yml` audit, `release.yml`, and the `repo-status` overseer digest (gh-aw `.md` source and generated `.lock.yml`) |
+| `.agents.registry.json`, `.skills.registry.json`, `.workflows.registry.json` | Declared role, skill, and workflow catalogues checked by the registry tests |
+| `.review-domains.json` | Review checklists selected by changed path |
 | `CONTRIBUTING.md` | File-to-file path from request through review and owner merge |
 | `src/` | CLI and library (plain ESM, Node 20+) |
 | `tests/unit/`, `tests/security/` | `node:test` suites |
-| `docs/architecture/` | Contracts and planned team loop |
+| `docs/agents/` | Issue tracker, triage labels, writing rules, and the registry schema |
+| `docs/architecture/` | Contracts, planned team loop, agent memory design, and the team roadmap |
+| `docs/codebase/` | Generated codebase knowledge used by the planner |
+| `docs/plans/` | Accepted skills-and-tools design and wallet research input |
 | `docs/threat-models/` | `adversarial-loop.md` |
-| `docs/runbooks/` | Manual team process, overseer decisions, settings sync, and template adoption |
-| `docs/templates/` | Project brief to copy to `PROJECT.md` |
+| `docs/runbooks/` | Manual team process, agent use and tools, overseer decisions, evidence reporting, settings sync, and template adoption |
+| `docs/templates/` | Project brief to copy to `PROJECT.md`, plus upstream agent and prompt examples for the Foundry |
 | `docs/decisions/` | ADRs |
 
 ## Token requirements

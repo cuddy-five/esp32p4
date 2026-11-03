@@ -59,8 +59,9 @@ Start with a small request. Name the outcome and any important limits, such as
 
 ## What is and is not established
 
-The [planner setup guide](planner-setup.md) records the first Issue #6 skill/tool
-inventory, current CLI discovery evidence and the remaining live check.
+The [planner setup guide](planner-setup.md) describes the planner's skill package
+and how to repeat its live check; [agent tools and setup](agent-tools.md) records
+the results.
 
 Only the demonstrated flows above are established; the other agent profiles
 and their capabilities remain unverified. A successful invocation or
@@ -73,7 +74,7 @@ direction.
 
 ## Manual mode and owner decisions
 
-Automated control-plane enforcement is paused. These profiles do not start an
+Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred. These profiles do not start an
 automatic team workflow or enforce contract approvals. The owner directs work
 and retains decisions about approvals, outside actions, commits, and every
 merge. Do not enable automation or start firmware implementation as part of
@@ -94,7 +95,8 @@ permission to write, publish, install, or change GitHub.
 - `.github/prompts/` — reusable prompt files; client support varies.
 - [Agent tools and setup](agent-tools.md) — each agent's skills and tools, what
   was tried live, and the setup steps.
-- `docs/templates/custom-agent-foundry.agent.md` — Foundry design reference.
+- `docs/templates/` — upstream agent and prompt examples for the Foundry; the
+  live Foundry profile is `.github/agents/custom-agent-foundry.agent.md`.
 
 The [manual team runbook](agent-team.md) explains the broader working
 agreement and future process.

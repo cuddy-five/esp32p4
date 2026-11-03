@@ -2,7 +2,7 @@
 
 ## Current work
 
-Build a usable agent team and its control-plane pipeline. The owner directs development and retains commit and merge decisions. Full control-plane ruleset enforcements are active per owner instruction; automated background agent loops remain governed by explicit owner authorization.
+Build a usable agent team and its control-plane pipeline. The owner directs development and retains commit and merge decisions. Repository protections are required per owner instruction and declared active in settings files; verify their live state separately. Automated background agent loops remain governed by explicit owner authorization.
 
 ## Existing implementation
 
@@ -10,9 +10,9 @@ Node.js 20+ ESM CLI, closed JSON contracts, policy consistency checks, GitHub se
 
 ## Team and next work
 
-Seven working agents: coordinator, planner, control-plane implementer, Rust/Bitcoin/ESP32 engineer, reviewer, security auditor and verifier. The Foundry prepares their packages. Four project skills support planning, implementation, review and verification.
+Seven working agents: coordinator, planner, control-plane implementer, Rust/Bitcoin/ESP32 engineer, reviewer, security auditor and verifier. The Foundry prepares their packages. Project skills cover planning, implementation, review, verification, codebase knowledge, context engineering, Rust patterns and Rust testing. File presence and profile declarations do not prove client loading.
 
-Finish [issue #5](https://github.com/cuddy-five/esp32p4/issues/5) by demonstrating direct agent selection and coordinator delegation in the chosen client, documenting model/tool limitations, writing the beginner guide, and independently checking the published revision. Skills and MCP setup belong to issue #6. Next build durable task records, dispatch, role handoffs and enforcement, then test stopping, resuming and bounded repair.
+[Issue #5](https://github.com/cuddy-five/esp32p4/issues/5) is closed. Continue [issue #6](https://github.com/cuddy-five/esp32p4/issues/6): verify skills and MCP access for the full roster, one agent at a time. Then build durable task records, dispatch, role handoffs and enforcement under issue #7, followed by recovery exercises under issue #8.
 
 ## Later firmware work
 

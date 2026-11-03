@@ -40,11 +40,15 @@ Status words:
 | coordinator | planning | read, search, execute, `github/*`, agent, todo | Not tried. Basic Memory writing is planned for this role but not configured. |
 | planner | acquire-codebase-knowledge, planning | read, search, edit, execute, web, `github/*`, `context7/*`, todo, six Basic Memory read tools | **Tried 2026-10-30**: Basic Memory search, Context7 library lookup, and GitHub issue read (with the launch flags below). |
 | implementer | implementation, context-engineering | read, search, edit, execute, `context7/*`, todo | Not tried. |
-| rust-coder | implementation | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo | **Tried 2026-10-30**: `lsp` symbol search and find references through rust-analyzer. |
+| rust-coder | implementation, rust-patterns, rust-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo | **Tried 2026-10-30**: `lsp` symbol search and find references through rust-analyzer. |
 | reviewer | review | read, search, execute | Not tried. No MCP by design. |
 | security-auditor | review | read, search, execute, `github/*`, `context7/*` | Not tried. |
 | verifier | verification | read, search, execute, `github/*` | Not tried. |
 | custom-agent-foundry | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | Not tried. |
+
+The Rust patterns and testing skills are present and declared in the profile as
+of 2026-11-03. Their live loading has not been verified; the 2026-10-30 LSP
+results above apply only to that recorded client and profile.
 
 The planner's Basic Memory tools are `search_notes`, `read_note`,
 `build_context`, `recent_activity`, `read_content` and `list_directory`. The

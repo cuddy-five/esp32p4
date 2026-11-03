@@ -97,7 +97,9 @@ describe("Owner-directed agent team configuration", () => {
 
   test("the coordinator preserves manual mode without invoking intake", () => {
     const { body } = readProfile(path.join(agentsDir, "coordinator.agent.md"));
-    assert.match(body, /Automated control-plane enforcement is paused/i);
+    assert.match(body, /Repository protections are required/i);
+    assert.match(body, /verify live settings separately/i);
+    assert.match(body, /Automatic worker dispatch and approval routing remain deferred/i);
     assert.doesNotMatch(body, /node\s+src\/cli\.js\s+triage\b/);
   });
 

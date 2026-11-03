@@ -9,7 +9,7 @@
 - Commands:
 
 ```bash
-# Run all unit and security test suites (52 suites, 321 tests)
+# Run all unit and security test suites
 npm test
 
 # Run unit tests only
@@ -41,8 +41,8 @@ node src/cli.js compact --file /path/to/test.log --offline --max-chars 2000
 
 | Scope | Covered? | Typical target | Notes |
 |-------|----------|----------------|-------|
-| Unit | Yes | CLI parsing, schema loading, object diffing, scope evaluation, policy validation, log compaction, agent specification linting | 16 test suites in `tests/unit/` testing logic in isolation |
-| Security Invariant | Yes | Schema closure, prototype pollution prevention, path boundary enforcement | `tests/security/contracts-strictness.test.js` enforces `unevaluatedProperties: false` on every contract; `codebase-scan.test.js` enforces secret exclusion |
+| Unit | Yes | CLI parsing, schema loading, object diffing, scope evaluation, policy validation, log compaction, agent specification linting | Tests in `tests/unit/`; some also exercise CLI and filesystem integration |
+| Security Invariant | Yes | Schema closure, prototype pollution prevention, path boundary enforcement | `tests/security/contracts-strictness.test.js` enforces `unevaluatedProperties: false` on every contract; `codebase-scan.test.js` checks protected filename and path exclusions, not arbitrary secret content |
 | Integration | Partial | Settings reconciliation against `FakeGitHub` | Tests plan and apply flows against in-memory GitHub REST simulator |
 | E2E | Partial | Composite action execution in CI (`.github/actions/validate-contract`) | Runs CLI in GitHub Actions runner environment against example contracts |
 
@@ -60,13 +60,13 @@ node src/cli.js compact --file /path/to/test.log --offline --max-chars 2000
 - Coverage tool + threshold: None currently configured (`[TODO]`). Owner confirmed that adding standard coverage reporting (`node --test --experimental-test-coverage` or `c8`) is welcomed when appropriate.
 - Current test suite status:
   - 52 test suites run under `npm test`.
-  - 321 tests pass, 0 fail.
+  - 324 tests passed, 0 failed on 2026-11-03. Rerun for the current checkout.
 - Automated CI quality gates:
   - Pull requests trigger `.github/workflows/ci.yml`, running `npm test`, `node src/cli.js policy check`, `git diff --check`, workflow linting with `actionlint`, and contract validation.
 
 ### 6) Evidence
 
-- [package.json](../../package.json#L13-L16)
+- [package.json](../../package.json)
 - [tests/helpers/fake-github.js](../../tests/helpers/fake-github.js)
 - [tests/security/contracts-strictness.test.js](../../tests/security/contracts-strictness.test.js)
 - [tests/unit/cli.test.js](../../tests/unit/cli.test.js)
@@ -87,13 +87,13 @@ Specific test suites continuously guard agent and registry integrity:
 - [`tests/unit/selection-registry-lint.test.js`](../../tests/unit/selection-registry-lint.test.js):
   - Validates that descriptions in `.agents.registry.json` are bounded decision rules starting with `Choose ` and unique.
 - [`tests/unit/planner-pipeline.test.js`](../../tests/unit/planner-pipeline.test.js):
-  - Verifies that the planner agent can resolve its `acquire-codebase-knowledge` skill and all seven bundled templates and references.
+  - Verifies that the planner agent can resolve its `acquire-codebase-knowledge` skill and all ten bundled assets: seven templates, two references and the scanner.
 
 ### 8) Security Invariant Testing (`tests/security/`)
 
 - [`tests/security/contracts-strictness.test.js`](../../tests/security/contracts-strictness.test.js):
   - Dynamically traverses every contract schema to ensure `unevaluatedProperties: false` or `additionalProperties: false` is set everywhere.
-  - Verifies that `overseer_note` is strictly required on all human-facing contracts (`review`, `result`, `escalation`) and that token notes are rejected.
+  - Verifies that `overseer_note` is strictly required on all human-facing contracts (`review`, `result`, `escalation`) and that forbidden secret-bearing property names are rejected.
   - Confirms prototype pollution keys (`__proto__`, `constructor`) are rejected as unknown properties.
 - [`tests/security/codebase-scan.test.js`](../../tests/security/codebase-scan.test.js):
   - Verifies that the codebase scanner script safely ignores protected secret patterns (`.env*`, `.vars*`, keys, tokens) and refuses to write reports to symlinks or external paths.

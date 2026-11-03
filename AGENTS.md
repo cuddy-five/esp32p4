@@ -13,7 +13,8 @@ explicitly authorized. Independent review can still help without the full
 team ceremony.
 
 The formal process below describes the automated team. Repository protection
-rules are actively enforced per owner instruction. Scheduled background agent
+rules are required per owner instruction and declared active in settings files.
+Verify live GitHub settings before claiming they are enforced. Scheduled background agent
 jobs remain governed by explicit owner instruction. See the runbook notes.
 
 ## Fundamental work agreement

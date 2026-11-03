@@ -1,5 +1,7 @@
 # ESP32-P4 Bitcoin Blake2b Hardware Wallet & Adversarial Control Plane: Comprehensive Specification
 
+> Historical research proposal, not an implementation specification. Board, peripheral, memory, security-advisory and protocol claims below require independent verification. Automatic contract/approval enforcement described here is not implemented. Current authority: [project brief](../../PROJECT.md), [operating limits](../decisions/0003-agent-operating-limits.md), and [Rust instructions](../../.github/instructions/rust-coder.instructions.md).
+
 ## 1. Executive Summary & Project Mission
 
 This repository (`esp32p4`) establishes a hybrid engineering control plane governing the development of an air-gapped, stateless Bitcoin hardware wallet targeting the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** (`ESP32-P4NRW32X`, dual-core RISC-V, target `riscv32imafc-unknown-none-elf`). 

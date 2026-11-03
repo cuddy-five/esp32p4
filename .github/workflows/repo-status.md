@@ -20,7 +20,7 @@ safe-outputs:
 Generate a concise, plain-language status digest for the Human Overseer following the rules in `AGENTS.md` and `docs/runbooks/overseer.md`:
 
 1. **Inspect Current State**:
-   - Check open issues and pull requests, especially any carrying `cp:escalation`, `cp:blocked`, `cp:needs-approval`, or `agent-fallback:local` labels.
+   - Check open issues and pull requests, especially any carrying `cp:escalation`, `cp:blocked`, or `cp:needs-approval` labels.
    - Run `node src/cli.js policy check` and `npm test` to confirm control-plane guardrails are intact.
 2. **Write for the Overseer (`overseer_note` style)**:
    - Summarize what merged recently, which tasks or PRs are waiting on a human `plan` or `merge` decision under `.github/control-plane/policies/approvals.yaml`, and any open escalations or settings drift.

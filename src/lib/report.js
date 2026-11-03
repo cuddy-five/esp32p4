@@ -16,7 +16,7 @@ const OP_ORDER = ["create", "update", "rename", "delete", "unmanaged", "noop"];
  */
 function short(v) {
   if (v === undefined) return "<absent>";
-  const s = typeof v === "string" ? JSON.stringify(v) : JSON.stringify(v);
+  const s = JSON.stringify(v);
   return s.length > 60 ? `${s.slice(0, 57)}...` : s;
 }
 

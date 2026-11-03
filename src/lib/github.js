@@ -25,7 +25,7 @@ export class GitHubApiError extends Error {
 
 /**
  * Minimal GitHub REST client over `fetch`. Deliberately dependency-free so the
- * composite actions can run with only `npm ci` of two schema packages.
+ * composite actions need only the runtime dependencies in package.json.
  *
  * Supports GitHub Enterprise Server via `apiUrl` (`GITHUB_API_URL` in Actions).
  */
@@ -64,7 +64,7 @@ export class GitHubClient {
   /**
    * @param {string} method
    * @param {string} path  API path beginning with `/`
-   * @param {{ body?: unknown, params?: Record<string, string | number | undefined>, previews?: string[] }} [opts]
+   * @param {{ body?: unknown, params?: Record<string, string | number | undefined> }} [opts]
    * @returns {Promise<{ status: number, data: any, headers: Headers }>}
    */
   async request(method, path, { body, params } = {}) {

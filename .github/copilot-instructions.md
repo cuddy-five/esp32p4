@@ -2,8 +2,8 @@
 
 This repository is a control plane for an adversarial agentic team loop.
 The rules that apply to every agent, including Copilot, live in
-[`AGENTS.md`](../AGENTS.md). Read its current-mode section first: automated control-plane enforcement are paused during owner-directed
-development. The formal process below is for the future automated team,
+[`AGENTS.md`](../AGENTS.md). Read its current-mode section first: repository protections are required during owner-directed
+development; verify live settings separately; automatic team dispatch and approval routing remain deferred. The formal process below is for the future automated team,
 not a paperwork requirement for ordinary edits and commits now.
 
 For task intake, handoff, or resumption, follow the
