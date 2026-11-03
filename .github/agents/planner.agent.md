@@ -3,7 +3,8 @@ name: planner
 description: 'Build or refresh codebase knowledge, then use verified architecture, conventions and tests to plan an owner-requested change. Planning only.'
 argument-hint: 'Describe the outcome or issue; optionally name existing docs/codebase knowledge and permitted documentation writes'
 model: gpt-5.6-luna
-tools: ['read', 'search', 'edit', 'execute', 'web', 'github/*', 'context7/*', 'todo',
+tools: ['read', 'search', 'edit', 'execute', 'web', 'lsp', 'github/*', 'context7/*', 'todo',
+  'notebooklm/notebook_list', 'notebooklm/notebook_get', 'notebooklm/notebook_describe', 'notebooklm/source_describe', 'notebooklm/source_get_content', 'notebooklm/notebook_query', 'notebooklm/notebook_query_start', 'notebooklm/notebook_query_status', 'notebooklm/cross_notebook_query',
   'basic-memory/search_notes', 'basic-memory/read_note', 'basic-memory/build_context', 'basic-memory/recent_activity', 'basic-memory/read_content', 'basic-memory/list_directory']
 skills: [planning, acquire-codebase-knowledge, investigate-first]
 handoffs:
@@ -25,6 +26,10 @@ Make a practical implementation plan from verified repository knowledge. Follow
 Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. Do not implement your plan.
 
 **Skills:** `planning`, `acquire-codebase-knowledge` and `investigate-first` are preloaded. Load these with the skill tool when the task fits: `codebase-design` (interfaces, seams and module depth), `context-engineering` (changes that span several files or modules) and `domain-modeling` (terms and decision records). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
+
+**Code navigation:** use `lsp` (rust-analyzer, from `.github/lsp.json`) only to read: definitions, references, symbols, hover and call hierarchy. Never call its `rename` operation; it edits files.
+
+**NotebookLM** (read-only; the server exposes only read tools): use it for background from the owner's notebooks, `ESP32 P4 Repo`, `Agentic Engineering` and `GitHub Agentic Certification`. Do not read other notebooks; the server cannot enforce that, so this rule does. A notebook answer is a secondary source: cite it as unverified and never use it as evidence for `device-references`. For long questions, start with `notebook_query_start` and poll `notebook_query_status` every 10-20 seconds.
 
 ## 1. Establish the knowledge
 

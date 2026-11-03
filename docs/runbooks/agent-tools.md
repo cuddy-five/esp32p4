@@ -23,8 +23,8 @@ Status words:
 | Context7 | User config (`~/.copilot/mcp-config.json`) | On since 2026-10-30. It was disabled before, so every `context7/*` entry was silently ignored. |
 | Basic Memory | User config | On. Personal knowledge base; project `main`. |
 | Firecrawl | User config | On. No agent lists it. |
-| NotebookLM | Not set up for Copilot | `notebooklm-mcp` is installed locally but not configured. |
-| Rust MCP (`rustmcp`) | Not used | Fails Copilot's startup handshake, and 17 of its 22 tools are placeholders. Replaced by the rust-analyzer language server; see [Rust code intelligence](#rust-code-intelligence). |
+| NotebookLM (`notebooklm-mcp`, notebooklm-mcp-cli 0.15.9) | User config, added 2026-11-03 with a server-level read-only tool filter | On. Signed in (`nlm login --check`). The server exposes only 9 read tools plus `server_info`; see [NotebookLM](#notebooklm). |
+| Rust MCP (`rustmcp`) | Removed from this machine 2026-11-03 | 17 of its 22 tools are placeholders, and the `lsp` tool covers the rest. Replaced by the rust-analyzer language server; see [Rust code intelligence](#rust-code-intelligence). |
 | `.github/mcp.json` | Does not exist yet | Shared project servers go here, without secret values. None is needed yet. |
 
 ## Language servers
@@ -40,16 +40,16 @@ every run. "Optional" skills are named in the profile's **Skills** line; the
 agent loads them with the `skill` tool when the task fits. See
 [Skills](#skills) for how this works.
 
-| Agent | Preloaded skills | Optional skills | Tools and MCP | Live status |
+| Agent | Preloaded skills | Optional skills | Tools and MCP | Live status (2026-11-03 unless stated) |
 | --- | --- | --- | --- | --- |
-| coordinator | handoff | triage (the owner starts it with `/triage`), domain-modeling | read, search, execute, `github/*`, agent, todo, six Basic Memory read tools, Basic Memory `write_note` and `edit_note` | Not tried. Basic Memory writing configured 2026-11-03; the owner deferred the live check. |
-| planner | planning, acquire-codebase-knowledge, investigate-first | codebase-design, context-engineering, domain-modeling | read, search, edit, execute, web, `github/*`, `context7/*`, todo, six Basic Memory read tools | **Tried 2026-10-30**: Basic Memory search, Context7 library lookup, GitHub issue read (with the launch flags below). **Tried 2026-11-03**: preloading of `planning` and `acquire-codebase-knowledge`, before `investigate-first` was added. |
-| implementer | implementation, surgical-patch, lean-build | context-engineering, github-actions-hardening, property-based-testing | read, search, edit, execute, `context7/*`, todo | Not tried. |
-| rust-coder | rust-patterns, rust-testing, device-references | implementation, property-based-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo | **Tried 2026-10-30**: `lsp` symbol search and find references through rust-analyzer. Skills not tried. |
-| reviewer | review, code-review | test-gap-audit, device-references | read, search, execute | **Tried 2026-11-03**: exact tool list, and loading a skill through the `skill` tool, before its `skills:` list was added. No MCP by design. |
-| security-auditor | review, differential-review | agent-security-hardening, github-actions-hardening, agentic-actions-auditor, mcp-security-audit, device-references | read, search, execute, `github/*`, `context7/*` | Not tried. |
-| verifier | verification, verify-and-stop | test-gap-audit | read, search, execute, `github/*` | Not tried. |
-| custom-agent-foundry | skill-creator | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | Not tried. |
+| coordinator | handoff | triage (the owner starts it with `/triage`; the agent cannot load it), domain-modeling | read, search, execute, `github/*`, agent, todo, six Basic Memory read tools, Basic Memory `write_note` and `edit_note` | **Tried.** `handoff` preloaded; `triage` refused to load, as designed (`disable-model-invocation: true`). Basic Memory search, `write_note` and `read_note` succeeded in a solo run; the scratch note was deleted afterwards. GitHub file read succeeded. `AGENTS.md` and `copilot-instructions.md` both loaded. |
+| planner | planning, acquire-codebase-knowledge, investigate-first | codebase-design, context-engineering, domain-modeling | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo, nine NotebookLM read tools, six Basic Memory read tools | **Tried.** All three preloaded; `codebase-design` loaded. NotebookLM list, Context7, `lsp` workspace symbols and GitHub succeeded. Basic Memory failed in the parallel batch (see below); it worked on 2026-10-30 and in the coordinator's solo run. |
+| implementer | implementation, surgical-patch, lean-build | context-engineering, github-actions-hardening, property-based-testing | read, search, edit, execute, `context7/*`, todo | **Tried.** All three preloaded; `context-engineering` loaded; Context7 succeeded. |
+| rust-coder | rust-patterns, rust-testing, device-references | implementation, property-based-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo, nine NotebookLM read tools | **Tried.** All three preloaded; `property-based-testing` loaded. `lsp` references (after one retry), NotebookLM list, Context7 and GitHub succeeded. |
+| reviewer | review, code-review | test-gap-audit, device-references | read, search, execute, `lsp` | **Tried.** Both preloaded; `test-gap-audit` loaded; `lsp` references succeeded. `lsp` rename denied in both permission modes. No MCP by design. |
+| security-auditor | review, differential-review | agent-security-hardening, github-actions-hardening, agentic-actions-auditor, mcp-security-audit, device-references | read, search, execute, `lsp`, `github/*`, `context7/*`, nine NotebookLM read tools | **Tried.** Both preloaded; `mcp-security-audit` loaded. `lsp`, NotebookLM list and `notebook_query`, and Context7 succeeded. GitHub `get_file_contents` failed twice with `MCP error -32020: header mismatch: missing Mcp-Param-owner header`, while the same call succeeded for four agents in the same batch. |
+| verifier | verification, verify-and-stop | test-gap-audit | read, search, execute, `github/*` | **Tried.** Both preloaded; `test-gap-audit` loaded; GitHub succeeded. |
+| custom-agent-foundry | skill-creator | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | **Tried.** `skill-creator` preloaded; `planning` loaded; Context7 and GitHub succeeded. |
 
 The planner's Basic Memory tools are `search_notes`, `read_note`,
 `build_context`, `recent_activity`, `read_content` and `list_directory`. The
@@ -121,13 +121,24 @@ reads files without this repository's secret-file exclusions, and
 `device-references` is the shared fact sheet for the wallet engineer, reviewer
 and security auditor: the ESP32-P4 chip, the candidate Waveshare board, the
 Bitcoin standards with their test vectors, and the intended fork. Every fact is
-marked verified or unverified, with its source. Open items:
+marked verified or unverified, with its source. State on 2026-11-03:
 
-- The ESP32-P4 datasheet is downloaded but unread: no PDF text tool is installed.
-- The board schematic is unread, so the radio-isolation method is unverified.
-- The fork's rules come from Bitcoin Knots `v29.4.3.knots20260508` (commit
-  `a7c4617`): `doc/unified-sighash.md` (a draft; no BIP exists) and the source.
-  They are located and pinned but not yet reviewed for the device.
+- **Fork rules: reviewed.** `doc/unified-sighash.md` at Knots
+  `v29.4.3.knots20260508` (commit `a7c4617`) was read in full and compared with
+  `SignatureHashUnified`. A separate implementation written from the document
+  alone, `device-references/scripts/unified_sighash_check.py`, reproduces all
+  166 Knots test vectors. BLAKE2b turned out to be used only for block-header
+  proof of work, so a signer does not need it. The BIP-110 (RDTS) limits also
+  apply from the fork height; they are located but not reviewed.
+- **Board schematic: read through its text labels.** The ESP32-C6 is enabled by
+  P4 GPIO54 through R54, with a pull-up that turns the C6 on whenever GPIO54 is
+  not driven low, and it shares the main 3.3 V rail with the P4. So the
+  historical plan of cutting the C6's power through the AXP2101 does not work
+  on this board. These facts are "Inferred (schematic labels)".
+- **Chip: more facts from vendor sources.** ESP-IDF's eFuse table and
+  programming guide cover JTAG disabling, download mode and the RNG. The RNG is
+  truly random only while its SAR ADC entropy source is enabled. The datasheet
+  itself is still unread (see [Still open](#still-open)).
 
 The skill folder is not called `wallet-references` because a local Claude Code
 hook blocks writes to any path containing "wallet", to protect wallet files.
@@ -184,8 +195,21 @@ rename. To check the configuration, run `copilot lsp list`; in an interactive
 session, `/lsp test rust-analyzer` starts and tests the server.
 
 A custom agent gets the tool only when its `tools` list names `lsp`. The
-default agent has it automatically. Only `rust-coder` lists it so far, and its
-profile tells it to make edits with the edit tool, not with `lsp` rename.
+default agent has it automatically. `rust-coder`, `planner`, `reviewer` and
+`security-auditor` list it. rust-coder's profile tells it to make edits with the
+edit tool, not with `lsp` rename; the other three profiles forbid rename, and a
+test checks that.
+
+**How `lsp` rename is controlled.** Live-checked on 2026-11-03 (see the
+[live check record](#live-check-record)): Copilot treats an `lsp` rename as a
+file write. With `--deny-tool write` it returns `Permission denied by rules:
+write(*)`. In an unattended `-p` run with no allow rule it returns `Permission
+denied because no interactive user response was available`. In an interactive
+session it asks you first, as it does for any edit. The navigation operations
+(`findReferences`, `workspaceSymbol`, definitions, hover) need no permission. So
+adding `lsp` gives a read-only agent no new way to write files without your
+approval. Its `execute` tool already could, which is why the read-only recipe
+below also denies `shell`.
 
 The configuration turns off three rust-analyzer defaults:
 
@@ -211,31 +235,79 @@ still runs `cargo metadata`, which can create or update `Cargo.lock` and
 fetch the crate index.
 
 **Why not `rustmcp`.** It was checked on 2026-10-30, at local commit `f03b2b0`
-of `dexwritescode/rust-mcp`:
+of `dexwritescode/rust-mcp`, and the owner decided against it on 2026-11-03:
 
-- Copilot 1.0.105 failed to start it, logging `MCP server process exited
-  before completing the MCP initialize handshake` while it waited for a
-  `discover response`. rustmcp (built on rmcp 0.2.1) exits with the same
-  error whenever its first message is not `initialize`.
 - 17 of its 22 tools are placeholders. For example, `run_cargo_check` and
   `apply_clippy_suggestions` return success text without running anything.
   An agent could report a check that never happened.
-- The 5 real tools pass rust-analyzer requests through. The `lsp` tool
-  covers the same navigation and rename, and `cargo fmt` covers formatting.
+- The 5 real tools pass rust-analyzer requests through and return the raw
+  response. The `lsp` tool covers the same navigation.
+- It failed to start under Copilot 1.0.105. **Correction (2026-11-03):** the
+  cause is two `println!` banners ("Starting Rust MCP Server", "Server running
+  on stdio transport...") that it writes to stdout before the JSON-RPC stream,
+  not the order of the handshake messages, as this page said before. A manual
+  `initialize` and `tools/list` exchange worked once those two lines were
+  skipped. Copilot's "waiting for discover response" error and rustmcp's
+  `connection closed` exit were symptoms of that.
 
-### Not set up yet
+### NotebookLM
 
-- **`lsp` for other agents**: the planner, reviewer and security-auditor could
-  use it for read-only navigation. Its rename operation writes files, so check
-  how it interacts with each agent's permissions before adding it.
-- **NotebookLM**: needs the owner's Google sign-in (`nlm login`) and a decision
-  on which notebooks each specialist may read. Reading must not include deleting
-  sources, uploading files or changing sharing.
-- **A live check of every agent with its new skills and tools**: deferred by the
-  owner on 2026-11-03. Each `copilot -p` run costs one premium request, so a
-  pass over all eight agents costs about eight. The recipe is under
-  [Live check record](#live-check-record). The coordinator's Basic Memory
-  writing is configured but has never been tried live.
+Done on 2026-11-03. The owner's Google sign-in was already valid
+(`nlm login --check` reported "Authentication valid!"). The server was added to
+the Copilot user config with a tool filter, so it exposes only read tools to
+every agent:
+
+```fish
+copilot mcp add notebooklm \
+    --tools "notebook_list,notebook_get,notebook_describe,source_describe,source_get_content,notebook_query,notebook_query_start,notebook_query_status,cross_notebook_query,server_info" \
+    -- /home/cb/.local/bin/notebooklm-mcp
+```
+
+`copilot mcp add <name> -- <command>` registers a local (stdio) server in
+`~/.copilot/mcp-config.json`; everything after `--` is the command Copilot
+starts. `--tools` is a server-level filter: Copilot offers only the named tools,
+whatever an agent's profile lists. The default, `"*"`, would expose all 55
+tools, including `notebook_delete`, `source_delete`, `source_add`,
+`notebook_share_public` and `notebook_share_invite`. Two alternatives:
+
+- `--tools ""` keeps the server configured but exposes nothing, a quick way to
+  turn it off for agents without removing it.
+- Leaving the filter at `"*"` and listing tools per agent puts every write tool
+  one profile typo away, because Copilot ignores unknown names silently.
+
+To check, run `copilot mcp get notebooklm`; success shows `Status: Enabled` and
+the ten tool names. `copilot mcp remove notebooklm` undoes it. If a call reports
+expired auth, run `nlm login` again yourself; never paste cookies into a chat.
+
+The server reports no read-only or destructive hints for any tool, so the list
+was chosen by hand. `notebook_query` and `cross_notebook_query` ask NotebookLM's
+AI and may add to the notebook's chat history; they change no sources, notes
+or sharing.
+
+**Who reads which notebooks.** The planner, rust-coder and security-auditor
+have the nine read tools (not `server_info`). Each profile names the notebooks
+it may read: `ESP32 P4 Repo`, `Agentic Engineering` and `GitHub Agentic
+Certification` for the planner; `ESP32 P4 Repo`, `Rust no_std Bare-Metal
+Firmware & Bitcoin Hardware Wallet Guide` and `SeedSigner` for the other two.
+**The tools cannot enforce that:** `notebook_list` shows all of the owner's
+notebooks, and any read tool can read any of them. The rule is in the profile
+text only. Notebook answers are secondary sources and never count as evidence
+for `device-references`. A test fails if any other agent gets a NotebookLM tool
+or if anyone gets a tool outside the read list.
+
+### Still open
+
+- The ESP32-P4 datasheet and Technical Reference Manual are unread: their text
+  is CID-encoded, and no PDF text tool is installed. Installing `poppler-utils`
+  in the `devbox` distrobox would provide `pdftotext`. Until then, the chip
+  file's memory map, power domains, ordering table and Key Management Unit
+  facts stay unverified.
+- The board schematic was read through its text labels only. Its radio
+  findings are marked "Inferred (schematic labels)" until someone checks the
+  drawing visually.
+- Owner decisions recorded in `device-references`: whether the device also signs
+  legacy sighashes, whether it enforces the RDTS limits, and how to isolate the
+  ESP32-C6 physically.
 
 ## Live check record
 
@@ -290,14 +362,37 @@ That is better evidence than asking the model to list its tools.
 | planner (`skills: [acquire-codebase-knowledge, planning]`) | Without calling a tool, quote the first heading of `planning` and `acquire-codebase-knowledge` if their full text is in context | No tool call; both exact headings quoted: preloaded. |
 | planner, control | The same for `verification`, `review` and `planning` | `verification` and `review`: description only. `planning`: heading quoted. |
 
+**2026-11-03, every agent.** Eleven runs (plus two instruction checks), about
+$0.71 in AI credits in total. Each per-agent run was
+`--no-ask-user --output-format json --deny-tool write --deny-tool shell`, plus
+`--allow-tool <server>` for that agent's MCP servers and the GitHub read tools
+from [GitHub read tools](#github-read-tools). The prompt asked the agent to quote
+its preloaded skills' first lines without calling a tool, load one optional
+skill, and make one read call per server. A temporary crate gave rust-analyzer
+something to index and was deleted afterwards. Results are in the table under
+[Agents](#agents). Findings:
+
+- **`lsp` rename is a write.** Reviewer, asked to rename (owner-authorized
+  test): with `--deny-tool write`, `Permission denied by rules: write(*)`;
+  without it, in an unattended run, `Permission denied because no interactive
+  user response was available`. The file was unchanged both times.
+- **Do not start several Copilot sessions at once with Basic Memory.** Eight
+  parallel runs made the Basic Memory server fail with `-32022: connection is
+  serving the 2026-07-28 protocol; the initialize handshake is not accepted`.
+  Copilot first probes with the newer protocol's `server/discover`. The
+  server's `mcp` 2.3.0 library locks the connection to that protocol, so when
+  a slow start makes Copilot fall back to `initialize`, the server refuses it.
+  Firecrawl timed out in the same batch. A single run worked.
+- **Instruction loading works.** Without tools, the coordinator quoted
+  `AGENTS.md`'s heading, and found the opening sentence of
+  `.github/copilot-instructions.md`. With `--no-custom-instructions` it found
+  neither.
+- **`skills:` preloading holds for every agent**: each quoted its preloaded
+  skills' first lines without a tool call.
+
 ## Next slices
 
-1. When the owner agrees to the cost, run one read-only live check per agent:
-   confirm the preloaded skill headings, load one optional skill, and record
-   the tool list from `session.usage_checkpoint`.
-2. `lsp` for read-only agents, after checking how rename interacts with each
-   agent's permissions.
-3. NotebookLM, after the owner's sign-in and a decision on which notebooks each
-   specialist may read.
-4. The device references' open items: the datasheet, the board schematic, and
-   a full review of the fork's unified-sighash and BLAKE2b rules.
+1. The open items under [Still open](#still-open): datasheet, a visual schematic
+   check, and the owner's device decisions.
+2. Re-run the per-agent live check after any profile, skill or MCP change, with
+   the recipe above.

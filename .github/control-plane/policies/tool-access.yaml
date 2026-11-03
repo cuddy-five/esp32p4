@@ -44,7 +44,17 @@ roles:
       - context7/*
       - edit
       - execute # Shell access is not a write restriction.
+      - lsp # Navigation only; the profile forbids rename.
       - todo
+      - notebooklm/notebook_list
+      - notebooklm/notebook_get
+      - notebooklm/notebook_describe
+      - notebooklm/source_describe
+      - notebooklm/source_get_content
+      - notebooklm/notebook_query
+      - notebooklm/notebook_query_start
+      - notebooklm/notebook_query_status
+      - notebooklm/cross_notebook_query
       - basic-memory/search_notes
       - basic-memory/read_note
       - basic-memory/build_context
@@ -58,7 +68,7 @@ roles:
       - basic-memory/move_note
       - basic-memory/create_memory_project
       - basic-memory/delete_project
-    mcp_servers: [github, context7, basic-memory]
+    mcp_servers: [github, context7, basic-memory, notebooklm]
 
   implementer:
     allowed_tools:
@@ -69,14 +79,24 @@ roles:
       - context7/*
       - lsp # rust-coder: rust-analyzer from .github/lsp.json, not an MCP server.
       - todo
+      - notebooklm/notebook_list # The NotebookLM entries apply to rust-coder only.
+      - notebooklm/notebook_get
+      - notebooklm/notebook_describe
+      - notebooklm/source_describe
+      - notebooklm/source_get_content
+      - notebooklm/notebook_query
+      - notebooklm/notebook_query_start
+      - notebooklm/notebook_query_status
+      - notebooklm/cross_notebook_query
     forbidden_tools: []
-    mcp_servers: [context7]
+    mcp_servers: [context7, notebooklm]
 
   reviewer:
     allowed_tools:
       - read
       - search
       - execute # Inspection only; requires client controls for enforced read-only access.
+      - lsp # Navigation only; the profile forbids rename.
     forbidden_tools:
       - edit
     mcp_servers: []
@@ -86,11 +106,21 @@ roles:
       - read
       - search
       - execute # Intended for scans; shell can also write files.
+      - lsp # Navigation only; the profile forbids rename.
       - github/*
       - context7/*
+      - notebooklm/notebook_list
+      - notebooklm/notebook_get
+      - notebooklm/notebook_describe
+      - notebooklm/source_describe
+      - notebooklm/source_get_content
+      - notebooklm/notebook_query
+      - notebooklm/notebook_query_start
+      - notebooklm/notebook_query_status
+      - notebooklm/cross_notebook_query
     forbidden_tools:
       - edit
-    mcp_servers: [github, context7]
+    mcp_servers: [github, context7, notebooklm]
 
   verifier:
     allowed_tools:
