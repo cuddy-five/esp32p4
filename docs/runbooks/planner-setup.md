@@ -24,11 +24,12 @@ It omits environment templates, protected filenames and symlinks. These filters
 are not a general secret detector; permitted source may still contain sensitive
 values. Follow the repository's secret rules during all manual reads.
 
-The discovery observations below are historical and are superseded for tool access by the 2026-10-30 results in [Agent tools and setup](agent-tools.md). Skill discovery and
-selected-agent behavior for the new package remain pending. For a live check,
-ask Planner to plan a small change using the new acquisition skill, cite the
-knowledge and current source it used, and return the plan in chat. Record actual
-skill loads and calls; do not infer them from the profile header.
+[Agent tools and setup](agent-tools.md) records the planner's 2026-10-30 live
+tool check. Skill discovery and selected-agent behavior for the new package
+remain pending. For a live check, ask Planner to plan a small change using the
+new acquisition skill, cite the knowledge and current source it used, and return
+the plan in chat. Record actual skill loads and calls; do not infer them from the
+profile header.
 
 ## What connects to what
 
@@ -45,37 +46,6 @@ repository adaptations of those skills remain pending. Current planning covers
 inspection and reuse of existing patterns; this does not claim the full upstream
 skills are installed in Copilot. The context-engineering adaptation retains its
 [source notice](../../.github/skills/context-engineering/NOTICE.md).
-
-## Historical discovery snapshot (2026-10-29)
-
-Checked on 2026-10-29 with Copilot CLI 1.0.105, from this checkout on base
-`e8c653b` with uncommitted changes. These observations are local to that client.
-Discovery is not a successful model-driven tool call.
-
-| Capability | Purpose | Observed state | Remaining check |
-| --- | --- | --- | --- |
-| `planning` | Produce a scoped plan | CLI lists the repository skill as enabled | Observe it loaded and used by Planner |
-| `context-engineering` | Inspect relevant files and dependencies | CLI lists the repository skill as enabled | Observe it loaded for multi-file planning |
-| Repository instructions | Supply owner authority and work rules | CLI lists `AGENTS.md`, Copilot instructions and planning instructions as not disabled | Confirm relevant instructions reach the selected agent |
-| Native read/search | Inspect source and existing checks | Allowed by the profile | Observe successful repository reads in the selected agent |
-| Native execute/edit | Inspection, requested validation and authorized plan artifacts | Allowed by the profile; can write | Keep permission prompts; do not grant these for the read-only smoke check |
-| GitHub | Read issue requirements and comments | Built-in `github-mcp-server` is listed as enabled; profile declares `github/*` | Observe an issue-read call through Planner; no publication |
-| Context7 | Consult current library documentation | User server `context7` exists but is disabled | Review setup before enabling, then try a relevant lookup |
-| Basic Memory | Read project decisions and handoffs | User server `basic-memory` is enabled, but Planner has no Basic Memory tool entries | Confirm exact read tools and add only needed access; shared writing stays with Coordinator |
-| NotebookLM | Consult collected research | Not present in this client's server listing | Separate setup decision and a relevant read/query check |
-| Native web | Read official documentation | Allowed by profile | Observe a public documentation read |
-| `todo` | Track a longer plan when useful | Allowed by profile | No task-management call tested |
-
-No `.github/mcp.json` exists in this checkout. The listing reported user and
-built-in server sources, not workspace servers. No server was installed, enabled
-or reconfigured for this slice. Basic Memory calls made by Codex do not establish
-Planner access in Copilot.
-
-One MCP listing emitted `Warning: timed out checking managed Browser activation;
-omitting the bundled Browser.` A second listing completed without that warning.
-Browser availability remains unverified. Only server names, sources, types and
-enabled states were retained; connection arguments and credentials were not
-printed.
 
 ## Repeat discovery without a model request
 

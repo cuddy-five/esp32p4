@@ -149,7 +149,6 @@
 .workflows.registry.json
 AGENTS.md
 CONTRIBUTING.md
-DIFFERENTIAL_REVIEW_REPORT.md
 GLOSSARY.md
 PROJECT.md
 README.md
@@ -180,11 +179,8 @@ docs/decisions/0003-agent-operating-limits.md
 docs/evidence
 docs/evidence/.gitkeep
 docs/plans
-docs/plans/.gitkeep
-docs/plans/agent-team-github-roadmap-draft.md
 docs/plans/agent-team-skills-and-tools-draft.md
 docs/plans/esp32_p4_control_plane_hardware_wallet_specification.md
-docs/plans/multi-cli-fallback-spec.md
 docs/runbooks
 docs/runbooks/agent-team.md
 docs/runbooks/agent-tools.md
@@ -192,14 +188,18 @@ docs/runbooks/evidence-reporting.md
 docs/runbooks/overseer.md
 docs/runbooks/planner-setup.md
 docs/runbooks/settings-sync.md
-docs/runbooks/skill-switch-pr4-handoff.md
 docs/runbooks/template-adoption.md
 docs/runbooks/using-agents.md
 docs/templates
-docs/templates/custom-agent-foundry.agent.md
 docs/templates/github-actions-expert.agent.md
 docs/templates/plan.agent.md
 docs/templates/project-architecture-planner.agent.md
+docs/templates/project-brief.md
+docs/templates/prompt-builder.agent.md
+docs/templates/prompt-engineer.agent.md
+docs/templates/prompt.instructions.md
+docs/templates/quality-playbook.agent.md
+docs/templates/software-engineer-agent-v1.agent.md
 
 === STACK DETECTION (manifest files) ===
 
@@ -383,11 +383,11 @@ d32ee2a Added repo-status workflow, agents.md, and docs/agent-templates
 No monorepo signals detected.
 
 === CODE METRICS ===
-Total files scanned: 198
-Total lines of code: 10046
+Total files scanned: 193
+Total lines of code: 9988
 
 Files by language:
-  Other: 163
+  Other: 158
   JavaScript: 34
   Python: 1
 
@@ -397,8 +397,8 @@ tests/unit/cli.test.js: 29.9KB
 tests/unit/orchestration.test.js: 28.5KB
 .github/skills/acquire-codebase-knowledge/scripts/scan.py: 24.2KB
 docs/architecture/agent-memory.md: 22.1KB
-src/cli.js: 21.7KB
-.github/agents/rust-coder.agent.md: 19.7KB
+src/cli.js: 21.6KB
+.github/agents/rust-coder.agent.md: 19.8KB
 docs/templates/project-architecture-planner.agent.md: 18.5KB
 docs/templates/prompt-builder.agent.md: 18.1KB
 src/lib/orchestration.js: 15.9KB

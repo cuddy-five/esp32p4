@@ -13,7 +13,7 @@
 
 | Debt item | Why it exists | Where | Risk if ignored | Suggested fix |
 |-----------|---------------|-------|-----------------|---------------|
-| Disabled file placeholders (`.disabled`) | Scaffolded during repository initialization to reserve architecture slots without executing incomplete features | `.devcontainer/*.disabled`, `.github/workflows/*.disabled`, `.github/actions/*/*.disabled`, `.github/hooks/*.disabled` | None (Owner confirmed retaining placeholders as reminders of what is possible to create) | Keep placeholders intact per owner direction. |
+| Disabled file placeholders (`.disabled`) | Scaffolded during repository initialization to reserve architecture slots without executing incomplete features | `.devcontainer/*.disabled`, `.github/actions/*/*.disabled`, `.github/hooks/*.disabled`, `.github/control-plane/**/*.disabled`, `.github/ISSUE_TEMPLATE/*.disabled`, `.github/agents/*.disabled` | None (Owner confirmed retaining placeholders as reminders of what is possible to create) | Keep placeholders intact per owner direction. |
 | Absence of test coverage reporting | Node's native test runner does not output coverage without additional configuration or tooling | [package.json](../../package.json) | Lack of visibility into untested edge cases or newly added modules | Consider coverage reporting when a task needs it; no tool installation is implied. |
 | Unmanaged live resource tolerance | GitHub API returns server defaults on rulesets, requiring `declared` comparison mode | [src/lib/settings/rulesets.js](../../src/lib/settings/rulesets.js), [ADR 0001](../../docs/decisions/0001-node-runtime-and-closed-contracts.md) | Undeclared rulesets or settings may drift without triggering alerts unless `prune: true` is explicitly passed | Document declared vs strict expectations in consumer adoption guides. |
 
@@ -47,7 +47,7 @@
 
 1. **Repository Protection Configuration**: Declared ruleset protection (`.github/control-plane/settings/rulesets.json`) was updated to `"enforcement": "active"` on default branch and release tags per owner directive.
 2. **Dependency Strategy**: Owner confirmed that zero dependencies is not permanent; devDependencies (such as test coverage tools or linting packages) may be introduced when justified.
-3. **Placeholders**: Retained all `.disabled` placeholder files across `.devcontainer`, `.github/workflows`, `.github/actions`, and `.github/hooks` as architectural reminders of future capabilities.
+3. **Placeholders**: Retained all `.disabled` placeholder files across `.devcontainer`, `.github/actions`, `.github/hooks`, `.github/control-plane`, `.github/ISSUE_TEMPLATE`, and `.github/agents` as architectural reminders of future capabilities.
 
 ### 7) Evidence
 

@@ -38,6 +38,7 @@ Commands
                                policies/approvals.yaml against the contracts
   policy stages --risk <level> [--project <dir>] [--tag t]... [--path p]...
                                Show which stages require a human for a task
+    --format text|json         Output format for policy commands (default: text)
 
   evidence --task <file> --sha <sha> [--project <dir>] [--path <p>]... [--output <file>]
                                Build and validate an evidence contract and
@@ -57,7 +58,7 @@ Commands
 
   compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
                                Compact execution/test logs using deterministic local scoring
-    --offline                  Accepted for compatibility; compaction is always local
+    --offline                  Accepted for compatibility and ignored; compaction is always local
 
   settings plan [--project <dir>]
                                Show what would change to reach desired state
@@ -326,10 +327,7 @@ function cmdEvidence(args, { stdout, stderr, env }) {
       summary: { type: "boolean", default: false },
     },
   });
-  if (!["json", "markdown"].includes(values.format)) {
-    stderr(`evidence: unknown format "${values.format}"`);
-    return EXIT.ERROR;
-  }
+  if (!checkFormat("evidence", values.format, ["json", "markdown"], stderr)) return EXIT.ERROR;
   if (!values.task || !values.sha) {
     stderr("evidence: --task <file> and --sha <40-hex-sha> are required");
     return EXIT.ERROR;
@@ -426,14 +424,11 @@ async function cmdCompact(args, { stdout, stderr, stdin }) {
     },
   });
 
-  if (!["text", "json"].includes(values.format)) {
-    stderr(`compact: unknown format "${values.format}" (expected text or json)`);
-    return EXIT.ERROR;
-  }
+  if (!checkFormat("compact", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
 
   const maxChars = parseCount(values["max-chars"]);
   if (maxChars === undefined || maxChars <= 0) {
-    stderr(`compact: invalid --max-chars "${values["max-chars"]}"`);
+    stderr(`compact: invalid --max-chars "${printable(values["max-chars"])}"`);
     return EXIT.ERROR;
   }
 
@@ -455,10 +450,7 @@ async function cmdCompact(args, { stdout, stderr, stdin }) {
     return EXIT.ERROR;
   }
 
-  const result = await compactLogs(text, {
-    maxChars,
-    offline: values.offline,
-  });
+  const result = await compactLogs(text, { maxChars });
 
   if (values.output) {
     try {
@@ -513,10 +505,7 @@ async function cmdSettings(args, { stdout, stderr, env, client: injectedClient }
     stderr(`settings: unknown subcommand "${sub ?? ""}" (expected plan, check, apply, or export)`);
     return EXIT.ERROR;
   }
-  if (!["text", "json", "markdown"].includes(values.format)) {
-    stderr(`settings: unknown format "${values.format}"`);
-    return EXIT.ERROR;
-  }
+  if (!checkFormat("settings", values.format, ["text", "json", "markdown"], stderr)) return EXIT.ERROR;
 
   let paths;
   try {
