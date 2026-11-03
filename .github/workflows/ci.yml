@@ -56,6 +56,9 @@ jobs:
       - name: State machine and approvals agree with contracts
         run: node src/cli.js policy check
 
+      - name: Release tarball installs and runs
+        run: npm run package:smoke
+
       # A fresh checkout has no working-tree changes, so compare commits. On a
       # pull request HEAD is the merge commit and HEAD^1 is the base branch tip.
       - name: Check whitespace errors in this change

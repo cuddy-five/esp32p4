@@ -24,6 +24,9 @@ npm run validate:examples
 # Check orchestration state-machine and approvals policy consistency
 node src/cli.js policy check
 
+# Install the release tarball in an empty project and run its CLI
+npm run package:smoke
+
 # Compact failure logs for reporting
 node src/cli.js compact --file /path/to/test.log --offline --max-chars 2000
 ```
