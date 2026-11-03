@@ -121,6 +121,10 @@
 .github/skills/planning/references
 .github/skills/review
 .github/skills/review/SKILL.md
+.github/skills/rust-patterns
+.github/skills/rust-patterns/SKILL.md
+.github/skills/rust-testing
+.github/skills/rust-testing/SKILL.md
 .github/skills/verification
 .github/skills/verification/SKILL.md
 .github/workflows
@@ -196,10 +200,6 @@ docs/templates/custom-agent-foundry.agent.md
 docs/templates/github-actions-expert.agent.md
 docs/templates/plan.agent.md
 docs/templates/project-architecture-planner.agent.md
-docs/templates/project-brief.md
-docs/templates/prompt-builder.agent.md
-docs/templates/prompt-engineer.agent.md
-docs/templates/prompt.instructions.md
 
 === STACK DETECTION (manifest files) ===
 
@@ -336,6 +336,7 @@ Environment templates are excluded by repository policy. Identify variable names
 .github/skills/acquire-codebase-knowledge/scripts/scan.py:641: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
 
 === GIT RECENT COMMITS (last 20) ===
+a02cc93 Fix the six code-review findings from PR #12
 95a9154 Merge pull request #12 from cuddy-five/issue-6-agent-tools
 b07802a Give the planner and rust-coder verified tool access (issue #6)
 a110255 Install codebase knowledge skill, integrate planner agent, and activate protection rules
@@ -355,7 +356,6 @@ a31514e fix(ci): silence shellcheck sc2016 for inline node script in merge-gate
 3f180b6 feat(workflows): activate release, merge-gate, agent-evals and pin action shas
 c36052a fix(tests): use dynamic UTC date for spending cli unit tests
 d32ee2a Added repo-status workflow, agents.md, and docs/agent-templates
-bfdbd43 docs: update PROJECT.md current state and next immediate steps
 
 === HIGH-CHURN FILES (last 90 days, top 20) ===
    9 tests/unit/cli.test.js
@@ -369,6 +369,7 @@ bfdbd43 docs: update PROJECT.md current state and next immediate steps
    6 .github/copilot-instructions.md
    6 tests/unit/orchestration.test.js
    6 .github/workflows/ci.yml
+   5 tests/unit/agent-team-config.test.js
    5 PROJECT.md
    5 .github/agents/implementer.agent.md
    5 src/lib/orchestration.js
@@ -376,18 +377,17 @@ bfdbd43 docs: update PROJECT.md current state and next immediate steps
    5 src/jev.js
    5 src/routing.js
    5 src/run-jev.js
-   4 docs/runbooks/using-agents.md
-   4 docs/templates/custom-agent-foundry.agent.md
+   4 .github/control-plane/policies/tool-access.yaml
 
 === MONOREPO SIGNALS ===
 No monorepo signals detected.
 
 === CODE METRICS ===
-Total files scanned: 196
-Total lines of code: 10040
+Total files scanned: 198
+Total lines of code: 10046
 
 Files by language:
-  Other: 161
+  Other: 163
   JavaScript: 34
   Python: 1
 
@@ -398,7 +398,7 @@ tests/unit/orchestration.test.js: 28.5KB
 .github/skills/acquire-codebase-knowledge/scripts/scan.py: 24.2KB
 docs/architecture/agent-memory.md: 22.1KB
 src/cli.js: 21.7KB
-.github/agents/rust-coder.agent.md: 19.5KB
+.github/agents/rust-coder.agent.md: 19.7KB
 docs/templates/project-architecture-planner.agent.md: 18.5KB
 docs/templates/prompt-builder.agent.md: 18.1KB
 src/lib/orchestration.js: 15.9KB

@@ -24,7 +24,7 @@ It omits environment templates, protected filenames and symlinks. These filters
 are not a general secret detector; permitted source may still contain sensitive
 values. Follow the repository's secret rules during all manual reads.
 
-The access observations below predate this replacement. Skill discovery and
+The discovery observations below are historical and are superseded for tool access by the 2026-10-30 results in [Agent tools and setup](agent-tools.md). Skill discovery and
 selected-agent behavior for the new package remain pending. For a live check,
 ask Planner to plan a small change using the new acquisition skill, cite the
 knowledge and current source it used, and return the plan in chat. Record actual
@@ -46,7 +46,7 @@ inspection and reuse of existing patterns; this does not claim the full upstream
 skills are installed in Copilot. The context-engineering adaptation retains its
 [source notice](../../.github/skills/context-engineering/NOTICE.md).
 
-## Observed access
+## Historical discovery snapshot (2026-10-29)
 
 Checked on 2026-10-29 with Copilot CLI 1.0.105, from this checkout on base
 `e8c653b` with uncommitted changes. These observations are local to that client.
@@ -134,8 +134,9 @@ access, and returns a practical plan without demanding JSON paperwork.
 
 After the local read succeeds, ask for a read of issue #6 through the GitHub MCP
 tool and inspect the event. A shell `gh` call or Codex read is different evidence.
-Keep Context7, Basic Memory and NotebookLM checks pending until their intended
-access has been set up. Repeat through Coordinator delegation only after direct
+Context7, Basic Memory and GitHub reads succeeded in the recorded 2026-10-30
+Planner check; repeat them when validating a changed client or profile. NotebookLM
+access remains pending. Repeat through Coordinator delegation only after direct
 selection works; record instruction transfer separately.
 
 This is one smoke check, not proof of reliable behavior across tasks or an

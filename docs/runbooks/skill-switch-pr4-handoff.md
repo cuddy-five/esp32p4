@@ -1,5 +1,7 @@
 # Skill-switch isolated agent profiles: handoff
 
+> Historical handoff for a separate repository. Branch, PR and verification statements below describe that handoff only; they have not been rechecked for the current esp32p4 cleanup and are not this repository's setup instructions.
+
 This note records the prior work on the separate `skill-switch` repository so
 the next agent can resume without repeating the investigation. The work is
 tracked in draft [PR #4](https://github.com/cuddy-five/skill-switch/pull/4),

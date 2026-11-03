@@ -73,7 +73,7 @@ direction.
 
 ## Manual mode and owner decisions
 
-Automated control-plane enforcement is paused. These profiles do not start an
+Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred. These profiles do not start an
 automatic team workflow or enforce contract approvals. The owner directs work
 and retains decisions about approvals, outside actions, commits, and every
 merge. Do not enable automation or start firmware implementation as part of

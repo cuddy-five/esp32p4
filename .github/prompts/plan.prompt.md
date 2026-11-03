@@ -23,7 +23,7 @@ request requires a chat-only result, including its handoff.
 Ordinary work does not require JSON contracts. If the owner explicitly requests
 one, follow the planning skill's
 [formal reference](../skills/planning/references/formal-plan-contracts.md) and
-validate it. Automated control-plane enforcement remains paused.
+validate it. Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred.
 
 This prompt is an editor convenience. In Copilot CLI, select the
 [planner profile](../agents/planner.agent.md) and describe the request directly;

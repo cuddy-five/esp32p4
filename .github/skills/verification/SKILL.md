@@ -7,7 +7,7 @@ description: 'Independently re-run control-plane and firmware test suites, colle
 
 ## Current manual mode
 
-Independently run the checks that fit the work and report actual results and unavailable checks. No evidence contract is required. Automated control-plane enforcement stays paused. The remaining formal workflow is for future use only after the owner requests the automated team.
+Independently run the checks that fit the work and report actual results and unavailable checks. No evidence contract is required. Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. The remaining formal workflow is for future use only after the owner requests the automated team.
 
 ## Future automated-team When to Use
 Load this skill in the `verifying` state to independently re-derive `evidence` and emit a `verification` review before the Human Overseer's merge decision.

@@ -3,6 +3,7 @@ name: rust-coder
 description: 'Rust, Bitcoin and ESP32 specialist for researching and implementing owner-approved wallet work. Verify board and protocol details before relying on them.'
 argument-hint: 'Describe the Rust or wallet question and any verified requirements'
 infer: true
+skills: [implementation, rust-patterns, rust-testing]
 tools: ['read', 'search', 'edit', 'execute', 'web', 'lsp', 'github/*', 'context7/*', 'todo']
 handoffs:
   - label: Adversary Review
@@ -22,9 +23,9 @@ include-custom-instructions: true
 
 # Rust Firmware Specialist Agent — ESP32-P4 Bitcoin Hardware Wallet
 
-**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Automated control-plane enforcement is paused; do not enable it. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
+**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
-**Skills:** For relevant work, use the discovered project skill(s) implementation. A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
+**Skills:** For relevant work, use the discovered project skills [implementation](../skills/implementation/SKILL.md), [rust-patterns](../skills/rust-patterns/SKILL.md), and [rust-testing](../skills/rust-testing/SKILL.md). A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
 
 MCP names in the tool list work only if the server is configured and on. Do not install, download, or start a new server without the owner reviewing its setup plan.
 

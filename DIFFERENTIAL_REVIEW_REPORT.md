@@ -1,5 +1,7 @@
 # Differential Security Review Report
 
+> Historical review of the 2026-10-30 working snapshot named below. It does not approve the current checkout or authorize a merge. Test totals are historical; the report supplied no measured coverage artifact, so its 100% coverage claim is unverified. Use current checks and the [manual runbook](docs/runbooks/agent-team.md) for new work.
+
 **Subject**: Uncommitted working tree & staged changes vs `HEAD` (`7f30d7e82f9bf56f3b5e80108576b5e54a42b1f5`)  
 **Repository**: `cuddy-five/esp32p4`  
 **Review Type**: Differential Security & Regression Review  

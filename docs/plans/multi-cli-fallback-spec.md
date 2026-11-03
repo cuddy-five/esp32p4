@@ -1,5 +1,7 @@
 # Technical Specification: Role-Specialized Sandboxed Multi-CLI Fallback for ESP32-P4 Control Plane
 
+> Unimplemented design proposal. The adapters, sandbox script, Fish function, model assignments and automatic enforcement below are not the current system. Do not run these illustrative snippets as a setup procedure. Follow the [project brief](../../PROJECT.md), [manual runbook](../runbooks/agent-team.md), and [operating limits](../decisions/0003-agent-operating-limits.md).
+
 ## 1. System Overview & Context
 
 This repository (`esp32p4`) implements an adversarial agentic control plane governing Bitcoin hardware wallet firmware. 

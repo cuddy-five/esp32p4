@@ -6,52 +6,45 @@
 
 - Primary style: Contract-driven, declarative control plane with an adversarial agent team loop and pure plan/apply settings reconciliation.
 - Why this classification:
-  - Trust boundary is strictly enforced at the contract level: all inter-role communications use closed JSON Schema 2020-12 documents ([ADR 0001](../../docs/decisions/0001-node-runtime-and-closed-contracts.md)).
+  - The formal process uses closed JSON Schema 2020-12 documents; ordinary owner-directed handoffs use the plain-language agreement in AGENTS.md ([ADR 0001](../../docs/decisions/0001-node-runtime-and-closed-contracts.md)).
   - Settings reconciliation follows Infrastructure-as-Code patterns: pure `plan(desired, actual)` functions calculate deterministic diffs, and mutations require explicit confirmation ([src/lib/settings/index.js](../../src/lib/settings/index.js)).
-  - Team collaboration is structurally adversarial: roles are strictly separated (implementer, reviewer, security auditor, verifier), each holding non-overlapping responsibilities, with the human overseer as the ultimate authority ([README.md](../../README.md#L3-L60), [docs/architecture/adversarial-loop.md](../../docs/architecture/adversarial-loop.md)).
+  - Team collaboration is structurally adversarial: roles are strictly separated (implementer, reviewer, security auditor, verifier), each holding non-overlapping responsibilities, with the human overseer as the ultimate authority ([README.md](../../README.md), [docs/architecture/adversarial-loop.md](../../docs/architecture/adversarial-loop.md)).
 - Primary constraints:
   - Host and runner immutability: zero native compile step, runs in plain Node.js ESM ([ADR 0001](../../docs/decisions/0001-node-runtime-and-closed-contracts.md)).
   - Strict dependency budget: exactly three runtime dependencies (`ajv`, `ajv-formats`, `yaml`).
-  - Separation of duties: no role may review, verify, or merge its own changes ([AGENTS.md](../../AGENTS.md#L98)).
+  - Separation of duties: no role may review, verify, or merge its own changes ([AGENTS.md](../../AGENTS.md)).
 
-### 2) System Flow
+### 2) Proposed automated system flow
+
+This diagram describes the formal target process. Current handoffs are owner-directed; the declarations do not run a dispatcher.
 
 ```text
-[Task Intake / Issue]
-       │
-       ▼
-[Coordinator: task contract] ──────────► [Planner: plan contract]
-                                                │ (bootstraps docs/codebase/)
-                                                ▼
-                                         [Reviewer: plan review]
-                                                │
-                 ┌──────────────────────────────┴──────────────────────────────┐
-                 │ (Risk Low / Normal)                                         │ (High / Critical / Sensitive Paths)
-                 ▼                                                             ▼
-       [Implementer / Rust-Coder: handoff]                            [Human Overseer Approval]
-                 │                                                             │
-                 ▼                                                             ▼
-       [Evidence Collector] ◄──────────────────────────────────────────────────┘
-                 │
-                 ▼
-       [Reviewer & Security Auditor: code & security reviews]
-                 │
-                 ▼
-       [Verifier: independent evidence & verification review]
-                 │
-                 ▼
-       [Human Overseer: merge decision]
-                 │
-                 ▼
-       [Coordinator: result contract]
+Task intake -> Planner -> Independent plan review
+                              |
+                    Evaluate approval policy
+                    (risk, tags and paths)
+                              |
+                Human plan approval when required
+                              |
+                   Implementer / Rust coder
+                              |
+                     Implementation evidence
+                              |
+                 Code review + required security audit
+                              |
+                    Independent verification
+                              |
+                       Human merge decision
+                              |
+                         Result record
 ```
 
 Step-by-step description:
 
 1. **Intake & Task Validation**: An issue or prompt creates a task document adhering to [.github/control-plane/contracts/task.schema.json](../../.github/control-plane/contracts/task.schema.json). The coordinator validates the task using `src/lib/contracts.js` (`task_valid` gate).
 2. **Planning & Adversarial Plan Review**: The planner first inspects or generates `docs/codebase/` using `acquire-codebase-knowledge`, then produces a `plan` document ([.github/control-plane/contracts/plan.schema.json](../../.github/control-plane/contracts/plan.schema.json)). An independent reviewer examines the plan and issues a `review` contract with `review_kind: "plan"` ([.github/control-plane/contracts/review.schema.json](../../.github/control-plane/contracts/review.schema.json)).
-3. **Approval Gate Evaluation**: The control plane evaluates [.github/control-plane/policies/approvals.yaml](../../.github/control-plane/policies/approvals.yaml) via `src/lib/orchestration.js`. If the task touches sensitive paths or has high/critical risk, it enters `awaiting_approval` for human overseer sign-off.
-4. **Implementation & Evidence Gathering**: The implementer (or `rust-coder` for firmware) makes changes strictly bounded by `task.scope.allowed_paths` ([AGENTS.md](../../AGENTS.md#L94)). The evidence collector invokes `src/evidence.js` to build an `evidence` contract ([.github/control-plane/contracts/evidence.schema.json](../../.github/control-plane/contracts/evidence.schema.json)), asserting that `out_of_scope_paths` is empty and token usage is within budget.
+3. **Approval Gate Evaluation**: The control plane evaluates [.github/control-plane/policies/approvals.yaml](../../.github/control-plane/policies/approvals.yaml) via `src/lib/orchestration.js`. If the task has matching sensitive paths or tags, or high/critical risk, it enters `awaiting_approval` for human overseer sign-off.
+4. **Implementation & Evidence Gathering**: The implementer (or `rust-coder` for firmware) makes changes strictly bounded by `task.scope.allowed_paths` ([AGENTS.md](../../AGENTS.md)). The evidence collector invokes `src/evidence.js` to build an `evidence` contract ([.github/control-plane/contracts/evidence.schema.json](../../.github/control-plane/contracts/evidence.schema.json)), reporting scope and measured budget results; those results do not authorize a state transition.
 5. **Adversarial Code & Security Review**: The reviewer and security auditor evaluate the code and evidence against domain rules ([src/review-domains.js](../../src/review-domains.js)), emitting distinct `review` contracts (`review_kind: "code"` and `"security"`).
 6. **Verification & Human Merge Gate**: The verifier independently re-executes tests and checks to produce verification evidence. Once all reviews approve and verification passes, the task moves to `awaiting_approval`. The human overseer makes the final merge decision. Upon merge, the coordinator records a terminal `result` contract ([.github/control-plane/contracts/result.schema.json](../../.github/control-plane/contracts/result.schema.json)).
 
@@ -71,16 +64,16 @@ Step-by-step description:
 
 | Pattern | Where found | Why it exists |
 |---------|-------------|---------------|
-| Pure Planner (`plan(desired, actual)`) | [src/lib/settings/labels.js](../../src/lib/settings/labels.js#L54), [src/lib/settings/rulesets.js](../../src/lib/settings/rulesets.js#L68) | Keeps reconciliation deterministic and easily testable without network mocking. |
-| Closed Contracts (`unevaluatedProperties: false`) | [.github/control-plane/contracts/](../../.github/control-plane/contracts/) | Prevents agents from smuggling unapproved data or bypassing security controls. Enforced by [tests/security/contracts-strictness.test.js](../../tests/security/contracts-strictness.test.js). |
-| Mandatory Mutation Flag (`--yes`) | [src/cli.js](../../src/cli.js#L66), [src/lib/settings/index.js](../../src/lib/settings/index.js) | Guarantees that write operations to live repositories are never executed inadvertently. |
-| Tri-state Exit Codes | [src/cli.js](../../src/cli.js#L20) | Distinguishes between clean success (`0`), runtime failure (`1`), and drift/invalid validation (`2`). |
+| Pure Planner (`plan(desired, actual)`) | [src/lib/settings/labels.js](../../src/lib/settings/labels.js), [src/lib/settings/rulesets.js](../../src/lib/settings/rulesets.js) | Keeps reconciliation deterministic and easily testable without network mocking. |
+| Closed Contracts (`unevaluatedProperties: false`) | [.github/control-plane/contracts/](../../.github/control-plane/contracts/) | Rejects undeclared properties; it does not authenticate approvals or make arbitrary strings safe. Enforced by [tests/security/contracts-strictness.test.js](../../tests/security/contracts-strictness.test.js). |
+| Mandatory Mutation Flag (`--yes`) | [src/cli.js](../../src/cli.js), [src/lib/settings/index.js](../../src/lib/settings/index.js) | Requires explicit confirmation for settings mutations; authorization still comes from the owner. |
+| Tri-state Exit Codes | [src/cli.js](../../src/cli.js) | Distinguishes between clean success (`0`), runtime failure (`1`), and drift/invalid validation (`2`). |
 
 ### 5) Known Architectural Risks
 
 - Human overseer bottleneck: High-risk tasks and every PR merge require explicit human intervention. If the overseer is unresponsive, the pipeline stalls at `awaiting_approval` ([docs/runbooks/overseer.md](../../docs/runbooks/overseer.md)).
-- Manual vs. automated control gap: While contracts, state machine definitions, and policies are fully specified, the automated dispatcher is not yet running in GitHub Actions; the team operates manually ([PROJECT.md](../../PROJECT.md#L5-L10)).
-- Model diversity assumption: The adversarial model requires distinct model families for implementer and reviewer to avoid common failure modes ([AGENTS.md](../../AGENTS.md#L112-L115)). In environments where only a single model provider is available, reviewer independence is compromised.
+- Manual vs. automated control gap: While contracts, state machine definitions, and policies are fully specified, the automated dispatcher is not yet running in GitHub Actions; the team operates manually ([PROJECT.md](../../PROJECT.md)).
+- Review independence: use a separate reviewer. Ordinary work permits the same model family when another is unavailable; security-critical review requires a different family.
 
 ### 6) Evidence
 
@@ -117,15 +110,17 @@ Incoming Task ──► Phase 1: Establish Knowledge ──► Phase 2: Formulat
 
 ### 8) State-Machine Invariants & Guardrails
 
-The state machine ([.github/control-plane/orchestration/state-machine.yaml](../../.github/control-plane/orchestration/state-machine.yaml)) enforces five foundational invariants:
+The state machine ([.github/control-plane/orchestration/state-machine.yaml](../../.github/control-plane/orchestration/state-machine.yaml)) declares seven invariants for the future automated process. No running dispatcher enforces these transitions:
 1. `separation_of_duties`: The producer of a plan, change, or evidence document never reviews, audits, verifies, or approves it.
-2. `distinct_review_model`: Review roles run on a different model family than the implementer (e.g. Claude 3.7 Sonnet reviewing GPT-5.6-Luna).
+2. `distinct_review_model`: Prefer different model families; follow the model-family requirements in [ADR 0003](../decisions/0003-agent-operating-limits.md).
 3. `human_only_approvals`: `approval_granted` is satisfied only by producer kind `human`.
-4. `halt_is_total`: A halt immediately terminates all roles, each emitting a handoff and pausing execution.
-5. `no_silent_scope_change`: Any scope expansion requires human escalation and a new reviewed plan before work resumes.
+4. `halt_is_total`: The intended process stops all roles. Today, inspect and stop actual workers separately; a halt comment does not terminate processes.
+5. `one_result`: The intended process emits one result when a task enters a terminal state.
+6. `overseer_note_present`: Review, result and escalation records require a plain-language owner note.
+7. `no_silent_scope_change`: Any scope expansion requires human escalation and a new reviewed plan before work resumes.
 
 ### 9) Downstream Hardware Wallet Target Alignment
 
-The control plane is specifically tailored to govern the upcoming embedded firmware mission:
+The reusable control plane includes guidance for the later firmware project:
 - **Domain Checklist Isolation**: [.review-domains.json](../../.review-domains.json) configures a dedicated `firmware` domain for `firmware/**/*.rs` that requires `#![no_std]` compliance, zero heap allocations on the secret path, zero panics on untrusted camera/QR input, and zeroization of secret keys on drop.
-- **Role Specialization**: The `rust-coder` agent profile ([.github/agents/rust-coder.agent.md](../../.github/agents/rust-coder.agent.md)) is configured with the `rust-coder.instructions.md` ruleset, ensuring it operates within strict embedded security boundaries when building for the Waveshare ESP32-P4 board.
+- **Role Specialization**: The `rust-coder` agent profile ([.github/agents/rust-coder.agent.md](../../.github/agents/rust-coder.agent.md)) is configured with the `rust-coder.instructions.md` ruleset, providing embedded guidance. The exact board and protocol remain unverified; a profile does not enforce isolation.

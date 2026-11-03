@@ -1,7 +1,7 @@
 # Runbook: being the overseer
 
-**Current mode:** the owner has paused Automated controls while building
-the repository. Ordinary edits and commits do not require the formal process
+**Current mode:** repository protections are required; verify live settings separately; automatic team dispatch and
+approval routing remain deferred while building the repository. Ordinary edits and commits do not require the formal process
 below. See [the current manual-development instructions](agent-team.md#current-mode-build-the-repository-manually).
 
 You own a repository that a team of AI agents builds for you. You are not
@@ -18,8 +18,8 @@ Use the [manual team runbook](agent-team.md) to start or resume work and the
 unknowns in `PROJECT.md`.
 
 **Current boundary:** contracts, validation, settings tools, and CI work
-today. The coordinator, automatic approval routing, merge gate, and halt
-handling are not implemented. The process below describes duties for the
+today. The coordinator profile exists, but an automatic dispatcher, authenticated
+approval routing and runtime halt handling are not implemented. The process below describes duties for the
 people and agents running the task until that automation exists. Labels,
 checkboxes, and approval-like comments do not trigger it.
 
