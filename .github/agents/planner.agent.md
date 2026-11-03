@@ -5,9 +5,7 @@ argument-hint: 'Describe the outcome or issue; optionally name existing docs/cod
 model: gpt-5.6-luna
 tools: ['read', 'search', 'edit', 'execute', 'web', 'github/*', 'context7/*', 'todo',
   'basic-memory/search_notes', 'basic-memory/read_note', 'basic-memory/build_context', 'basic-memory/recent_activity', 'basic-memory/read_content', 'basic-memory/list_directory']
-skills:
-  - acquire-codebase-knowledge
-  - planning
+skills: [planning, acquire-codebase-knowledge, investigate-first]
 handoffs:
   - label: Review the Knowledge and Plan
     agent: reviewer
@@ -25,6 +23,8 @@ include-custom-instructions: true
 Make a practical implementation plan from verified repository knowledge. Follow
 [AGENTS.md](../../AGENTS.md); ordinary work uses the plain-language agreement.
 Repository protections are required; verify live settings separately; automatic worker dispatch and approval routing remain deferred. Do not implement your plan.
+
+**Skills:** `planning`, `acquire-codebase-knowledge` and `investigate-first` are preloaded. Load these with the skill tool when the task fits: `codebase-design` (interfaces, seams and module depth), `context-engineering` (changes that span several files or modules) and `domain-modeling` (terms and decision records). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
 ## 1. Establish the knowledge
 
@@ -77,7 +77,7 @@ Use available tools for relevant reads; report unavailable MCPs and failed calls
 Basic Memory access is read-only: search and read project `main` notes for prior
 decisions and handoffs, always passing `project: "main"`. Return proposed note
 updates to the owner; the coordinator writes shared notes.
-The tool list and skills header declare intent, not working access or isolation.
+Copilot CLI preloads the skills in the `skills:` header (verified 2026-11-03). The tool list still declares intent, not working access or isolation.
 Do not publish plans or modify remote services without owner authorization.
 Never review or approve your own plan. Editor handoffs are optional; return the
 same handoff in chat when the client does not support them.

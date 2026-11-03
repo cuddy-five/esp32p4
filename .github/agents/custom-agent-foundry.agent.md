@@ -5,6 +5,7 @@ argument-hint: 'Describe the agent role, control-plane or ESP32-P4 firmware doma
 model: claude-sonnet-4.6
 infer: false
 tools: ['read', 'search', 'edit', 'execute', 'web', 'agent', 'github/*', 'context7/*', 'todo']
+skills: [skill-creator]
 handoffs:
   - label: Validate Registry & Policy Gates
     agent: verifier
@@ -21,7 +22,7 @@ include-custom-instructions: true
 
 **Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
-**Skills:** For relevant work, use the discovered project skill(s) planning and review. A profile header does not guarantee skill loading; ask the client to load the skill or confirm discovery.
+**Skills:** `skill-creator` is preloaded. Load these with the skill tool when the task fits: `planning` (a multi-file agent package) and `review` (checking a package against the repository rules). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
 MCP names in the tool list are optional and work only if already configured in the client. Do not install, download, or start a new server without the owner reviewing its setup plan.
 
@@ -42,7 +43,7 @@ When a user wants to create or upgrade a custom agent, start by understanding:
   - `control-plane` (Node.js 20+ ESM, closed JSON Schema v2020-12 contracts, GitHub settings sync)
   - `firmware` (ESP32-P4, `#![no_std]` Rust and the intended Bitcoin fork). Check the exact board, peripherals, signing rules and radio isolation against trusted sources before asserting details.
 - **Primary Tasks & Contract I/O**: Which of the 7 closed contracts (`task`, `plan`, `handoff`, `evidence`, `review`, `result`, `escalation`) does this agent consume and emit?
-- **Tool, Skill & MCP Requirements**: Does it need inspection, test execution or editing? Which project skills and approved MCP connections are useful and actually available? Skill discovery does not prove preloading or MCP access.
+- **Tool, Skill & MCP Requirements**: Does it need inspection, test execution or editing? Which project skills and approved MCP connections are useful and actually available? Every agent sees every enabled skill, and Copilot CLI preloads the skills a profile lists in `skills:` (at most three; see `skill-creator`). A listed MCP tool still proves nothing until a live call works.
 - **Constraints & Scope Globs**: What are its `allowed_paths` and `forbidden_paths`? Which `policies/approvals.yaml` human gates (`plan`, `merge`, `step`) does it trigger?
 - **Workflow Integration**: Can the owner select it directly or ask the coordinator to involve it? Editor handoff buttons are optional and do not establish CLI orchestration. Automatic provider fallback is deferred.
 - **Target Users**: How does the owner use it directly, and how does it explain results in plain language?
@@ -113,6 +114,7 @@ argument-hint: 'Guidance text for users on required contract paths or issue numb
 model: gpt-5.6-luna # Primary model (or ordered list for Copilot fallback)
 infer: true # Set false for meta-agents or destructive tools requiring explicit invocation
 tools: ['read', 'search', 'github/*'] # Choose tools supported by the client
+skills: [skill-name] # Preloaded in full on every run; at most three. Name optional skills in the body.
 include-custom-instructions: true # Pass repository instructions to CLI subagents
 handoffs: # Optional: state-machine aligned transitions
   - label: Next Step Label

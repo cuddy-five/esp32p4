@@ -5,6 +5,10 @@ import path from "node:path";
 import YAML from "yaml";
 
 const agentsDir = ".github/agents";
+const skillsDir = ".github/skills";
+const skillDirs = fs.readdirSync(skillsDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const expectedAgents = [
   "coordinator", "planner", "implementer", "rust-coder",
   "reviewer", "security-auditor", "verifier", "custom-agent-foundry",
@@ -72,6 +76,74 @@ describe("Owner-directed agent team configuration", () => {
     for (const name of ["reviewer", "security-auditor"]) {
       assert.notEqual(family(name), family("implementer"), `${name} must not share the implementer's model family`);
     }
+  });
+
+  test("every project skill has frontmatter Copilot accepts and pre-approves no tools", () => {
+    assert.ok(skillDirs.length > 0, "expected project skills");
+    for (const dir of skillDirs) {
+      const { header } = readProfile(path.join(skillsDir, dir, "SKILL.md"));
+      assert.equal(header.name, dir, `${dir}: name must match its folder`);
+      assert.match(header.name, /^[a-z0-9][a-z0-9-]{0,63}$/, `${dir}: name must be lowercase with hyphens, at most 64 characters`);
+      assert.ok(typeof header.description === "string" && header.description.trim() && header.description.length <= 1024,
+        `${dir}: description must be 1 to 1024 characters`);
+      assert.ok(!("allowed-tools" in header), `${dir}: allowed-tools pre-approves tools; remove it`);
+    }
+  });
+
+  test("adapted skills keep their source, license text and a matching license field", () => {
+    for (const dir of skillDirs) {
+      const folder = path.join(skillsDir, dir);
+      const { header } = readProfile(path.join(folder, "SKILL.md"));
+      const files = fs.readdirSync(folder);
+      const notice = files.includes("NOTICE.md") ? fs.readFileSync(path.join(folder, "NOTICE.md"), "utf8") : null;
+      const licenseFile = files.find((file) => /^LICENSE(\.txt)?$/.test(file));
+      if (header.license !== undefined || licenseFile) {
+        assert.ok(notice, `${dir}: third-party skill needs NOTICE.md`);
+        assert.ok(licenseFile, `${dir}: third-party skill needs the upstream license text`);
+        assert.equal(typeof header.license, "string", `${dir}: SKILL.md needs a license field`);
+        assert.match(notice, new RegExp(`^License: ${escapeRegExp(header.license)}\\b`, "m"),
+          `${dir}: the NOTICE.md License line must name ${header.license}`);
+      }
+      if (notice) {
+        assert.match(notice, /^Source: \S/m, `${dir}: NOTICE.md needs a Source line`);
+        assert.match(notice, /^License: \S/m, `${dir}: NOTICE.md needs a License line`);
+      }
+    }
+  });
+
+  test("profiles preload one to three real skills and name their optional skills", () => {
+    for (const name of expectedAgents) {
+      const { header, body } = readProfile(path.join(agentsDir, `${name}.agent.md`));
+      const preloaded = header.skills ?? [];
+      assert.ok(Array.isArray(preloaded) && preloaded.length >= 1 && preloaded.length <= 3,
+        `${name} must preload one to three skills; every preloaded skill costs context on every run`);
+      const line = body.split("\n").find((text) => text.startsWith("**Skills:**"));
+      assert.ok(line, `${name} needs a **Skills:** line naming its optional skills`);
+      const named = [...line.matchAll(/`([a-z0-9][a-z0-9-]*)`/g)].map((match) => match[1]);
+      for (const skill of new Set([...preloaded, ...named])) {
+        assert.ok(fs.existsSync(path.join(skillsDir, skill, "SKILL.md")), `${name} names missing skill ${skill}`);
+      }
+      for (const skill of preloaded) {
+        assert.ok(named.includes(skill), `${name}: preloaded skill ${skill} must appear in its Skills line`);
+      }
+    }
+  });
+
+  test("only the coordinator writes Basic Memory, and nobody can delete, move or manage projects", () => {
+    const writeTools = ["basic-memory/write_note", "basic-memory/edit_note"];
+    const neverTools = ["basic-memory/*", "basic-memory/delete_note", "basic-memory/move_note",
+      "basic-memory/create_memory_project", "basic-memory/delete_project"];
+    for (const name of expectedAgents) {
+      const { tools } = readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
+      for (const tool of neverTools) assert.ok(!tools.includes(tool), `${name} must not have ${tool}`);
+      for (const tool of writeTools) {
+        assert.equal(tools.includes(tool), name === "coordinator",
+          `${name} ${name === "coordinator" ? "needs" : "must not have"} ${tool}`);
+      }
+    }
+    const coordinator = readProfile(path.join(agentsDir, "coordinator.agent.md")).header.tools;
+    assert.ok(coordinator.includes("basic-memory/search_notes") && coordinator.includes("basic-memory/read_note"),
+      "the coordinator must be able to search and read before it writes");
   });
 
   test("the planner reads Basic Memory but cannot write it", () => {
