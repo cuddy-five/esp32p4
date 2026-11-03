@@ -4,4 +4,6 @@ This repository skill adapts the `context-map` and `refactor-plan` skills from G
 
 Source: https://github.com/github/awesome-copilot/tree/main/plugins/context-engineering
 
+License: MIT. The plugin metadata declares MIT, and the Awesome Copilot repository is MIT-licensed (Copyright GitHub, Inc.); see `LICENSE` in this folder.
+
 The adaptation adds this repository's manual-mode, read-only, scope, evidence, and continuation rules. Review the upstream license and source when updating this adaptation.

@@ -1,6 +1,7 @@
 ---
 name: context-engineering
 description: 'Build a focused repository context map and safe sequence for changes that span files or modules.'
+license: MIT
 ---
 
 # Repository context and change planning
