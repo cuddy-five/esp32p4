@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { evaluateTransition, IMPLEMENTED_GATES } from "../../src/lib/gates.js";
+import { parseApprovalComments } from "../../src/lib/approval-comments.js";
 import { main } from "../../src/cli.js";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
@@ -53,6 +54,8 @@ const approval = (over = {}) => ({
   approver: "owner",
   granted_at: "2026-10-12T01:30:00Z",
   sha: HEAD,
+  reference: "https://github.com/o/r/pull/1#issuecomment-1",
+  authenticated: true,
   ...over,
 });
 
@@ -65,7 +68,7 @@ test("a complete packet passes every merge-decision gate", () => {
   const report = run(packet());
   assert.equal(report.ok, true, JSON.stringify(report.gates, null, 2));
   assert.equal(report.transition, "awaiting_approval -> done");
-  assert.match(report.authority, /not authenticated/);
+  assert.match(report.authority, /not the person/);
 });
 
 test("missing, stale, expired or foreign approval cannot advance", () => {
@@ -76,6 +79,7 @@ test("missing, stale, expired or foreign approval cannot advance", () => {
     [approval({ approver: "implementer" }), /not an overseer/],
     [approval({ plan_id: "plan_superseded_01" }), /not current/],
     [approval({ stage: "plan" }), /stage plan/],
+    [approval({ authenticated: undefined }), /not read from GitHub/],
   ];
   for (const [record, why] of cases) {
     const r = run(packet(), { approvals: [record] });
@@ -203,7 +207,49 @@ test("state-machine.yaml marks exactly the evaluated gates implemented", () => {
   assert.deepEqual(marked, [...IMPLEMENTED_GATES].sort());
 });
 
-test("gate check CLI exits 0 on pass and 2 on failure", async (t) => {
+/** A PR conversation comment in the GitHub REST shape. */
+const comment = (body, over = {}) => ({
+  id: 7,
+  html_url: "https://github.com/o/r/pull/24#issuecomment-7",
+  body,
+  user: { login: "cuddy-five", type: "User" },
+  created_at: "2026-10-12T01:30:00Z",
+  updated_at: "2026-10-12T01:30:00Z",
+  performed_via_github_app: null,
+  ...over,
+});
+const APPROVE = `/approve merge task=${example("task").id} plan=${example("plan").id} sha=${HEAD}`;
+
+test("approval comments: GitHub supplies approver and time; edited, app, bot and malformed lines are ignored", () => {
+  const { approvals, ignored } = parseApprovalComments([
+    comment(`Looks right.\n${APPROVE}\n`),
+    comment(`> ${APPROVE}`),
+    comment(APPROVE, { updated_at: "2026-10-12T01:31:00Z", html_url: "edited" }),
+    comment(APPROVE, { performed_via_github_app: { slug: "copilot" }, html_url: "app" }),
+    comment(APPROVE, { user: { login: "ci[bot]", type: "Bot" }, html_url: "bot" }),
+    comment(`/approve merge task=${example("task").id} plan=${example("plan").id}`, { html_url: "nosha" }),
+  ]);
+  assert.equal(approvals.length, 1);
+  assert.deepEqual(
+    { ...approvals[0] },
+    { stage: "merge", task_id: example("task").id, plan_id: example("plan").id, sha: HEAD, approver: "cuddy-five", granted_at: "2026-10-12T01:30:00Z", reference: comment("").html_url, authenticated: true },
+  );
+  assert.deepEqual(ignored.map((w) => w.split(":")[0]), ["edited", "app", "bot", "nosha"]);
+});
+
+/** A fake GitHub client serving one pull request and its comments. */
+const fakeGitHub = (comments, headSha = HEAD) => ({
+  request: async (method, p) => {
+    assert.equal(`${method} ${p}`, "GET /repos/o/r/pulls/24");
+    return { data: { head: { sha: headSha } } };
+  },
+  paginate: async (p) => {
+    assert.equal(p, "/repos/o/r/issues/24/comments");
+    return comments;
+  },
+});
+
+test("gate check CLI reads approvals from PR comments by policy overseers", async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-cli-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const files = packet().map((doc, i) => {
@@ -211,15 +257,28 @@ test("gate check CLI exits 0 on pass and 2 on failure", async (t) => {
     fs.writeFileSync(file, JSON.stringify(doc));
     return file;
   });
-  const approvals = path.join(dir, "approvals.json");
-  fs.writeFileSync(approvals, JSON.stringify([approval()]));
   const out = [];
-  const io = { stdout: (s) => out.push(s), stderr: (s) => out.push(s) };
-  const args = ["gate", "check", ...files, "--head-sha", HEAD, "--overseer", "owner", "--now", "2026-10-12T02:00:00Z"];
-  assert.equal(await main([...args, "--approvals", approvals], io), 0, out.join("\n"));
+  const io = (client) => ({ stdout: (s) => out.push(s), stderr: (s) => out.push(s), env: {}, client });
+  const args = ["gate", "check", ...files, "--head-sha", HEAD, "--now", "2026-10-12T02:00:00Z"];
+  const withPr = [...args, "--pr", "24", "--repo", "o/r"];
+
+  assert.equal(await main(withPr, io(fakeGitHub([comment(APPROVE)]))), 0, out.join("\n"));
   assert.match(out[0], /^PASS awaiting_approval -> done/);
+  assert.match(out.join("\n"), /merge approval by cuddy-five .*issuecomment-7/);
+
+  for (const [client, why] of [
+    [undefined, /no merge approval record/],
+    [fakeGitHub([comment(APPROVE, { user: { login: "implementer", type: "User" } })]), /implementer is not an overseer/],
+    [fakeGitHub([comment(APPROVE, { updated_at: "2026-10-12T01:40:00Z" })]), /ignored .*edited after posting/],
+  ]) {
+    out.length = 0;
+    assert.equal(await main(client ? withPr : args, io(client)), 2, out.join("\n"));
+    assert.match(out.join("\n"), why);
+  }
+
   out.length = 0;
-  assert.equal(await main(args, io), 2);
-  assert.match(out.join("\n"), /FAIL approval_granted/);
-  assert.equal(await main(["gate", "check", ...files, "--head-sha", HEAD, "--format", "yaml"], io), 1);
+  assert.equal(await main(withPr, io(fakeGitHub([comment(APPROVE)], NEW_HEAD))), 1);
+  assert.match(out.join("\n"), /is not the head of PR #24/);
+  assert.equal(await main([...args, "--pr", "0"], io()), 1);
+  assert.equal(await main([...args, "--format", "yaml"], io()), 1);
 });

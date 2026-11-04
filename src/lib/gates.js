@@ -3,8 +3,9 @@
  *
  * Pure: the caller supplies parsed documents, the head commit, the changed paths
  * and any human approval records. Every gate fails closed when a record is
- * missing, stale or produced by the role it should check. Producer names and
- * supplied approval records are claims; this module does not authenticate them.
+ * missing, stale or produced by the role it should check. Producer names are
+ * claims. An approval counts only when the caller marks it authenticated, which
+ * the CLI does only for overseer comments it read from GitHub.
  */
 import { ContractRegistry } from "./contracts.js";
 import { loadApprovals, loadStateMachine, requiredHumanStages } from "./orchestration.js";
@@ -15,7 +16,7 @@ const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
 const HOUR_MS = 3600 * 1000;
 
 export const AUTHORITY_NOTE =
-  "Producer names and supplied approval records are claims, not authenticated identities. A pass does not grant merge permission.";
+  "Producer names are claims, not authenticated identities. Approvals count only from an overseer's PR comment read from GitHub, which identifies the account, not the person using it. A pass does not grant merge permission.";
 
 const nameOf = (doc) => String(doc?.producer?.name ?? "").trim().toLowerCase();
 const byCreated = (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at);
@@ -139,7 +140,7 @@ const EVALUATORS = {
   approval_granted: (ctx) => {
     const stage = ctx.stage;
     if (!ctx.plan) return { pass: false, reason: "no current plan to approve" };
-    if (!ctx.overseers.size) return { pass: false, reason: "no overseer configured; pass --overseer" };
+    if (!ctx.overseers.size) return { pass: false, reason: "no overseer configured in policies/approvals.yaml approval.overseers" };
     const blocking = ctx.packet.escalations.find((e) => OPEN_ESCALATION.has(e.status) && ["high", "critical"].includes(e.severity));
     if (blocking) return { pass: false, reason: `approval invalidated by open ${blocking.severity} escalation ${blocking.id}` };
     const limit = (ctx.policy.approval?.expires_after_hours ?? 72) * HOUR_MS;
@@ -149,12 +150,13 @@ const EVALUATORS = {
       if (a.stage !== stage) why.push(`stage ${a.stage}`);
       if (a.task_id !== ctx.packet.task.id) why.push("other task");
       if (a.plan_id !== ctx.plan.id) why.push(`plan ${a.plan_id} is not current`);
+      if (a.authenticated !== true) why.push("not read from GitHub");
       if (!ctx.overseers.has(String(a.approver ?? "").toLowerCase())) why.push(`${a.approver} is not an overseer`);
       const at = Date.parse(a.granted_at);
       if (!Number.isFinite(at) || at > ctx.now) why.push("bad timestamp");
       else if (ctx.now - at > limit) why.push("expired");
       if (stage === "merge" && a.sha !== ctx.headSha) why.push(`approves ${short(a.sha)}, head is ${short(ctx.headSha)}`);
-      if (!why.length) return { pass: true, reason: `${stage} approval by ${a.approver} at ${a.granted_at} (supplied, not authenticated)` };
+      if (!why.length) return { pass: true, reason: `${stage} approval by ${a.approver} at ${a.granted_at} (${a.reference})` };
       rejected.push(why.join(", "));
     }
     return { pass: false, reason: rejected.length ? `no valid ${stage} approval (${rejected.join("; ")})` : `no ${stage} approval record` };
@@ -258,7 +260,7 @@ export function evaluateTransition(docs, opts) {
     headSha,
     changedPaths: opts.changedPaths,
     approvals: opts.approvals ?? [],
-    overseers: new Set((opts.overseers ?? []).map((o) => o.toLowerCase())),
+    overseers: new Set((opts.overseers ?? policyDoc.approval?.overseers ?? []).map((o) => String(o).toLowerCase())),
     now: opts.now ?? Date.now(),
     policy: policyDoc,
     stage: to === "done" ? "merge" : "plan",

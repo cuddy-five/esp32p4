@@ -53,7 +53,8 @@ states:
 
 # Gate names. `status: implemented` means `control-plane gate check`
 # (src/lib/gates.js) evaluates the gate over supplied contract documents; it
-# fails closed and does not authenticate producers or approvals. Nothing runs
+# fails closed and does not authenticate producers. Approvals count only from
+# overseer PR comments that `gate check --pr` reads from GitHub. Nothing runs
 # the check automatically yet. tests/unit/gates.test.js keeps this list in step.
 gates:
   task_valid:
@@ -72,7 +73,7 @@ gates:
     description: policies/approvals.yaml requires a human at the plan stage for the task's risk level, tags, or touched paths.
     status: implemented
   approval_granted:
-    description: A human approval recorded for this exact plan id and stage, not expired.
+    description: An unedited /approve PR comment by an overseer in policies/approvals.yaml for this task, plan id and stage (and head SHA at merge), not expired.
     status: implemented
   evidence_collected:
     description: An evidence document exists for the current head SHA.

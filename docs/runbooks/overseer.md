@@ -20,9 +20,9 @@ unknowns in `PROJECT.md`.
 **Current boundary:** contracts, validation, settings tools, CI and an
 on-request gate evaluator (`gate check`) work today. The evaluator rejects
 missing or stale approvals, stale evidence, self-review and out-of-scope paths
-in supplied records, but it trusts the names in those records. The coordinator
-profile exists, but an automatic dispatcher, authenticated approval routing and
-runtime halt handling are not implemented. The process below describes duties for the
+in supplied records, but it trusts the producer names in those records. It
+reads your approval from a PR comment (below). The coordinator profile exists,
+but an automatic dispatcher and runtime halt handling are not implemented. The process below describes duties for the
 people and agents running the task until that automation exists. Labels,
 checkboxes, and approval-like comments do not trigger it.
 
@@ -56,6 +56,22 @@ Two more may be put in front of you when policy requires approval:
    approve? Did the verifier's own tests pass? Is anything in
    `out_of_scope_paths`? Does the `overseer_note` on the pending result
    match what the plan promised?
+
+To approve, post a new PR conversation comment with the approval on a line
+of its own:
+
+```text
+/approve merge task=<task_id> plan=<plan_id> sha=<full head commit SHA>
+/approve plan task=<task_id> plan=<plan_id>
+```
+
+`gate check --pr <number>` counts the comment only when its author is in
+`approval.overseers` in `policies/approvals.yaml`, it is not edited, and it
+names the current plan and, at merge, the PR head. A new push or 72 hours
+voids it; post a new comment instead of editing. GitHub identifies the
+account, not the person: an agent with your GitHub token could post one, so
+give agents a token that cannot comment, or check the comment yourself.
+Approving does not merge; you still merge in GitHub.
 3. **Escalation resolution.** Pick an option. The recommended one is marked.
    If none fit, reply with free text; the coordinator will turn it into a
    new plan or a cancellation. Scope expansion requires your resolution and

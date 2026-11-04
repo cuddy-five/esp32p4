@@ -78,14 +78,21 @@ always_human:
 approval:
   must_reference: [task_id, plan_id, stage]
   must_be_from: human
+  # GitHub logins whose approval comments count. Copies: replace with your own,
+  # as in .github/CODEOWNERS. `gate check --pr` reads only these authors.
+  overseers: [cuddy-five]
   expires_after_hours: 72
   invalidated_by:
     - a superseding plan for the same task
     - a new head SHA after a merge-stage approval
     - an open escalation of severity high or critical
-  # The approval itself is the original platform record (a PR review or comment by
-  # the configured overseer). Contracts only reference it: an agent-written annotation,
-  # granted_by, or producer.kind human is a claim, never proof (docs/architecture/agent-memory.md).
+  # The approval itself is an unedited PR conversation comment by an overseer, with
+  # a line of its own (docs/runbooks/overseer.md):
+  #   /approve merge task=<task_id> plan=<plan_id> sha=<head commit>
+  #   /approve plan task=<task_id> plan=<plan_id>
+  # GitHub supplies the author and time. Contracts only reference it: an agent-written
+  # annotation, granted_by, or producer.kind human is a claim, never proof
+  # (docs/architecture/agent-memory.md).
   record_as: a reference to the original human record, cited from plan.approvals_required[] with stage, reference URL, approver and timestamp
 
 # What the overseer may do without an approval request being pending.

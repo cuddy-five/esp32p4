@@ -84,6 +84,7 @@ These hold for every role, in every repository, in every session.
 4. **Humans decide what `policies/approvals.yaml` says they decide.** Do not
    proceed on an assumed approval, a stale one, or one given for a different
    plan. Every merge requires a human decision at the actual reviewed commit.
+   Never post an `/approve` comment; only the overseer writes one.
 5. **Budgets are ceilings, not targets.** When `budget_remaining` is low,
    stop at a clean point and hand off or escalate with `budget_exceeded`.
 6. **Escalate instead of guessing** when requirements are ambiguous, when

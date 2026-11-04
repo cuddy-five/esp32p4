@@ -21,6 +21,7 @@ import { loadReviewDomains } from "./review-domains.js";
 import { buildEvidenceContract } from "./evidence.js";
 import { compactLogs } from "./compaction.js";
 import { evaluateTransition } from "./lib/gates.js";
+import { parseApprovalComments } from "./lib/approval-comments.js";
 import { changedPaths, commit, git } from "./lib/workflow-gate.js";
 
 export const EXIT = Object.freeze({ OK: 0, ERROR: 1, FAILED: 2 });
@@ -64,8 +65,9 @@ Commands
                                a task's contract documents; exit 2 when any fails
     --from, --to               Transition (default: awaiting_approval -> done)
     --base <ref>               Read changed paths from git diff <ref>...<head-sha>
-    --approvals <file>         JSON array of human approval records (supplied, not authenticated)
-    --overseer <login>         Approver allowed to grant approvals (repeatable)
+    --pr <number>              Read overseer /approve comments from this pull request;
+                               --head-sha must be its head commit
+    --repo <owner/name>        Repository of --pr (default: GH_REPO or origin)
     --now <timestamp>          Evaluation time (default: now)
     --format text|json         Output format (default: text)
 
@@ -119,7 +121,7 @@ export async function main(argv, io = {}) {
       case "evidence":
         return cmdEvidence(rest, { stdout, stderr, env });
       case "gate":
-        return cmdGate(rest, { stdout, stderr });
+        return await cmdGate(rest, { stdout, stderr, env, client: io.client });
       case "compact":
         return await cmdCompact(rest, { stdout, stderr, stdin: io.stdin });
       case undefined:
@@ -324,7 +326,7 @@ function cmdPolicy(args, { stdout, stderr }) {
   return EXIT.ERROR;
 }
 
-function cmdGate(args, { stdout, stderr }) {
+async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
   const [sub, ...subArgs] = args;
   if (sub !== "check") {
     stderr(`gate: unknown subcommand "${printable(sub ?? "")}" (expected check)`);
@@ -338,8 +340,8 @@ function cmdGate(args, { stdout, stderr }) {
       from: { type: "string", default: "awaiting_approval" },
       to: { type: "string", default: "done" },
       base: { type: "string" },
-      approvals: { type: "string" },
-      overseer: { type: "string", multiple: true, default: [] },
+      pr: { type: "string" },
+      repo: { type: "string" },
       now: { type: "string" },
       format: { type: "string", default: "text" },
     },
@@ -351,17 +353,30 @@ function cmdGate(args, { stdout, stderr }) {
   }
   const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
   const docs = positionals.map(readJson);
-  const approvals = values.approvals ? readJson(values.approvals) : [];
-  if (!Array.isArray(approvals)) {
-    stderr("gate check: --approvals must hold a JSON array");
-    return EXIT.ERROR;
-  }
   const now = values.now === undefined ? Date.now() : Date.parse(values.now);
   if (!Number.isFinite(now)) {
     stderr("gate check: --now must be an ISO-8601 timestamp");
     return EXIT.ERROR;
   }
   const headSha = values["head-sha"];
+  let approvals = [];
+  let ignored = [];
+  if (values.pr !== undefined) {
+    const pr = parseCount(values.pr);
+    if (!pr) {
+      stderr("gate check: --pr must be a pull request number");
+      return EXIT.ERROR;
+    }
+    const { owner, name } = resolveRepo(values.repo, { env });
+    const client = injectedClient ?? new GitHubClient();
+    const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+    const { data: pull } = await client.request("GET", `${base}/pulls/${pr}`);
+    if (pull?.head?.sha !== headSha) {
+      stderr(`gate check: --head-sha ${printable(String(headSha))} is not the head of PR #${pr} (${printable(String(pull?.head?.sha))})`);
+      return EXIT.ERROR;
+    }
+    ({ approvals, ignored } = parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`)));
+  }
   const paths = values.base ? changedPaths(commit(values.base, false, git), commit(headSha, true, git), git) : undefined;
   const report = evaluateTransition(docs, {
     from: values.from,
@@ -369,14 +384,15 @@ function cmdGate(args, { stdout, stderr }) {
     headSha,
     changedPaths: paths,
     approvals,
-    overseers: values.overseer,
     now,
   });
+  report.ignored_approval_comments = ignored;
   if (values.format === "json") {
     stdout(JSON.stringify(report, null, 2));
   } else {
     stdout(`${report.ok ? "PASS" : "FAIL"} ${report.transition} for ${printable(report.task_id)} at ${report.head_sha}`);
     for (const g of report.gates) stdout(`  ${g.pass ? "ok  " : "FAIL"} ${g.gate}: ${printable(g.reason)}`);
+    for (const why of ignored) stdout(`  ignored ${printable(why)}`);
     stdout(report.authority);
   }
   return report.ok ? EXIT.OK : EXIT.FAILED;
