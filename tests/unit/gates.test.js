@@ -358,6 +358,27 @@ test("discover: a code change after the records makes them stale; a scope breach
   assert.match(res.text, /out of scope: \.github\/workflows\/x\.yml/);
 });
 
+test("discover: an empty-diff merge of the base is the subject, so its effect cannot hide", async (t) => {
+  const r = recordsRepo(t);
+  // The base branch moves on with a fix; the PR merges it with -s ours (reverting
+  // the fix in the merge result) and then refreshes its records.
+  r.g("checkout", "-q", "-b", "pr");
+  r.g("checkout", "-q", r.base);
+  const fixed = r.commitFiles({ "README.md": "fixed\n" }, "fix on base");
+  r.g("checkout", "-q", "pr");
+  r.g("merge", "-q", "-s", "ours", "--no-edit", fixed);
+  const merge = r.g("rev-parse", "HEAD");
+  // Same records, reformatted, so the commit touches only the records directory.
+  const pretty = Object.fromEntries(Object.entries(r.records(r.subject)).map(([f, text]) => [f, JSON.stringify(JSON.parse(text), null, 2)]));
+  const head = r.commitFiles(pretty, "records after merge");
+  const found = discoverTask(fixed, head, (args) => execFileSync("git", args, { cwd: r.dir }));
+  assert.equal(found.subject, merge);
+  assert.ok(found.paths.includes("README.md"), found.paths.join(", "));
+  const res = await inRepo(t, r.dir, ["--base", fixed, "--head-sha", head]);
+  assert.equal(res.code, 2, res.text);
+  assert.match(res.text, /evidence is stale/);
+});
+
 test("discover: no records skips; malformed, mixed or misnamed records are errors", async (t) => {
   const r = recordsRepo(t);
   let res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", r.subject]);

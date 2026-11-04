@@ -4,8 +4,10 @@
  * Records live in RECORDS_ROOT/<task_id>/*.json. Evidence and reviews name the
  * commit they cover, and a commit cannot contain its own SHA, so the records
  * that describe commit S arrive in later commits. The subject is therefore the
- * newest first-parent commit that changes anything outside the task's records
- * directory; every commit after it may touch only that directory.
+ * newest first-parent commit that is a merge or changes anything outside the
+ * task's records directory; every commit after it is a single-parent commit
+ * that touches only that directory. A merge always counts as code: even an
+ * empty-diff merge (`git merge -s ours`) moves the merge base.
  *
  * All reads go through git objects, never the working tree, so the caller can
  * run trusted base-branch code over an untrusted PR head.
@@ -36,14 +38,16 @@ export function recordDirs(paths) {
 const inDir = (dir) => (p) => p.startsWith(dir);
 
 /**
- * The newest first-parent commit after the merge base that changes anything
- * outside `dir`, or the merge base when every commit touches only `dir`.
+ * The newest first-parent commit after the merge base that is a merge or
+ * changes anything outside `dir`, or the merge base when there is none.
  */
 export function subjectCommit(base, head, dir, runGit = git) {
   const mergeBase = runGit(["merge-base", base, head]).toString("ascii").trim();
-  const commits = runGit(["rev-list", "--first-parent", `${mergeBase}..${head}`]).toString("ascii").split("\n").filter(Boolean);
-  for (const sha of commits) {
-    if (!changedPaths(`${sha}^`, sha, runGit).every(inDir(dir))) return sha;
+  // Each line is "<sha> <parent>..."; more than one parent marks a merge.
+  const commits = runGit(["rev-list", "--first-parent", "--parents", `${mergeBase}..${head}`]).toString("ascii").split("\n").filter(Boolean);
+  for (const line of commits) {
+    const [sha, ...parents] = line.split(" ");
+    if (parents.length !== 1 || !changedPaths(`${sha}^`, sha, runGit).every(inDir(dir))) return sha;
   }
   return mergeBase;
 }
@@ -78,6 +82,8 @@ export function discoverTask(base, head, runGit = git) {
   const task = docs.find((d) => d?.contract === "task");
   if (task && task.id !== taskId) throw new Error(`${dir} holds task ${task.id}; the directory must be named after the task id`);
   const subject = subjectCommit(base, head, dir, runGit);
-  const paths = changedPaths(base, subject, runGit).filter((p) => !inDir(dir)(p));
+  // Diff to the head, not the subject, so the paths start at the merge's real base.
+  // The two trees differ only inside `dir`, which is excluded.
+  const paths = changedPaths(base, head, runGit).filter((p) => !inDir(dir)(p));
   return { taskId, dir, subject, docs, paths };
 }
