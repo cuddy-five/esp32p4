@@ -98,7 +98,9 @@ Copilot refuse to dispatch the agent instead of falling back: "dispatch is
 refused rather than silently substituting an unauthored model". The review
 roles set it. This is documented, not live-checked. The 1.0.83 changelog's
 spelling, `model-policy`, did nothing in a probe: the agent still fell back.
-After a run that matters, check stderr for `which is not available`, or the
+With the session model set to `Auto`, subagents always run on the resolved
+session model whatever their pin (CLI reference), so do not use `Auto` for
+security-critical review. After a run that matters, check stderr for `which is not available`, or the
 `model.call_start` events in `--output-format json` output. The `/model` picker
 shows which models the account has.
 

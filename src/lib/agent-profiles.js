@@ -42,11 +42,13 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
   }
   const roles = policy.roles ?? {};
   const roleOf = policy.profiles ?? {};
-  const names = fs.readdirSync(agentsDir).filter((f) => f.endsWith(".agent.md")).map((f) => f.slice(0, -".agent.md".length)).sort();
+  // Copilot names an agent after its file minus `.agent.md` or `.md`, so both forms are profiles.
+  const entries = fs.readdirSync(agentsDir).filter((f) => f.endsWith(".md")).sort()
+    .map((f) => ({ name: f.replace(/(\.agent)?\.md$/, ""), file: path.join(agentsDir, f) }));
+  const names = entries.map((e) => e.name);
 
   const profiles = [];
-  for (const name of names) {
-    const file = path.join(agentsDir, `${name}.agent.md`);
+  for (const { name, file } of entries) {
     let header;
     try {
       header = readFrontmatter(file);
@@ -67,11 +69,14 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
     const forbidden = roles[role].forbidden_tools ?? [];
     // Copilot reads `tools` as a list or a comma-separated string, and grants every tool when it is unset.
     const tools = Array.isArray(header.tools)
-      ? header.tools
+      ? header.tools.map(String)
       : typeof header.tools === "string"
         ? header.tools.split(",").map((t) => t.trim()).filter(Boolean)
         : null;
-    if (!tools) fail(file, "/tools", "must list its tools; without a list the agent gets every tool");
+    // Unset, null or an empty string may mean every tool; only an explicit [] means none.
+    if (!tools || (typeof header.tools === "string" && tools.length === 0)) {
+      fail(file, "/tools", "must list its tools; without a list the agent gets every tool");
+    }
     for (const tool of tools ?? []) {
       if (!allowed.some((p) => covers(p, tool))) fail(file, "/tools", `"${tool}" is not allowed for role ${role}`);
       // A wildcard such as `server/*` also counts if it would include a forbidden tool.
