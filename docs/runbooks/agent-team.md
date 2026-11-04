@@ -25,7 +25,9 @@ merge. [CONTRIBUTING.md](../../CONTRIBUTING.md) connects the GitHub entry
 points. This runbook uses the existing [contracts](../architecture/contracts.md)
 and [approval policy](../../.github/control-plane/policies/approvals.yaml).
 There is no running dispatcher or approval authenticator. People and agents
-must uphold these working agreements.
+must uphold these working agreements. `node src/cli.js gate check` evaluates
+one transition's gates over the task's records on request; it does not
+authenticate producers or approvals, and nothing runs it automatically yet.
 
 A successful report is not proof of task scope, completed reviews or human approval. There is no authenticated automatic approval gate.
 
@@ -96,6 +98,8 @@ npm test
 npm run validate:examples
 node src/cli.js policy check
 node src/cli.js validate path/to/task.json path/to/plan.json
+node src/cli.js gate check records/*.json --head-sha <sha> --base origin/main \
+  --approvals approvals.json --overseer <login>
 git diff --check
 ```
 
@@ -103,7 +107,11 @@ git diff --check
 example-validation script. `node` executes `src/cli.js`: `policy check`
 checks declaration consistency, and `validate` checks the contract files
 given as positional paths (replace them with the actual records). These
-commands have no flags. `git diff --check` checks tracked working changes
+commands have no flags, except `gate check`: `--head-sha` names the commit
+under decision, `--base` reads its changed paths from git, `--approvals`
+supplies human approval records and `--overseer` names who may grant them.
+It defaults to the `awaiting_approval -> done` transition and exits `2` when
+any gate fails. `git diff --check` checks tracked working changes
 for whitespace errors; it does not check untracked files or execute tests.
 Use the existing development environment; installations need their own
 authorized plan. Workflow changes also need actionlint and shellcheck.

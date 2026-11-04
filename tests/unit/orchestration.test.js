@@ -75,7 +75,7 @@ describe("state-machine.yaml", () => {
   });
 
   test("planning branches select complementary approval requirements", () => {
-    assert.equal(doc.gates.approval_required?.status, "planned");
+    assert.equal(doc.gates.approval_required?.status, "implemented");
     for (const [to, required, excluded] of [
       ["awaiting_approval", "approval_required", "approval_not_required"],
       ["in_progress", "approval_not_required", "approval_required"],
