@@ -21,7 +21,7 @@ roles:
     forbidden_tools: [edit, basic-memory/write_note]
 `;
 const CODER = "model: gpt-6-luna\ntools: [read, edit]";
-const CHECKER = "model: kimi-k3\nmodel-policy: required\ntools: [read]";
+const CHECKER = "model: kimi-k3\nmodelPolicy: required\ntools: [read]";
 
 /** Problems reported for a temporary set of profiles; `null` leaves a profile out. */
 function problems({ coder = CODER, checker = CHECKER, extra = {}, policy = POLICY } = {}) {
@@ -59,20 +59,26 @@ describe("agent profiles against the tool policy", () => {
   });
 
   test("a wildcard that would include a forbidden tool fails", () => {
-    const out = problems({ checker: "model: kimi-k3\nmodel-policy: required\ntools: [read, basic-memory/*]" });
+    const out = problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: [read, basic-memory/*]" });
     assert.match(out, /"basic-memory\/\*" includes a tool forbidden for role reviewer/);
+  });
+
+  test("a missing tools list fails, and a comma-separated list is checked", () => {
+    assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required" }), /must list its tools/);
+    assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: 'read, edit'" }), /"edit" is not allowed for role reviewer/);
   });
 
   test("a profile without a model pin fails", () => {
     assert.match(problems({ coder: "tools: [read]" }), /must pin one model ID/);
   });
 
-  test("a review role without model-policy fails", () => {
-    assert.match(problems({ checker: "model: kimi-k3\ntools: [read]" }), /review roles must set model-policy: required/);
+  test("a review role without modelPolicy fails, including the kebab-case spelling", () => {
+    assert.match(problems({ checker: "model: kimi-k3\ntools: [read]" }), /review roles must set modelPolicy: required/);
+    assert.match(problems({ checker: "model: kimi-k3\nmodel-policy: required\ntools: [read]" }), /review roles must set modelPolicy: required/);
   });
 
   test("a review role on a coding agent's model family fails", () => {
-    const out = problems({ checker: "model: gpt-5.6-luna\nmodel-policy: required\ntools: [read]" });
+    const out = problems({ checker: "model: gpt-5.6-luna\nmodelPolicy: required\ntools: [read]" });
     assert.match(out, /shares model family "gpt" with coder, a coding agent/);
   });
 

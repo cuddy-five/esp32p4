@@ -64,7 +64,7 @@ describe("Owner-directed agent team configuration", () => {
     assert.ok(!tools("reviewer").includes("github/*"));
   });
 
-  // Model pins, model-policy and review-family separation are checked by
+  // Model pins, modelPolicy and review-family separation are checked by
   // `control-plane policy check` (src/lib/agent-profiles.js) against tool-access.yaml.
   test("profile models match the registry for registered roles", () => {
     const registered = new Map(JSON.parse(fs.readFileSync(".agents.registry.json", "utf8")).agents

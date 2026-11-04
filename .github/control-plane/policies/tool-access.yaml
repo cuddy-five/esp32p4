@@ -19,7 +19,7 @@ profiles:
   custom-agent-foundry: foundry
 
 # ADR 0003: security-critical review needs a different model family than its
-# author. Review roles also set `model-policy: required`.
+# author. Review roles also set `modelPolicy: required`.
 models:
   coding_roles: [implementer]
   review_roles: [reviewer, security_auditor, verifier]

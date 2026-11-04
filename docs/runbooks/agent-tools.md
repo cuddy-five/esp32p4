@@ -62,7 +62,8 @@ tool or if anyone gets a delete, move or project tool.
 **CI gate.** `node src/cli.js policy check`, part of CI's `test` job, reads every
 profile and fails unless it is mapped to a role in
 `.github/control-plane/policies/tool-access.yaml`, lists only tools that role
-allows, and pins one model ID. Review roles must also set `model-policy: required`
+allows (a missing `tools` list fails, since Copilot then grants every tool), and
+pins one model ID. Review roles must also set `modelPolicy: required`
 and use a different model family from the coding agents. The gate checks
 declarations; the client still decides what an agent can actually do.
 
@@ -71,9 +72,10 @@ declarations; the client still decides what an agent can actually do.
 Every profile pins one model ID. ADR 0003 requires security-critical review
 from a different model family than the author's, so the two coding agents
 share OpenAI's `gpt-6-luna` and every review role uses another family. The
-[CI gate](#agents) enforces both rules.
+[CI gate](#agents) checks that each review role declares a family the coding
+agents do not use; the shared `gpt-6-luna` pin itself is a convention.
 
-| Agent | Pinned model | Family | `model-policy` | Model that ran (2026-11-03) |
+| Agent | Pinned model | Family | `modelPolicy` | Model that ran (2026-11-03) |
 | --- | --- | --- | --- | --- |
 | coordinator | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
 | planner | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
@@ -91,12 +93,14 @@ Copilot then runs the agent on the session model and only writes
 to stderr. rust-coder had no pin at all, so a security audit of its signing code
 ran on the model that wrote it.
 
-**`model-policy: required`** keeps a session's model changes on the pin
-(Copilot CLI 1.0.83 changelog). It does not stop the fallback above: a probe
-with an unavailable model still ran on the session model. After a run that
-matters, check stderr for `which is not available`, or the `model.call_start`
-events in `--output-format json` output. The `/model` picker shows which
-models the account has.
+**`modelPolicy: required`** (camelCase, as the CLI reference spells it) makes
+Copilot refuse to dispatch the agent instead of falling back: "dispatch is
+refused rather than silently substituting an unauthored model". The review
+roles set it. This is documented, not live-checked. The 1.0.83 changelog's
+spelling, `model-policy`, did nothing in a probe: the agent still fell back.
+After a run that matters, check stderr for `which is not available`, or the
+`model.call_start` events in `--output-format json` output. The `/model` picker
+shows which models the account has.
 
 ## Skills
 
@@ -360,8 +364,8 @@ Known limits that stay:
 
 - Starting several Copilot sessions at once breaks Basic Memory's handshake
   (see the live check record). Start them one at a time.
-- Nothing pauses a review when its pinned model is unavailable. Check which
-  model ran (see [Models](#models)).
+- `modelPolicy: required` should stop a review from running on another model,
+  but that is not live-checked. Check which model ran (see [Models](#models)).
 
 `poppler-utils` is installed in `devbox` (2026-11-03): `pdftotext -layout <file> -`
 reads the vendor PDFs.
@@ -458,7 +462,7 @@ something to index and was deleted afterwards. Results are in the table under
 | --- | --- |
 | security-auditor, `claude-sonnet-5.5` with `model-policy: required` | Ran on `claude-sonnet-5.5`, no warning. Quoted both preloaded skills' headings exactly. `get_file_contents` succeeded on the first try, with the arguments and model that failed twice in the batch above. $0.098. |
 | rust-coder, `gpt-6-luna` | Ran on `gpt-6-luna`, no warning. `get_file_contents` succeeded. It quoted `# device-references` for the real heading `# Device references`. The other two headings equal their skill names, so the quotes prove little. $0.0035. |
-| Probe: a temporary profile with `model: claude-sonnet-4.6` and `model-policy: required` | Printed the warning and ran on `claude-sonnet-5.5`. The profile was deleted afterwards. $0.022. |
+| Probe: a temporary profile with `model: claude-sonnet-4.6` and `model-policy: required` | Printed the warning and ran on `claude-sonnet-5.5`. The kebab-case key had no effect; the documented key is `modelPolicy`. The profile was deleted afterwards. $0.022. |
 
 The rust-coder's skill text was in context despite the misquote: the
 `selected_agent_instructions` entry under `system_segments` in

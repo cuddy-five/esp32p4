@@ -3,7 +3,7 @@ name: verifier
 description: 'Choose when the request is to independently re-run tests, verify acceptance criteria, or check whether a pull request with passing reviews is ready to merge. Not for code review or writing code.'
 argument-hint: 'Provide the task contract path, plan contract path, and target commit SHA to verify'
 model: claude-haiku-4.5
-model-policy: required
+modelPolicy: required
 tools: ['read', 'search', 'execute', 'github/*']
 skills: [verification, verify-and-stop]
 handoffs:

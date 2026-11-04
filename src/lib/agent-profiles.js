@@ -65,7 +65,14 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
     }
     const allowed = roles[role].allowed_tools ?? [];
     const forbidden = roles[role].forbidden_tools ?? [];
-    for (const tool of Array.isArray(header.tools) ? header.tools : []) {
+    // Copilot reads `tools` as a list or a comma-separated string, and grants every tool when it is unset.
+    const tools = Array.isArray(header.tools)
+      ? header.tools
+      : typeof header.tools === "string"
+        ? header.tools.split(",").map((t) => t.trim()).filter(Boolean)
+        : null;
+    if (!tools) fail(file, "/tools", "must list its tools; without a list the agent gets every tool");
+    for (const tool of tools ?? []) {
       if (!allowed.some((p) => covers(p, tool))) fail(file, "/tools", `"${tool}" is not allowed for role ${role}`);
       // A wildcard such as `server/*` also counts if it would include a forbidden tool.
       if (forbidden.some((f) => covers(f, tool) || covers(tool, f))) fail(file, "/tools", `"${tool}" includes a tool forbidden for role ${role}`);
@@ -83,7 +90,8 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
   const pinned = (p) => typeof p.header.model === "string";
   const coders = profiles.filter((p) => (models.coding_roles ?? []).includes(p.role) && pinned(p));
   for (const p of profiles.filter((q) => (models.review_roles ?? []).includes(q.role))) {
-    if (p.header["model-policy"] !== "required") fail(p.file, "/model-policy", "review roles must set model-policy: required");
+    // The CLI reference spells it modelPolicy; a probe showed the kebab-case `model-policy` has no effect.
+    if (p.header.modelPolicy !== "required") fail(p.file, "/modelPolicy", "review roles must set modelPolicy: required");
     if (!pinned(p)) continue;
     for (const c of coders) {
       if (modelFamily(c.header.model) === modelFamily(p.header.model)) {

@@ -112,7 +112,7 @@ name: role-name # Unique identifier (kebab-case matching filename)
 description: 'Brief, clear description shown in chat input and used for runtime selection (required)'
 argument-hint: 'Guidance text for users on required contract paths or issue numbers (optional)'
 model: gpt-5.6-luna # One model ID this account can use; an unavailable one silently becomes the session model
-model-policy: required # Review roles only: keeps session model changes on the pin. See docs/runbooks/agent-tools.md#models
+modelPolicy: required # Review roles only: Copilot refuses to run the agent on another model. See docs/runbooks/agent-tools.md#models
 infer: true # Set false for meta-agents or destructive tools requiring explicit invocation
 tools: ['read', 'search', 'github/*'] # Choose tools supported by the client
 skills: [skill-name] # Preloaded in full on every run; at most three. Name optional skills in the body.
