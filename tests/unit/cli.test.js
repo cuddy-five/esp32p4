@@ -91,6 +91,50 @@ describe("cli top level", () => {
     assert.equal(await main([], io), EXIT.OK);
     assert.match(out[0], /control-plane <command>/);
   });
+  test("prints usage for help flags after every supported command and subcommand", async () => {
+    const commands = [
+      ["validate"],
+      ["schema"],
+      ["schema", "list"],
+      ["schema", "show"],
+      ["policy"],
+      ["policy", "check"],
+      ["policy", "stages"],
+      ["evidence"],
+      ["gate"],
+      ["gate", "check"],
+      ["compact"],
+      ["settings"],
+      ["settings", "plan"],
+      ["settings", "check"],
+      ["settings", "apply"],
+      ["settings", "export"],
+    ];
+    for (const command of commands) {
+      for (const flag of ["--help", "-h"]) {
+        const { out, err, io } = capture();
+        assert.equal(await main([...command, flag], io), EXIT.OK, [...command, flag].join(" "));
+        assert.match(out.join("\n"), /control-plane <command>/);
+        assert.deepEqual(err, []);
+      }
+    }
+  });
+  test("does not treat an option value or an argument after -- as a help request", async () => {
+    const optionValue = capture();
+    assert.equal(await main(["evidence", "--path", "--help"], optionValue.io), EXIT.ERROR);
+    assert.doesNotMatch(optionValue.out.join("\n"), /control-plane <command>/);
+    assert.ok(optionValue.err.length > 0);
+
+    const afterSeparator = capture();
+    assert.equal(await main(["validate", "--", "--help"], afterSeparator.io), EXIT.FAILED);
+    assert.doesNotMatch(afterSeparator.out.join("\n"), /control-plane <command>/);
+  });
+  test("unknown options remain usage errors", async () => {
+    const { out, err, io } = capture();
+    assert.equal(await main(["validate", "--unknown"], io), EXIT.ERROR);
+    assert.doesNotMatch(out.join("\n"), /control-plane <command>/);
+    assert.match(err.join("\n"), /unknown option/i);
+  });
   test("unknown command is an error", async () => {
     const { err, io } = capture();
     assert.equal(await main(["frobnicate"], io), EXIT.ERROR);
