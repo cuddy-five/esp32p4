@@ -1,7 +1,9 @@
 # The intended fork: BLAKE2b proof of work and the unified sighash
 
 **Status: the unified-sighash signing rules are reviewed and independently
-reproduced (2026-11-03). Two decisions are still the owner's (see the end). The
+reproduced (2026-11-03). The owner decided on 2026-11-03 that the device signs
+only with the unified sighash; the RDTS question is deferred to
+[#21](https://github.com/cuddy-five/esp32p4/issues/21) (see the end). The
 specification is a draft and can change: pin every later release separately.**
 
 `PROJECT.md` says the device targets "Blake2b and UNIFIED_SIGHASH". The fork is
@@ -57,7 +59,7 @@ sound: the document notes that all its implementations share one author.
 | BLAKE2b proof of work activates at height 961640 with `Blake2bTargetShift` 22. | Verified | `src/kernel/chainparams.cpp:129-135`; `src/pow.cpp:19-26` |
 | **BIP-110 "ReducedData" (RDTS) rules also apply** from `Blake2bHeight` until the parent block's median-time-past reaches 2027-09-01 00:00 UTC. A transaction that breaks them cannot be mined in that window. | Verified (location) | `src/kernel/chainparams.cpp:136-141`; `doc/bips.md:37`. The rules themselves are **not reviewed**. |
 | 17 confirmed mainnet signatures already set the bit under the legacy rules (`0x21`, `0x65`, heights 505,057-509,793). Pre-signed transactions with such bytes become unspendable after activation. | Verified (as the specification states it) | `doc/unified-sighash.md:405-411` |
-| The project documents' "UNIFIED_SIGHASH" refers to this scheme. | Inferred | The names match; confirm with the owner. |
+| The project documents' "UNIFIED_SIGHASH" refers to this scheme. | Inferred | The names match, and the owner's 2026-11-03 signing decision names this scheme (hash-type bit `0x20`). |
 | How BLAKE2b hashes a v2 header (XOR key, merge-mining fields, nonces) | Verified (location), not reviewed | `src/primitives/block.cpp:15-100`. Needed only if the device ever checks headers. |
 
 ## Gaps in the specification
@@ -82,13 +84,16 @@ sound: the document notes that all its implementations share one author.
   [`scripts/unified_sighash_check.py`](../scripts/unified_sighash_check.py)
   against any new Knots release before moving to it.
 
-## Owner decisions still open
+## Owner decisions
 
-1. Does the device sign only with the unified hash, or also with the legacy and
-   BIP143/BIP341 hashes (for example, behind an explicit setting like Knots'
-   `-walletoldsigs`)? Legacy signatures carry no replay protection.
-2. Must the device enforce the RDTS limits on transactions it signs? If yes,
-   review BIP-110 at a pinned commit first.
+1. **Unified only (decided 2026-11-03).** The device never signs a legacy,
+   BIP143 or BIP341 sighash message and has no setting to. BIP174 says a signer
+   "must fail" on a requested sighash type it finds unacceptable
+   (`bip-0174.mediawiki:435` in `bitcoin/bips` at `ada3419`), so the device
+   refuses a PSBT input whose sighash type lacks the bit.
+2. **RDTS limits: deferred (2026-11-03)** to
+   [#21](https://github.com/cuddy-five/esp32p4/issues/21). Review BIP-110 at a
+   pinned commit before deciding.
 
 News coverage of the fork, for example
 https://www.kucoin.com/news/flash/bip-110-bitcoin-hard-fork-chain-confirms-blake2b-as-new-pow-algorithm,

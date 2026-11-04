@@ -27,6 +27,19 @@ Retrieved 2026-11-03.
    [Random Number Generation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/api-reference/system/random.html)
    and [Security Overview](https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/security/security.html).
    Re-read the pages before quoting them elsewhere.
+6. **ESP32-P4 Technical Reference Manual, Pre-release v0.7** (2026-08-20):
+   https://documentation.espressif.com/esp32-p4_technical_reference_manual_en.pdf
+   (downloaded 2026-11-03, SHA-256
+   `622fe9625d19cf00bd7aa49e65f0b5dd6ef2197f83cb7a88b4405078d6a957d4`). Chapters
+   9 "System and Memory", 15 "Low-Power Management" and 20 "Permission Control"
+   were read with `pdftotext -layout`.
+7. **ESP-IDF memory and register maps**, at the same commit as (1):
+   `components/soc/esp32p4/include/soc/soc.h` and
+   [`register/hw_ver3/soc/reg_base.h`](https://github.com/espressif/esp-idf/blob/0e6b480f858c69862ffb6001d96e9eef74599a6e/components/soc/esp32p4/register/hw_ver3/soc/reg_base.h)
+   (chip revision v3).
+8. **The ESP32-P4 SVD behind the Rust PAC**, esp-rs/esp-pacs
+   [`esp32p4.base.svd`](https://github.com/esp-rs/esp-pacs/blob/24c4ff81da2cb9c8e9831d28c92d4e64cabde15f/esp32p4/svd/esp32p4.base.svd)
+   at `24c4ff81`. Used only to cross-check (7).
 
 ## Facts
 
@@ -60,5 +73,19 @@ Retrieved 2026-11-03.
 | JTAG stays disabled once any security feature (secure boot, flash encryption) is enabled; Secure UART Download mode turns on the same way, and `DIS_DOWNLOAD_MODE` disables ROM download mode entirely | Verified | (5) Security Overview: "JTAG interface stays disabled if any of the security features are enabled"; (4): `DIS_DOWNLOAD_MODE`, `DIS_USB_SERIAL_JTAG_DOWNLOAD_MODE`, `SECURE_BOOT_EN`, `SPI_BOOT_CRYPT_CNT` |
 | eFuse layout: field names, block, bit position and width | Verified | (4). Read it there; do not copy offsets into code from this file. |
 | The hardware ECDSA peripheral can be forced to use a hardware-random `k` (`ECDSA_ENABLE_SOFT_K`) | Verified (as declared) | (4). Applies to the NIST-curve peripheral only; secp256k1 signing is in software (row above). |
-| Power modes: Active; Light-sleep (CPU paused, L2MEM kept); Deep-sleep (CPU and L2MEM off, only LP memory on) | Verified | (3) §4.1.4.6 "Low-Power Management" |
-| Address map and power-domain detail | **Unverified** | The datasheet shows the address map only as an image (Figure 4-1) and defers both to the *ESP32-P4 Technical Reference Manual*, which has not been read. |
+| Power modes: Active; Light-sleep (CPU paused, L2MEM kept); Deep-sleep (CPU and L2MEM off, only LP memory on) | Verified | (3) §4.1.4.6 "Low-Power Management"; see [Memory, access and power](#memory-access-and-power) |
+
+## Memory, access and power
+
+From (6), checked against (7). Take addresses for code from (7) or the Rust PAC,
+never from this file or the manual's tables.
+
+| Fact | Status | Evidence |
+| --- | --- | --- |
+| Memory map (cached; the same memories repeat uncached `0x4000_0000` higher): external flash `0x4000_0000` and PSRAM `0x4800_0000` (64 MB windows), HP ROM `0x4FC0_0000` (128 KB), HP L2MEM `0x4FF0_0000` (768 KB). Uncached only: HP SPM `0x3010_0000` (8 KB), LP ROM `0x5010_0000` (16 KB), LP SRAM `0x5010_8000` (32 KB). | Verified | (6) Table 9.3-1; (7) `soc.h` agrees |
+| The manual's peripheral table misplaces the ECC, digital-signature and HMAC blocks and misprints other ranges. ESP-IDF and the Rust SVD agree with each other, for example HMAC at `0x5009_5000`. | Verified | (6) Table 9.3-2 against (7) `reg_base.h` and (8) |
+| **The LP core and the DMA masters, both USB OTG controllers included, can reach HP L2MEM, external flash and PSRAM.** Only the APM permission unit limits them, and nothing limits the LP core's access to LP SRAM. HP SPM is the one RAM neither can reach. | Verified | (6) §9.3.1, §9.3.4, Table 20.1-1 |
+| **LP SRAM stays powered in every power mode, Deep-sleep included**; HP L2MEM can be kept powered in Light-sleep | Verified | (6) §15.3, §9.3.2 |
+| Power domains: HP CPU, `PD_TOP` (bus, HP peripherals, ROM), six L2MEM sub-domains, `PD_HP_CNNT` (USB, SDIO), LP peripherals (with the LP core) and always-on (PMU, RTC). Deep-sleep turns off all but always-on. | Verified | (6) §15.4.1.2, Table 15.5-1 |
+| For key handling: set up PMP and APM before secrets enter L2MEM or PSRAM, keep secrets out of LP SRAM, and wipe them before any sleep | Inferred | From the rows above |
+| Not reviewed: PMP and APM setup, the LP TRNG block that ESP-IDF's v3 map adds at `0x5012_6000`, and whether LP SRAM keeps its data on `VDD_BAT` alone | **Unverified** | Tracked in [#21](https://github.com/cuddy-five/esp32p4/issues/21) |
