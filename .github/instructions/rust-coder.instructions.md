@@ -5,7 +5,7 @@ applyTo: 'firmware/**/*.rs'
 
 # Rust Firmware Conventions: ESP32-P4 Stateless Blake2b Bitcoin Hardware Wallet
 
-**Current status:** Hardware details and isolation methods below are research candidates, not verified board facts or approved requirements. Check the exact board revision, peripherals, protocol and trusted sources before relying on them. Do not assume disabling radios in software proves physical isolation. Wallet firmware implementation remains later work. Follow the current manual mode in AGENTS.md for ordinary requests.
+**Current status:** Hardware details below are research candidates, not verified board facts or approved requirements. Check the exact board revision, peripherals, protocol and trusted sources before relying on them. Checked facts and the owner's decisions on isolation and signing are in the `device-references` skill. Do not assume disabling radios in software proves physical isolation. Wallet firmware implementation remains later work. Follow the current manual mode in AGENTS.md for ordinary requests.
 
 Follow idiomatic `#![no_std]` embedded Rust practices, strict cryptographic hygiene, and hardware-specific constraints for an air-gapped, stateless Bitcoin hardware wallet (modeled after `privkeyio` Shrike / SeedSigner architecture) targeting the **Blake2b PoW Bitcoin hardfork**.
 
@@ -19,8 +19,8 @@ Research input names the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** and target `
 
 ## 2. Strict Air-Gap & Radio Quarantine Rules
 
-- Verify whether the actual board contains radios and how they are connected. The research proposes ESP32-C6 and GPIO/PMIC shutdown; these are candidates, not approved facts or an approved isolation method.
-- Compare physical and software isolation with evidence and obtain the owner's decision before choosing a method. Omitting drivers or powering a component down in software does not by itself prove physical isolation.
+- The owner chose physical isolation (2026-11-03): remove the board's ESP32-C6, or its antenna feed. The research proposed GPIO/PMIC shutdown, but on this board the C6's enable pin has a pull-up and its supply is shared with the P4, so that cannot isolate it (`device-references`, board sheet).
+- Firmware must not depend on the C6 or its SDIO link. Omitting drivers or powering a component down in software does not by itself prove physical isolation.
 - Verify and decide which external data ports and optical interfaces are appropriate before prescribing a production configuration.
 
 ## 3. Bitcoin, BIP-32, and Blake2b Fork Rules
@@ -29,6 +29,7 @@ Research input names the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** and target `
 - **Blake2b PoW Consensus Overrides**:
   - This wallet targets the **Blake2b Proof-of-Work hardfork** of Bitcoin.
   - Verify the fork's exact proof-of-work and signing specifications before choosing algorithms or library parameters.
+  - Sign only with the fork's unified sighash (owner decision, 2026-11-03; see `device-references`).
   - Evaluate the `blake2` crate against independently sourced fork test vectors; do not assume it matches the fork without verification.
   - Clearly separate standard SHA256/hash160 operations (used in scripts, taproot tree hashes, and legacy txids unless overridden by fork spec) from `Blake2bBlockHash` PoW verification using distinct newtypes.
 

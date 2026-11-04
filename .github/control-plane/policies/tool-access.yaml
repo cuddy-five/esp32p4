@@ -1,9 +1,28 @@
-# Proposed role-scoped tool and MCP access for future automated operation.
-# This document is not consumed or enforced by the current runtime. In
-# particular, shell access can write files even if an edit tool is excluded.
-# Do not treat these declarations as isolation or turn on enforcement now.
+# Role-scoped tool and MCP access for the agent profiles in .github/agents/.
+# This document is not consumed or enforced by the agent runtime: shell access
+# can write files even if an edit tool is excluded, so do not treat these
+# declarations as isolation. `control-plane policy check`, which CI runs, does
+# fail when a profile lists a tool its role does not allow, has no model pin,
+# or breaks the model rules below.
 
 version: 1
+
+# The role each profile plays. A profile missing here fails the check.
+profiles:
+  coordinator: coordinator
+  planner: planner
+  implementer: implementer
+  rust-coder: implementer
+  reviewer: reviewer
+  security-auditor: security_auditor
+  verifier: verifier
+  custom-agent-foundry: foundry
+
+# ADR 0003: security-critical review needs a different model family than its
+# author. Review roles also set `modelPolicy: required`.
+models:
+  coding_roles: [implementer]
+  review_roles: [reviewer, security_auditor, verifier]
 
 default_agent:
   excluded_tools:
@@ -79,6 +98,8 @@ roles:
       - context7/*
       - lsp # rust-coder: rust-analyzer from .github/lsp.json, not an MCP server.
       - todo
+      - web # rust-coder only: vendor documentation.
+      - github/* # rust-coder only: read tools; the GitHub server is read-only by default.
       - notebooklm/notebook_list # The NotebookLM entries apply to rust-coder only.
       - notebooklm/notebook_get
       - notebooklm/notebook_describe
@@ -89,7 +110,7 @@ roles:
       - notebooklm/notebook_query_status
       - notebooklm/cross_notebook_query
     forbidden_tools: []
-    mcp_servers: [context7, notebooklm]
+    mcp_servers: [github, context7, notebooklm]
 
   reviewer:
     allowed_tools:
@@ -131,3 +152,17 @@ roles:
     forbidden_tools:
       - edit
     mcp_servers: [github]
+
+  foundry: # custom-agent-foundry, the meta-agent that writes agent profiles.
+    allowed_tools:
+      - read
+      - search
+      - edit
+      - execute
+      - web
+      - agent
+      - github/*
+      - context7/*
+      - todo
+    forbidden_tools: []
+    mcp_servers: [github, context7]

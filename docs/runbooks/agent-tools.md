@@ -45,11 +45,11 @@ agent loads them with the `skill` tool when the task fits. See
 | coordinator | handoff | triage (the owner starts it with `/triage`; the agent cannot load it), domain-modeling | read, search, execute, `github/*`, agent, todo, six Basic Memory read tools, Basic Memory `write_note` and `edit_note` | **Tried.** `handoff` preloaded; `triage` refused to load, as designed (`disable-model-invocation: true`). Basic Memory search, `write_note` and `read_note` succeeded in a solo run; the scratch note was deleted afterwards. GitHub file read succeeded. `AGENTS.md` and `copilot-instructions.md` both loaded. |
 | planner | planning, acquire-codebase-knowledge, investigate-first | codebase-design, context-engineering, domain-modeling | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo, nine NotebookLM read tools, six Basic Memory read tools | **Tried.** All three preloaded; `codebase-design` loaded. NotebookLM list, Context7, `lsp` workspace symbols and GitHub succeeded. Basic Memory failed in the parallel batch (see below); it worked on 2026-10-30 and in the coordinator's solo run. |
 | implementer | implementation, surgical-patch, lean-build | context-engineering, github-actions-hardening, property-based-testing | read, search, edit, execute, `context7/*`, todo | **Tried.** All three preloaded; `context-engineering` loaded; Context7 succeeded. |
-| rust-coder | rust-patterns, rust-testing, device-references | implementation, property-based-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo, nine NotebookLM read tools | **Tried.** All three preloaded; `property-based-testing` loaded. `lsp` references (after one retry), NotebookLM list, Context7 and GitHub succeeded. |
+| rust-coder | rust-patterns, rust-testing, device-references | implementation, property-based-testing | read, search, edit, execute, web, `lsp`, `github/*`, `context7/*`, todo, nine NotebookLM read tools | **Tried.** All three preloaded; `property-based-testing` loaded. `lsp` references (after one retry), NotebookLM list, Context7 and GitHub succeeded. A second run on its new `gpt-6-luna` pin: GitHub succeeded and the skill text was in context, but the model misquoted one skill heading (see [Models](#models)). |
 | reviewer | review, code-review | test-gap-audit, device-references | read, search, execute, `lsp` | **Tried.** Both preloaded; `test-gap-audit` loaded; `lsp` references succeeded. `lsp` rename denied in both permission modes. No MCP by design. |
-| security-auditor | review, differential-review | agent-security-hardening, github-actions-hardening, agentic-actions-auditor, mcp-security-audit, device-references | read, search, execute, `lsp`, `github/*`, `context7/*`, nine NotebookLM read tools | **Tried.** Both preloaded; `mcp-security-audit` loaded. `lsp`, NotebookLM list and `notebook_query`, and Context7 succeeded. GitHub `get_file_contents` failed twice with `MCP error -32020: header mismatch: missing Mcp-Param-owner header`, while the same call succeeded for four agents in the same batch. |
+| security-auditor | review, differential-review | agent-security-hardening, github-actions-hardening, agentic-actions-auditor, mcp-security-audit, device-references | read, search, execute, `lsp`, `github/*`, `context7/*`, nine NotebookLM read tools | **Tried.** Both preloaded; `mcp-security-audit` loaded. `lsp`, NotebookLM list and `notebook_query`, and Context7 succeeded. GitHub `get_file_contents` failed twice with `MCP error -32020: header mismatch: missing Mcp-Param-owner header`, while the same call succeeded for four agents in the same batch. A second run, with identical arguments on the same model, succeeded on the first try, so the failure looks transient. |
 | verifier | verification, verify-and-stop | test-gap-audit | read, search, execute, `github/*` | **Tried.** Both preloaded; `test-gap-audit` loaded; GitHub succeeded. |
-| custom-agent-foundry | skill-creator | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | **Tried.** `skill-creator` preloaded; `planning` loaded; Context7 and GitHub succeeded. |
+| custom-agent-foundry | skill-creator | planning, review | read, search, edit, execute, web, agent, `github/*`, `context7/*`, todo | **Tried.** `skill-creator` preloaded; `planning` loaded; Context7 and GitHub succeeded. It ran on the session model because its old pin was unavailable (see [Models](#models)). |
 
 The planner's Basic Memory tools are `search_notes`, `read_note`,
 `build_context`, `recent_activity`, `read_content` and `list_directory`. The
@@ -58,6 +58,49 @@ server marks all six as read-only. The coordinator has the same six plus
 No agent has `delete_note`, `move_note` or the project tools. A test
 (`tests/unit/agent-team-config.test.js`) fails if any other agent gets a write
 tool or if anyone gets a delete, move or project tool.
+
+**CI gate.** `node src/cli.js policy check`, part of CI's `test` job, reads every
+profile and fails unless it is mapped to a role in
+`.github/control-plane/policies/tool-access.yaml`, lists only tools that role
+allows (a missing `tools` list fails, since Copilot then grants every tool), and
+pins one model ID. Review roles must also set `modelPolicy: required`
+and use a different model family from the coding agents. The gate checks
+declarations; the client still decides what an agent can actually do.
+
+### Models
+
+Every profile pins one model ID. ADR 0003 requires security-critical review
+from a different model family than the author's, so the two coding agents
+share OpenAI's `gpt-6-luna` and every review role uses another family. The
+[CI gate](#agents) checks that each review role declares a family the coding
+agents do not use; the shared `gpt-6-luna` pin itself is a convention.
+
+| Agent | Pinned model | Family | `modelPolicy` | Model that ran (2026-11-03) |
+| --- | --- | --- | --- | --- |
+| coordinator | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
+| planner | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
+| implementer | `gpt-6-luna` | OpenAI | none | `gpt-6-luna` |
+| rust-coder | `gpt-6-luna` (no pin before) | OpenAI | none | `gpt-6-luna` after the pin; the session model, `claude-sonnet-5.5`, before it |
+| reviewer | `kimi-k3` | Moonshot AI | `required` | `kimi-k3` |
+| security-auditor | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | `required` | `claude-sonnet-5.5`; with the old pin, the same model as the session fallback |
+| verifier | `claude-haiku-4.5` | Anthropic | `required` | `claude-haiku-4.5` |
+| custom-agent-foundry | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | none | `claude-sonnet-5.5`, as the session fallback for the old pin; not run again |
+
+**What was wrong.** GitHub retired Claude Sonnet 4.6 from Copilot on 2026-09-01
+for most plans ([changelog](https://github.blog/changelog/2026-08-31-selected-github-copilot-models-deprecated)).
+Copilot then runs the agent on the session model and only writes
+`Warning: Custom agent "…" specifies model "…" which is not available; using "…" instead`
+to stderr. rust-coder had no pin at all, so a security audit of its signing code
+ran on the model that wrote it.
+
+**`modelPolicy: required`** (camelCase, as the CLI reference spells it) makes
+Copilot refuse to dispatch the agent instead of falling back: "dispatch is
+refused rather than silently substituting an unauthored model". The review
+roles set it. This is documented, not live-checked. The 1.0.83 changelog's
+spelling, `model-policy`, did nothing in a probe: the agent still fell back.
+After a run that matters, check stderr for `which is not available`, or the
+`model.call_start` events in `--output-format json` output. The `/model` picker
+shows which models the account has.
 
 ## Skills
 
@@ -139,8 +182,16 @@ marked verified or unverified, with its source. State on 2026-11-03:
   revision v3.x, the internal memory sizes, the RNG's entropy sources and
   power modes. The Key Manager hardware exists, but ESP-IDF does not support it
   yet. ESP-IDF's eFuse table and programming guide cover JTAG disabling,
-  download mode and when the RNG is truly random. The address map and power
-  domains need the Technical Reference Manual.
+  download mode and when the RNG is truly random.
+- **Chip: Technical Reference Manual v0.7 read** for memory, access and power.
+  The LP core and DMA masters, USB included, can reach L2MEM and PSRAM unless
+  the APM permission unit is set up, and LP SRAM stays powered in every sleep
+  mode. The manual's peripheral table has wrong addresses, so code takes them
+  from ESP-IDF or the Rust PAC.
+- **Owner decisions (2026-11-03).** The device signs only with the unified
+  sighash. The ESP32-C6 is to be removed from the board, or its antenna feed.
+  Whether to enforce the RDTS limits is deferred to
+  [#21](https://github.com/cuddy-five/esp32p4/issues/21).
 
 The skill folder is not called `wallet-references` because a local Claude Code
 hook blocks writes to any path containing "wallet", to protect wallet files.
@@ -299,14 +350,25 @@ or if anyone gets a tool outside the read list.
 
 ### Still open
 
-- The ESP32-P4 Technical Reference Manual is unread, so the address map and
-  power-domain detail stay unverified. `poppler-utils` is installed in
-  `devbox` (2026-11-03): `pdftotext -layout <file> -` reads it.
-- Nothing on the board has been measured; the radio findings come from the
-  schematic.
-- Owner decisions recorded in `device-references`: whether the device also signs
-  legacy sighashes, whether it enforces the RDTS limits, and how to isolate the
-  ESP32-C6 physically.
+Nothing open is left in the agents' tools. The remaining firmware items moved
+to [#21](https://github.com/cuddy-five/esp32p4/issues/21) on 2026-11-03:
+
+- whether the device enforces the RDTS limits (the owner deferred it);
+- removing the ESP32-C6 from a real board, and checking the board afterwards;
+- measuring the board, since the radio findings come from the schematic only;
+- chip details not read yet: setting up PMP and APM, the LP TRNG block in
+  ESP-IDF's v3 register map, and whether LP SRAM keeps its contents on
+  `VDD_BAT` alone.
+
+Known limits that stay:
+
+- Starting several Copilot sessions at once breaks Basic Memory's handshake
+  (see the live check record). Start them one at a time.
+- `modelPolicy: required` should stop a review from running on another model,
+  but that is not live-checked. Check which model ran (see [Models](#models)).
+
+`poppler-utils` is installed in `devbox` (2026-11-03): `pdftotext -layout <file> -`
+reads the vendor PDFs.
 
 ## Live check record
 
@@ -388,10 +450,27 @@ something to index and was deleted afterwards. Results are in the table under
   neither.
 - **`skills:` preloading holds for every agent**: each quoted its preloaded
   skills' first lines without a tool call.
+- **Two agents ran on the wrong model.** The stderr files of the security-auditor
+  and custom-agent-foundry runs held the `which is not available` warning; this
+  record missed it at first. See [Models](#models).
+
+**2026-11-03, model pins.** Three runs after the profile changes in
+[Models](#models), about $0.12 in AI credits. Same flags as above; the
+`get_file_contents` runs added the GitHub read tools.
+
+| Run | Result |
+| --- | --- |
+| security-auditor, `claude-sonnet-5.5` with `model-policy: required` | Ran on `claude-sonnet-5.5`, no warning. Quoted both preloaded skills' headings exactly. `get_file_contents` succeeded on the first try, with the arguments and model that failed twice in the batch above. $0.098. |
+| rust-coder, `gpt-6-luna` | Ran on `gpt-6-luna`, no warning. `get_file_contents` succeeded. It quoted `# device-references` for the real heading `# Device references`. The other two headings equal their skill names, so the quotes prove little. $0.0035. |
+| Probe: a temporary profile with `model: claude-sonnet-4.6` and `model-policy: required` | Printed the warning and ran on `claude-sonnet-5.5`. The kebab-case key had no effect; the documented key is `modelPolicy`. The profile was deleted afterwards. $0.022. |
+
+The rust-coder's skill text was in context despite the misquote: the
+`selected_agent_instructions` entry under `system_segments` in
+`session.usage_checkpoint` had the size of the profile plus its three skills.
 
 ## Next slices
 
-1. The open items under [Still open](#still-open): the Technical Reference
-   Manual, and the owner's device decisions.
-2. Re-run the per-agent live check after any profile, skill or MCP change, with
-   the recipe above.
+1. The firmware items in [#21](https://github.com/cuddy-five/esp32p4/issues/21).
+2. Re-run the per-agent live check after any profile, skill, model or MCP
+   change, with the recipe above, and treat a `which is not available` warning
+   on stderr as a failure.

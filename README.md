@@ -101,7 +101,7 @@ npm test
 
 node src/cli.js validate path/to/*.json           # validate contract documents
 node src/cli.js schema list
-node src/cli.js policy check                       # state machine and approvals agree with contracts
+node src/cli.js policy check                       # state machine, approvals and agent profiles agree with policy
 
 node src/cli.js settings plan                      # what would change in this repo
 node src/cli.js settings check                     # exit 2 on drift

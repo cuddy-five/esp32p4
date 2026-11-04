@@ -36,6 +36,8 @@ export function normalizeRepoPath(filePath) {
  *   settingsDir: string,
  *   stateMachineFile: string,
  *   approvalsFile: string,
+ *   toolAccessFile: string,
+ *   agentsDir: string,
  *   reviewDomainsFile: string,
  *   isExplicit: boolean,
  * }}
@@ -53,6 +55,8 @@ export function resolveProjectPaths(projectDir) {
       settingsDir: path.join(controlPlaneDir, "settings"),
       stateMachineFile: path.join(controlPlaneDir, "orchestration", "state-machine.yaml"),
       approvalsFile: path.join(controlPlaneDir, "policies", "approvals.yaml"),
+      toolAccessFile: path.join(controlPlaneDir, "policies", "tool-access.yaml"),
+      agentsDir: path.join(abs, ".github", "agents"),
       reviewDomainsFile: path.join(abs, ".review-domains.json"),
       isExplicit: true,
     };
@@ -63,6 +67,8 @@ export function resolveProjectPaths(projectDir) {
     settingsDir: SETTINGS_DIR,
     stateMachineFile: path.join(CONTROL_PLANE_DIR, "orchestration", "state-machine.yaml"),
     approvalsFile: path.join(CONTROL_PLANE_DIR, "policies", "approvals.yaml"),
+    toolAccessFile: path.join(CONTROL_PLANE_DIR, "policies", "tool-access.yaml"),
+    agentsDir: path.join(REPO_ROOT, ".github", "agents"),
     reviewDomainsFile: path.join(REPO_ROOT, ".review-domains.json"),
     isExplicit: false,
   };
