@@ -143,6 +143,48 @@ test("plan routing sends ci_cd work to the human and ordinary work straight on",
   assert.match(gate(run(ordinary, { from: "planning", to: "in_progress", changedPaths: ["AGENTS.md"] }), "approval_not_required").reason, /instructions_and_ownership/);
 });
 
+test("review fix: evidence without a complete path list cannot prove scope", () => {
+  const noDiff = packet();
+  for (const d of noDiff) if (d.contract === "evidence") delete d.diff;
+  assert.match(gate(run(noDiff), "within_scope").reason, /no head evidence lists diff\.paths/);
+  const partial = packet();
+  for (const d of partial) if (d.contract === "evidence") d.diff = { files_changed: 7, additions: 1, deletions: 0, paths: ["src/cli.js"] };
+  assert.match(gate(run(partial), "within_scope").reason, /fewer paths than files_changed/);
+  assert.equal(gate(run(noDiff, { changedPaths: ["src/cli.js"] }), "within_scope").pass, true);
+});
+
+test("review fix: verification needs a passing check or test", () => {
+  for (const tests of [{ total: 0, passed: 0, failed: 0 }, { total: 10, passed: 0, failed: 0, skipped: 10 }]) {
+    const docs = packet();
+    Object.assign(docs.find((d) => d.id === "evidence_verifier_0001"), { checks: [], tests });
+    assert.match(gate(run(docs), "verification_passed").reason, /no passing check or test/);
+  }
+});
+
+test("review fix: plan files and git paths both route to the human", () => {
+  const docs = packet();
+  docs[0].risk.tags = [];
+  docs[1].steps[0].files_touched = [".github/control-plane/policies/approvals.yaml"];
+  for (const changedPaths of [[], ["src/a.js"], undefined]) {
+    const r = run(docs, { from: "planning", to: "in_progress", changedPaths });
+    assert.match(gate(r, "approval_not_required").reason, /control_plane_self/);
+  }
+  const unlisted = packet();
+  unlisted[0].risk.tags = [];
+  for (const step of unlisted[1].steps) delete step.files_touched;
+  const r = run(unlisted, { from: "planning", to: "in_progress" });
+  assert.match(gate(r, "approval_not_required").reason, /s1, s2 list no files_touched/);
+});
+
+test("review fix: an unidentified implementer fails the self-review checks", () => {
+  const docs = packet().filter((d) => d.contract !== "handoff");
+  docs.find((d) => d.review_kind === "code").producer = { kind: "agent", name: "implementer", role: "reviewer" };
+  const r = run(docs);
+  assert.equal(r.ok, false);
+  assert.match(gate(r, "reviews_approve").reason, /no implementer/);
+  assert.match(gate(r, "verification_passed").reason, /no implementer/);
+});
+
 test("invalid, mixed or ambiguous packets are rejected", () => {
   assert.throws(() => run([{ contract: "task" }]), /invalid documents/);
   const foreign = packet();

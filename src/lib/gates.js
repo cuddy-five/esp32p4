@@ -67,6 +67,7 @@ function implementerNames(packet) {
 
 /** Latest review of a kind for the head commit, with a reason when none qualifies. */
 function latestReview(ctx, kind, { notBy, label }) {
+  if (!notBy.size) return { pass: false, reason: `${label} review cannot be checked for self-review: no implementer handoff or implementer-role producer` };
   const all = ctx.packet.reviews.filter((r) => r.review_kind === kind);
   if (!all.length) return { pass: false, reason: `no ${label} review` };
   const atHead = all.filter((r) => r.subject.sha === ctx.headSha);
@@ -81,13 +82,21 @@ function latestReview(ctx, kind, { notBy, label }) {
   return { pass: true, reason: `${label} review ${latest.id} by ${latest.producer.name} approves ${short(ctx.headSha)}` };
 }
 
+/** Step kinds that only read; every other kind may write files. */
+const READ_ONLY_STEPS = new Set(["investigate", "verify"]);
+
 function planStagePaths(plan) {
   return [...new Set((plan?.steps ?? []).flatMap((s) => s.files_touched ?? []))];
 }
 
+/** Plan and git paths together; a writing step that lists no files sends the plan to a human. */
 function needsHumanAtPlan(ctx) {
   const plan = ctx.plan;
-  const paths = ctx.changedPaths ?? planStagePaths(plan);
+  const unlisted = (plan?.steps ?? []).filter((s) => !READ_ONLY_STEPS.has(s.kind) && !s.files_touched?.length);
+  if (!plan || unlisted.length) {
+    return { required: true, reasons: [plan ? `steps ${unlisted.map((s) => s.id).join(", ")} list no files_touched` : "no current plan"] };
+  }
+  const paths = [...new Set([...planStagePaths(plan), ...(ctx.changedPaths ?? [])])];
   const { stages, reasons } = requiredHumanStages(ctx.policy, { risk: ctx.packet.task.risk, paths });
   return { required: stages.includes("plan"), reasons };
 }
@@ -161,8 +170,13 @@ const EVALUATORS = {
   within_scope: (ctx) => {
     const atHead = ctx.packet.evidence.filter((e) => e.subject.sha === ctx.headSha);
     const recorded = atHead.flatMap((e) => e.diff?.out_of_scope_paths ?? []);
+    if (!ctx.changedPaths) {
+      const listed = atHead.filter((e) => Array.isArray(e.diff?.paths));
+      if (!listed.length) return { pass: false, reason: "changed paths unknown: no --base and no head evidence lists diff.paths" };
+      const partial = listed.filter((e) => e.diff.paths.length < e.diff.files_changed);
+      if (partial.length) return { pass: false, reason: `evidence ${partial.map((e) => e.id).join(", ")} lists fewer paths than files_changed` };
+    }
     const paths = ctx.changedPaths ?? [...new Set(atHead.flatMap((e) => e.diff?.paths ?? []))];
-    if (!ctx.changedPaths && !atHead.length) return { pass: false, reason: "changed paths unknown: no --base and no evidence for head" };
     const out = [...new Set([...findOutOfScopePaths(paths, ctx.packet.task.scope), ...recorded])];
     if (out.length) return { pass: false, reason: `out of scope: ${out.join(", ")}` };
     return { pass: true, reason: `${paths.length} changed paths within task scope${ctx.changedPaths ? " (from git)" : " (from evidence)"}` };
@@ -190,9 +204,11 @@ const EVALUATORS = {
     const own = ctx.packet.evidence.filter((e) => e.producer?.role === "verifier" && e.subject.sha === ctx.headSha);
     if (!own.length) return { pass: false, reason: `no verifier evidence for ${short(ctx.headSha)}` };
     const ev = own.at(-1);
+    if (!ctx.implementers.size) return { pass: false, reason: "verifier independence cannot be checked: no implementer handoff or implementer-role producer" };
     if (ctx.implementers.has(nameOf(ev))) return { pass: false, reason: `verifier evidence was produced by implementer "${ev.producer.name}"` };
     const checks = ev.checks ?? [];
-    if (!checks.length && !ev.tests) return { pass: false, reason: `verifier evidence ${ev.id} records no checks or tests` };
+    const greenCheck = checks.some((c) => c.required !== false && c.conclusion === "success");
+    if (!greenCheck && !(ev.tests?.passed > 0)) return { pass: false, reason: `verifier evidence ${ev.id} records no passing check or test` };
     const failed = checks.filter((c) => c.required !== false && c.conclusion !== "success").map((c) => `${c.name}=${c.conclusion}`);
     if (ev.tests?.failed) failed.push(`${ev.tests.failed} failed tests`);
     if (failed.length) return { pass: false, reason: `verifier evidence ${ev.id} is not green: ${failed.join(", ")}` };
