@@ -23,6 +23,7 @@ import { compactLogs } from "./compaction.js";
 import { evaluateTransition } from "./lib/gates.js";
 import { parseApprovalComments } from "./lib/approval-comments.js";
 import { changedPaths, commit, git } from "./lib/workflow-gate.js";
+import { discoverTask, RECORDS_ROOT } from "./lib/task-records.js";
 
 export const EXIT = Object.freeze({ OK: 0, ERROR: 1, FAILED: 2 });
 
@@ -61,10 +62,15 @@ Commands
     --output <file>            Save only the standalone evidence contract
 
   gate check <file...> --head-sha <sha> [--from <state>] [--to <state>]
+  gate check --discover --base <ref> --head-sha <sha> [...]
                                Evaluate one state-machine transition's gates over
                                a task's contract documents; exit 2 when any fails
     --from, --to               Transition (default: awaiting_approval -> done)
     --base <ref>               Read changed paths from git diff <ref>...<head-sha>
+    --discover                 Read the task records the diff changes under
+                               ${RECORDS_ROOT}<task_id>/ from git at
+                               --head-sha; evidence covers the last commit before
+                               records-only commits. No records: exit 0, not applicable
     --pr <number>              Read overseer /approve comments from this pull request;
                                --head-sha must be its head commit
     --repo <owner/name>        Repository of --pr (default: GH_REPO or origin)
@@ -343,16 +349,17 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
       pr: { type: "string" },
       repo: { type: "string" },
       now: { type: "string" },
+      discover: { type: "boolean", default: false },
       format: { type: "string", default: "text" },
     },
   });
   if (!checkFormat("gate check", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
-  if (positionals.length === 0) {
-    stderr("gate check: at least one contract document is required");
+  if (values.discover ? positionals.length > 0 || !values.base : positionals.length === 0) {
+    stderr(values.discover
+      ? "gate check: --discover needs --base and takes no document files"
+      : "gate check: at least one contract document is required");
     return EXIT.ERROR;
   }
-  const readJson = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
-  const docs = positionals.map(readJson);
   const now = values.now === undefined ? Date.now() : Date.parse(values.now);
   if (!Number.isFinite(now)) {
     stderr("gate check: --now must be an ISO-8601 timestamp");
@@ -377,22 +384,45 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     }
     ({ approvals, ignored } = parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`)));
   }
-  const paths = values.base ? changedPaths(commit(values.base, false, git), commit(headSha, true, git), git) : undefined;
+  let docs;
+  let subject = headSha;
+  let paths;
+  let recordsDir;
+  if (values.discover) {
+    const found = discoverTask(commit(values.base, false, git), commit(headSha, true, git), git);
+    if (!found) {
+      const skip = { applicable: false, ok: true, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` };
+      stdout(values.format === "json" ? JSON.stringify(skip, null, 2) : `SKIP ${skip.reason}; the task gate does not apply to this change`);
+      return EXIT.OK;
+    }
+    ({ docs, subject, paths, dir: recordsDir } = found);
+  } else {
+    docs = positionals.map((file) => JSON.parse(fs.readFileSync(file, "utf8")));
+    paths = values.base ? changedPaths(commit(values.base, false, git), commit(headSha, true, git), git) : undefined;
+  }
   const report = evaluateTransition(docs, {
     from: values.from,
     to: values.to,
-    headSha,
+    headSha: subject,
+    mergeSha: headSha,
     changedPaths: paths,
     approvals,
     now,
   });
+  if (recordsDir) report.records_dir = recordsDir;
   report.ignored_approval_comments = ignored;
   if (values.format === "json") {
     stdout(JSON.stringify(report, null, 2));
   } else {
-    stdout(`${report.ok ? "PASS" : "FAIL"} ${report.transition} for ${printable(report.task_id)} at ${report.head_sha}`);
+    const at = subject === headSha ? headSha : `${subject} (records-only commits up to ${headSha})`;
+    stdout(`${report.ok ? "PASS" : "FAIL"} ${report.transition} for ${printable(report.task_id)} at ${at}`);
     for (const g of report.gates) stdout(`  ${g.pass ? "ok  " : "FAIL"} ${g.gate}: ${printable(g.reason)}`);
     for (const why of ignored) stdout(`  ignored ${printable(why)}`);
+    const approval = report.gates.find((g) => g.gate === "approval_granted");
+    if (approval && !approval.pass && report.plan_id) {
+      const sha = report.stage === "merge" ? ` sha=${headSha}` : "";
+      stdout(`Overseer approval line: /approve ${report.stage} task=${printable(report.task_id)} plan=${printable(report.plan_id)}${sha}`);
+    }
     stdout(report.authority);
   }
   return report.ok ? EXIT.OK : EXIT.FAILED;

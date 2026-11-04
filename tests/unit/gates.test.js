@@ -3,11 +3,13 @@ import { test } from "node:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { evaluateTransition, IMPLEMENTED_GATES } from "../../src/lib/gates.js";
 import { parseApprovalComments } from "../../src/lib/approval-comments.js";
 import { main } from "../../src/cli.js";
+import { discoverTask, RECORDS_ROOT } from "../../src/lib/task-records.js";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const example = (kind) => JSON.parse(fs.readFileSync(path.join(root, `.github/control-plane/contracts/examples/${kind}.example.json`), "utf8"));
@@ -281,4 +283,103 @@ test("gate check CLI reads approvals from PR comments by policy overseers", asyn
   assert.match(out.join("\n"), /is not the head of PR #24/);
   assert.equal(await main([...args, "--pr", "0"], io()), 1);
   assert.equal(await main([...args, "--format", "yaml"], io()), 1);
+});
+
+/** A git repo: base, a code commit (the subject), then a records-only commit at the PR head. */
+function recordsRepo(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gate-records-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const g = (...args) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+  for (const args of [["init", "-q"], ["config", "user.email", "fixture@example.invalid"], ["config", "user.name", "fixture"], ["config", "commit.gpgsign", "false"]]) g(...args);
+  const commitFiles = (files, message) => {
+    for (const [name, text] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+      fs.writeFileSync(path.join(dir, name), text);
+    }
+    g("add", "-A");
+    g("commit", "-qm", message);
+    return g("rev-parse", "HEAD");
+  };
+  const base = commitFiles({ "README.md": "base\n" }, "base");
+  const subject = commitFiles({ "src/a.js": "export {};\n" }, "code");
+  const recordsDir = `${RECORDS_ROOT}${example("task").id}/`;
+  const records = (sha) => Object.fromEntries(packet().map((doc, i) => [`${recordsDir}${i}.json`, JSON.stringify(doc).replaceAll(HEAD, sha)]));
+  const head = commitFiles(records(subject), "records");
+  return { dir, g, commitFiles, records, recordsDir, base, subject, head };
+}
+
+/** Run the CLI with the fixture repo as the working directory, as CI does. */
+async function inRepo(t, dir, args, client) {
+  const cwd = process.cwd();
+  process.chdir(dir);
+  t.after(() => process.chdir(cwd));
+  const out = [];
+  try {
+    const code = await main(["gate", "check", "--discover", ...args], { stdout: (s) => out.push(s), stderr: (s) => out.push(s), env: {}, client });
+    return { code, text: out.join("\n") };
+  } finally {
+    process.chdir(cwd);
+  }
+}
+
+test("discover: evidence covers the last code commit; the approval names the PR head", async (t) => {
+  const r = recordsRepo(t);
+  const found = discoverTask(r.base, r.head, (args) => execFileSync("git", args, { cwd: r.dir }));
+  assert.equal(found.subject, r.subject);
+  assert.deepEqual(found.paths, ["src/a.js"]);
+  assert.equal(found.docs.length, packet().length);
+
+  const approve = (sha) => fakeGitHub([comment(`/approve merge task=${example("task").id} plan=${example("plan").id} sha=${sha}`)], r.head);
+  const args = ["--base", r.base, "--head-sha", r.head, "--pr", "24", "--repo", "o/r", "--now", "2026-10-12T02:00:00Z"];
+  let res = await inRepo(t, r.dir, args, approve(r.head));
+  assert.equal(res.code, 0, res.text);
+  assert.match(res.text, new RegExp(`at ${r.subject} \\(records-only commits up to ${r.head}\\)`));
+  assert.match(res.text, /within_scope: 1 changed paths within task scope \(from git\)/);
+
+  res = await inRepo(t, r.dir, args, approve(r.subject));
+  assert.equal(res.code, 2, res.text);
+  assert.match(res.text, /approves [0-9a-f]{12}, head is/);
+  assert.match(res.text, new RegExp(`Overseer approval line: /approve merge task=\\S+ plan=\\S+ sha=${r.head}`));
+});
+
+test("discover: a code change after the records makes them stale; a scope breach still fails", async (t) => {
+  const r = recordsRepo(t);
+  const later = r.commitFiles({ "src/b.js": "export {};\n" }, "more code");
+  const client = fakeGitHub([comment(`/approve merge task=${example("task").id} plan=${example("plan").id} sha=${later}`)], later);
+  const args = ["--base", r.base, "--head-sha", later, "--pr", "24", "--repo", "o/r", "--now", "2026-10-12T02:00:00Z"];
+  let res = await inRepo(t, r.dir, args, client);
+  assert.equal(res.code, 2, res.text);
+  assert.match(res.text, /evidence is stale/);
+
+  r.commitFiles({ ".github/workflows/x.yml": "on: push\n" }, "forbidden");
+  const head = r.commitFiles(r.records(r.g("rev-parse", "HEAD")), "refresh records");
+  res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", head], undefined);
+  assert.equal(res.code, 2, res.text);
+  assert.match(res.text, /out of scope: \.github\/workflows\/x\.yml/);
+});
+
+test("discover: no records skips; malformed, mixed or misnamed records are errors", async (t) => {
+  const r = recordsRepo(t);
+  let res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", r.subject]);
+  assert.equal(res.code, 0, res.text);
+  assert.match(res.text, /^SKIP no task records/);
+
+  for (const [files, why] of [
+    [{ [`${RECORDS_ROOT}README.md`]: "x\n" }, /records must be/],
+    [{ [`${RECORDS_ROOT}task_other_0001/0.json`]: "{}\n" }, /one task per pull request/],
+    [{ [`${r.recordsDir}notes.txt`]: "x\n" }, /must be|not a \.json record/],
+    [{ [`${r.recordsDir}0.json`]: "{" }, /not valid JSON/],
+  ]) {
+    const head = r.commitFiles(files, "bad records");
+    res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", head]);
+    assert.equal(res.code, 1, res.text);
+    assert.match(res.text, why);
+    r.g("reset", "-q", "--hard", r.head);
+  }
+
+  const misnamed = r.commitFiles({ [`${RECORDS_ROOT}task_misnamed_0001/0.json`]: JSON.stringify(example("task")) }, "misnamed");
+  res = await inRepo(t, r.dir, ["--base", r.head, "--head-sha", misnamed]);
+  assert.equal(res.code, 1, res.text);
+  assert.match(res.text, /must be named after the task id/);
+  assert.equal((await inRepo(t, r.dir, ["--head-sha", r.head, "x.json"])).code, 1);
 });

@@ -17,8 +17,9 @@ Use the [manual team runbook](agent-team.md) to start or resume work and the
 [project brief](../templates/project-brief.md) to record requirements and
 unknowns in `PROJECT.md`.
 
-**Current boundary:** contracts, validation, settings tools, CI and an
-on-request gate evaluator (`gate check`) work today. The evaluator rejects
+**Current boundary:** contracts, validation, settings tools, CI and a gate
+evaluator (`gate check`, run by the `task-gate` check on PRs that commit task
+records) work today. The evaluator rejects
 missing or stale approvals, stale evidence, self-review and out-of-scope paths
 in supplied records, but it trusts the producer names in those records. It
 reads your approval from a PR comment (below). The coordinator profile exists,
@@ -68,7 +69,8 @@ of its own:
 `gate check --pr <number>` counts the comment only when its author is in
 `approval.overseers` in `policies/approvals.yaml`, it is not edited, and it
 names the current plan and, at merge, the PR head. A new push or 72 hours
-voids it; post a new comment instead of editing. GitHub identifies the
+voids it; post a new comment instead of editing. The `task-gate` check prints
+the exact line to post; re-run that check after you post it. GitHub identifies the
 account, not the person: an agent with your GitHub token could post one, so
 give agents a token that cannot comment, or check the comment yourself.
 Approving does not merge; you still merge in GitHub.

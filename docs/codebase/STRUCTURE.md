@@ -22,7 +22,7 @@
 - Secondary entry points:
   - [.github/actions/validate-contract/action.yml](../../.github/actions/validate-contract/action.yml) — Composite GitHub Action used across consumer repositories to validate contract files.
   - [.github/workflows/ci.yml](../../.github/workflows/ci.yml) — Continuous integration workflow running tests, policy checks, whitespace linting, and contract validation.
-  - [.github/workflows/merge-gate.yml](../../.github/workflows/merge-gate.yml) — Informational PR merge-gate report runner.
+  - [.github/workflows/merge-gate.yml](../../.github/workflows/merge-gate.yml) — PR merge-gate: informational report plus the `task-gate` check over committed task records.
   - [.github/workflows/settings-sync.yml](../../.github/workflows/settings-sync.yml) — Reconciles repository settings when triggered via workflow dispatch.
 - How entry is selected: Invoked via standard CLI commands (`node src/cli.js <command>`), npm scripts (`npm test`, `npm run validate:examples`), or GitHub Actions triggers (`pull_request`, `push`, `workflow_dispatch`).
 

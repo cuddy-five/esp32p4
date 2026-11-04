@@ -54,8 +54,9 @@ states:
 # Gate names. `status: implemented` means `control-plane gate check`
 # (src/lib/gates.js) evaluates the gate over supplied contract documents; it
 # fails closed and does not authenticate producers. Approvals count only from
-# overseer PR comments that `gate check --pr` reads from GitHub. Nothing runs
-# the check automatically yet. tests/unit/gates.test.js keeps this list in step.
+# overseer PR comments that `gate check --pr` reads from GitHub. The merge-gate
+# workflow's task-gate job checks awaiting_approval -> done on PRs that commit
+# task records. tests/unit/gates.test.js keeps this list in step.
 gates:
   task_valid:
     description: Task document validates against task.schema.json.
