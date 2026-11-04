@@ -2,7 +2,7 @@
 name: custom-agent-foundry
 description: 'Expert at designing, validating, and registering custom agents, skills, and MCP toolsets for the esp32p4 adversarial control plane and #![no_std] Rust firmware'
 argument-hint: 'Describe the agent role, control-plane or ESP32-P4 firmware domain, required tools/MCPs, and handoff chain'
-model: claude-sonnet-4.6
+model: claude-sonnet-5.5
 infer: false
 tools: ['read', 'search', 'edit', 'execute', 'web', 'agent', 'github/*', 'context7/*', 'todo']
 skills: [skill-creator]
@@ -71,7 +71,7 @@ If the agent is registered in `.agents.registry.json` (or a skill in `.skills.re
   4. Be **unique** across all registry entries.
 - **Schema Compliance (`docs/agents/registry.schema.json`)**:
   - `id`: Lowercase `snake_case` matching `^[a-z_][a-z0-9_]*$` (whereas `.github/agents/` filenames use `kebab-case.agent.md`).
-  - `model`: Must be one of the schema-allowed models (`"claude-haiku-4.5"`, `"claude-sonnet-4.6"`, `"gpt-5.3-codex"`, `"gpt-5.6-luna"`, `"gpt-6-luna"`, `"kimi-k3"`, `"mai-code-1.1-flash"`) unless updating `docs/agents/registry.schema.json` in the same task.
+  - `model`: Must be one of the schema-allowed models (`"claude-haiku-4.5"`, `"claude-sonnet-5.5"`, `"gpt-5.3-codex"`, `"gpt-5.6-luna"`, `"gpt-6-luna"`, `"kimi-k3"`, `"mai-code-1.1-flash"`) unless updating `docs/agents/registry.schema.json` in the same task.
   - `budget`: Must declare `max_ai_credits` (>=100), `max_tokens_per_request` (>=1000), and `max_concurrent_tasks` (>=1).
   - `scope`: Must declare `allowed_paths` and `forbidden_paths` arrays (always forbidding `.env*`, `**/node_modules/**`, `**/.git/**`).
 
@@ -111,7 +111,8 @@ If the agent is registered in `.agents.registry.json` (or a skill in `.skills.re
 name: role-name # Unique identifier (kebab-case matching filename)
 description: 'Brief, clear description shown in chat input and used for runtime selection (required)'
 argument-hint: 'Guidance text for users on required contract paths or issue numbers (optional)'
-model: gpt-5.6-luna # Primary model (or ordered list for Copilot fallback)
+model: gpt-5.6-luna # One model ID this account can use; an unavailable one silently becomes the session model
+model-policy: required # Review roles only: keeps session model changes on the pin. See docs/runbooks/agent-tools.md#models
 infer: true # Set false for meta-agents or destructive tools requiring explicit invocation
 tools: ['read', 'search', 'github/*'] # Choose tools supported by the client
 skills: [skill-name] # Preloaded in full on every run; at most three. Name optional skills in the body.
