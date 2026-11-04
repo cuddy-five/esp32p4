@@ -1,0 +1,33 @@
+{
+  "contract": "review",
+  "schema_version": "1.0.0",
+  "id": "review_plan-cli-subcommand-help-1",
+  "created_at": "2026-11-04T23:26:00Z",
+  "producer": { "kind": "agent", "name": "copilot/reviewer", "role": "reviewer", "model": "kimi-k3" },
+  "trace": { "correlation_id": "trace_issue-7-representative-task", "parent_id": "plan_cli-subcommand-help-1" },
+  "task_id": "task_cli-subcommand-help",
+  "plan_id": "plan_cli-subcommand-help-1",
+  "subject": { "sha": "d3476ee6af2b85dfc0d2ba1f5380ecdca20acc2a" },
+  "review_kind": "plan",
+  "verdict": "approve",
+  "summary": "The plan is accurate about the code, covers every acceptance criterion and every real subcommand, stays strictly inside the allowed paths, and is the smallest workable change: intercept -h/--help centrally in main() before command-specific parsing, add regression tests, then verify with the task's own commands.",
+  "overseer_note": "I checked the plan against the actual CLI code. Everything it claims is true: src/cli.js has one main() function that dispatches the seven commands, a single USAGE text constant, and EXIT.OK/EXIT.ERROR codes, and today --help after a subcommand fails exactly as the task says (for example via parseArgs rejecting the unknown option, or the 'unknown subcommand' path for schema/policy/gate/settings). The plan's command and subcommand list matches the code exactly — validate, schema list/show, policy check/stages, evidence, gate check, compact, and settings plan/check/apply/export — so no subcommand is missed. Putting the help check in main() before each command's own parsing is the smallest change that works: one edit handles all sixteen help forms, including cases like 'validate --help' with no files or 'settings apply --help' without --yes, which the plan's stated assumption about precedence correctly anticipates. The two files it touches are exactly the two the task allows, and nothing forbidden is near it. The verification step is real: new unit tests plus the task's own acceptance commands (npm test, validate:examples, policy check, git diff --check) and a direct run of 'gate check --help'. I found nothing that should block or change this plan; the only thing left to the implementer's judgment is the exact way to spot the flag, which is a trivial detail. This plan is safe to approve.",
+  "confidence": 0.9,
+  "findings": [
+    {
+      "id": "f-1",
+      "severity": "info",
+      "category": "maintainability",
+      "message": "The plan does not pin down the exact detection mechanism (e.g., scanning the remaining args for -h/--help inside main() before dispatch and reusing the existing stdout(USAGE) path), leaving that detail to the implementer.",
+      "blocking": false,
+      "path": "src/cli.js",
+      "suggestion": "Reuse the existing top-level --help/-h handling in main() so there is exactly one place that prints USAGE with EXIT.OK."
+    }
+  ],
+  "checklist": [
+    { "item": "`--help` or `-h` after any command or subcommand (validate, schema, policy, evidence, gate, compact, settings) prints the usage text to stdout and exits 0", "criterion_id": "ac-1", "satisfied": true, "notes": "Step 'implement-help-handling' intercepts -h/--help in main() before command-specific parsing and prints the existing USAGE constant with EXIT.OK; its test list covers every command and subcommand that actually exists in src/cli.js, with none missed." },
+    { "item": "Unknown options other than --help/-h still fail with exit 1 as before", "criterion_id": "ac-2", "satisfied": true, "notes": "The implementation step explicitly preserves handling of other unknown options, and step 'add-help-regressions' adds a regression test that an unrelated unknown option still returns EXIT.ERROR." },
+    { "item": "npm test, npm run validate:examples, node src/cli.js policy check and git diff --check all pass", "criterion_id": "ac-3", "satisfied": true, "notes": "Step 'verify-cli-help' runs all four acceptance commands plus a direct executable invocation of 'gate check --help', matching the task's checks exactly." }
+  ],
+  "scope_compliance": { "within_scope": true, "violations": [] }
+}
