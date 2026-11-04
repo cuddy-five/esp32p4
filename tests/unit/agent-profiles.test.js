@@ -30,7 +30,7 @@ function problems({ coder = CODER, checker = CHECKER, extra = {}, policy = POLIC
     const agentsDir = path.join(dir, "agents");
     fs.mkdirSync(agentsDir);
     for (const [name, fields] of Object.entries({ coder, checker, ...extra })) {
-      if (fields !== null) fs.writeFileSync(path.join(agentsDir, `${name}.agent.md`), `---\n${fields}\n---\n\nBody.\n`);
+      if (fields !== null) fs.writeFileSync(path.join(agentsDir, name.endsWith(".md") ? name : `${name}.agent.md`), `---\n${fields}\n---\n\nBody.\n`);
     }
     const toolAccessFile = path.join(dir, "tool-access.yaml");
     fs.writeFileSync(toolAccessFile, policy);
@@ -66,6 +66,8 @@ describe("agent profiles against the tool policy", () => {
   test("a missing tools list fails, and a comma-separated list is checked", () => {
     assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required" }), /must list its tools/);
     assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: 'read, edit'" }), /"edit" is not allowed for role reviewer/);
+    assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: ''" }), /must list its tools/);
+    assert.equal(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: []" }), "");
   });
 
   test("a profile without a model pin fails", () => {
@@ -84,6 +86,7 @@ describe("agent profiles against the tool policy", () => {
 
   test("profiles and the role map must match both ways", () => {
     assert.match(problems({ extra: { stray: CODER } }), /profile "stray" has no role/);
+    assert.match(problems({ extra: { "plain.md": CODER } }), /profile "plain" has no role/);
     assert.match(problems({ checker: null }), /no profile checker\.agent\.md/);
   });
 
