@@ -24,10 +24,13 @@ the outcome; agents prepare the records and work; the owner decides every
 merge. [CONTRIBUTING.md](../../CONTRIBUTING.md) connects the GitHub entry
 points. This runbook uses the existing [contracts](../architecture/contracts.md)
 and [approval policy](../../.github/control-plane/policies/approvals.yaml).
-There is no running dispatcher or approval authenticator. People and agents
-must uphold these working agreements.
+There is no running dispatcher. People and agents must uphold these working
+agreements. `node src/cli.js gate check` evaluates one transition's gates over
+the task's records on request; nothing runs it automatically yet. It trusts
+producer names in the records. Human approval counts only from an overseer's
+`/approve` PR comment, which `--pr` reads from GitHub.
 
-A successful report is not proof of task scope, completed reviews or human approval. There is no authenticated automatic approval gate.
+A successful report is not proof of task scope or completed reviews, and it grants no merge permission. Agents never post `/approve` comments.
 
 ## 1. Establish the project and task
 
@@ -57,7 +60,7 @@ implementation. These are declared gates, not an executing coordinator.
 
 Use existing authorization only when it covers this task, current plan and
 required stage and remains valid under policy. Check the original human
-record, not a copied approval annotation. Human approval expires after 72
+record, an overseer's `/approve` PR comment, not a copied approval annotation. Human approval expires after 72
 hours and is invalidated as the policy specifies. Scope expansion requires
 human resolution of a `scope_expansion` escalation and a new reviewed plan;
 a reviewer cannot waive it, and expiry cannot authorize it.
@@ -96,6 +99,8 @@ npm test
 npm run validate:examples
 node src/cli.js policy check
 node src/cli.js validate path/to/task.json path/to/plan.json
+node src/cli.js gate check records/*.json --head-sha <sha> --base origin/main \
+  --pr <number>
 git diff --check
 ```
 
@@ -103,7 +108,13 @@ git diff --check
 example-validation script. `node` executes `src/cli.js`: `policy check`
 checks declaration consistency, and `validate` checks the contract files
 given as positional paths (replace them with the actual records). These
-commands have no flags. `git diff --check` checks tracked working changes
+commands have no flags, except `gate check`: `--head-sha` names the commit
+under decision, `--base` reads its changed paths from git, and `--pr` reads
+approval comments from that pull request by the `approval.overseers` logins
+in `policies/approvals.yaml`. It refuses a `--head-sha` that is not the PR's
+head. Without `--pr`, `approval_granted` fails.
+It defaults to the `awaiting_approval -> done` transition and exits `2` when
+any gate fails. `git diff --check` checks tracked working changes
 for whitespace errors; it does not check untracked files or execute tests.
 Use the existing development environment; installations need their own
 authorized plan. Workflow changes also need actionlint and shellcheck.

@@ -6,20 +6,20 @@ import { ContractRegistry } from "./contracts.js";
 import { loadApprovals, requiredHumanStages } from "./orchestration.js";
 import { findOutOfScopePaths } from "../evidence.js";
 
-function git(args) {
+export function git(args) {
   const result = spawnSync("git", args, { maxBuffer: 32 * 1024 * 1024 });
   if (result.error || result.status !== 0) throw new Error("Git comparison failed or commit is unavailable.");
   return result.stdout;
 }
 
-function commit(ref, requireSha, runGit) {
+export function commit(ref, requireSha, runGit) {
   if (!ref || (requireSha && !/^[0-9a-f]{40}$/.test(ref))) throw new Error("Missing or invalid PR commit SHA.");
   const sha = runGit(["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`]).toString("ascii").trim();
   if (!/^[0-9a-f]{40}$/.test(sha) || (requireSha && sha !== ref)) throw new Error("Commit is unavailable.");
   return sha;
 }
 
-function changedPaths(base, head, runGit) {
+export function changedPaths(base, head, runGit) {
   // Three-dot form diffs from the merge base, so commits that landed on the base
   // branch after the PR branched are not reported as the PR's own changes.
   const bytes = runGit(["diff", "--no-renames", "--name-only", "-z", `${base}...${head}`, "--"]);

@@ -75,7 +75,7 @@ describe("state-machine.yaml", () => {
   });
 
   test("planning branches select complementary approval requirements", () => {
-    assert.equal(doc.gates.approval_required?.status, "planned");
+    assert.equal(doc.gates.approval_required?.status, "implemented");
     for (const [to, required, excluded] of [
       ["awaiting_approval", "approval_required", "approval_not_required"],
       ["in_progress", "approval_not_required", "approval_required"],
@@ -204,6 +204,7 @@ describe("approvals.yaml", () => {
       d.by_risk.low.required_reviews = ["vibes"];
       d.always_human[0].tags = ["cosmic"];
       d.approval.must_be_from = "coordinator";
+      d.approval.overseers = ["not a/login"];
     });
     const { problems } = loadApprovals({ file: f, enums });
     const msgs = problems.map((p) => p.message).join("\n");
@@ -211,6 +212,7 @@ describe("approvals.yaml", () => {
     assert.match(msgs, /"vibes" is not a review_kind/);
     assert.match(msgs, /"cosmic" is not a task risk tag/);
     assert.match(msgs, /must be "human"/);
+    assert.match(msgs, /"not a\/login" is not a GitHub login/);
   });
 
   test("detects a missing risk level", () => {

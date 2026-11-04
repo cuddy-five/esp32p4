@@ -222,6 +222,9 @@ export function loadApprovals({ file = APPROVALS_FILE, enums = contractEnums() }
   if (!Number.isInteger(doc.approval?.expires_after_hours) || doc.approval.expires_after_hours <= 0) {
     p("/approval/expires_after_hours", "must be a positive integer");
   }
+  const overseers = doc.approval?.overseers;
+  if (!Array.isArray(overseers) || overseers.length === 0) p("/approval/overseers", "must list at least one GitHub login");
+  else for (const o of overseers) if (typeof o !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(o)) p("/approval/overseers", `"${o}" is not a GitHub login`);
 
   return { doc, problems };
 }
