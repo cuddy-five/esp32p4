@@ -23,7 +23,7 @@ include-custom-instructions: true
 
 **Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
-**Skills:** `review` and `differential-review` are preloaded. Load these with the skill tool when the task fits: `agent-security-hardening` (agent profiles, tools, MCP, hooks and memory), `github-actions-hardening` (workflows), `agentic-actions-auditor` (workflows that run an AI agent), `mcp-security-audit` (MCP server configuration) and `device-references` (wallet, board or protocol claims). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
+**Skills:** `review` and `differential-review` are preloaded. Load these with the skill tool when the task fits: `agent-security-hardening` (agent profiles, tools, MCP, hooks and memory), `github-actions-hardening` (workflows), `agentic-actions-auditor` (workflows that run an AI agent), `mcp-security-audit` (MCP server configuration) and `device-references` (wallet, board or protocol claims; the target silicon is ESP32-P4 revision v3.2). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
 **Code navigation:** use `lsp` (rust-analyzer, from `.github/lsp.json`) only to read: definitions, references, symbols, hover and call hierarchy. Never call its `rename` operation; it edits files.
 
@@ -45,6 +45,7 @@ This profile pins `claude-sonnet-5.5`, a different family from the coding agents
    - **Constant-Time Execution**: Confirm all MAC, digest, and signature comparisons use `subtle::ConstantTimeEq` with zero secret-dependent branching.
    - **Air-Gap Quarantine**: The approved isolation method is physical removal of the board's ESP32-C6 or its antenna feed (owner decision, 2026-11-03; `device-references`). Flag code that powers, resets or talks to the C6, and any claim that GPIO or PMIC shutdown isolates it.
    - **Signing Rules**: The device signs only with the unified sighash (owner decision, 2026-11-03). Flag any other sighash path.
+   - **Secure Boot**: On ESP32-P4 v3.x the hardware ECDSA check accepts forged signatures (erratum ECDSA_DS-836), so Secure Boot must use RSA keys. Flag ECDSA Secure Boot.
    - **Panic-Free Hostile Input Parsing**: Confirm zero `unwrap()`, `expect()`, or `[i]` slice indexing on camera QR frames, CBOR, or PSBTs.
 
 ## Output Specification

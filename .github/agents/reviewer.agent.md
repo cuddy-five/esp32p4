@@ -26,7 +26,7 @@ include-custom-instructions: true
 
 **Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
-**Skills:** `review` and `code-review` are preloaded. Load these with the skill tool when the task fits: `test-gap-audit` (missing or weak tests) and `device-references` (wallet, board or protocol claims). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
+**Skills:** `review` and `code-review` are preloaded. Load these with the skill tool when the task fits: `test-gap-audit` (missing or weak tests) and `device-references` (wallet, board or protocol claims; the target silicon is ESP32-P4 revision v3.2). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
 **Code navigation:** use `lsp` (rust-analyzer, from `.github/lsp.json`) only to read: definitions, references, symbols, hover and call hierarchy. Never call its `rename` operation; it edits files.
 

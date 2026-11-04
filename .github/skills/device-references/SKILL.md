@@ -10,7 +10,7 @@ reviewer and the security auditor. Read only the file you need:
 
 | File | Covers |
 | --- | --- |
-| [references/chip-esp32-p4.md](references/chip-esp32-p4.md) | ESP32-P4 cores, memory map and access paths, power domains, radio, crypto peripherals, secure boot, flash encryption |
+| [references/chip-esp32-p4.md](references/chip-esp32-p4.md) | ESP32-P4: target revision v3.2 and its errata, cores, memory map and access paths, power domains, radio, crypto peripherals, secure boot, flash encryption |
 | [references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md](references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md) | The candidate board, its components and the radio-isolation decision |
 | [references/bitcoin-standards.md](references/bitcoin-standards.md) | BIPs and RFCs for keys, addresses, transactions, PSBT and hashing, with their test vectors |
 | [references/fork-rules.md](references/fork-rules.md) | The BLAKE2b fork (Bitcoin Knots) and its unified sighash: rules reviewed and reproduced from the specification; unified-only signing decided, RDTS deferred |

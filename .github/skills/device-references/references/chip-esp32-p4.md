@@ -40,6 +40,27 @@ Retrieved 2026-11-03.
 8. **The ESP32-P4 SVD behind the Rust PAC**, esp-rs/esp-pacs
    [`esp32p4.base.svd`](https://github.com/esp-rs/esp-pacs/blob/24c4ff81da2cb9c8e9831d28c92d4e64cabde15f/esp32p4/svd/esp32p4.base.svd)
    at `24c4ff81`. Used only to cross-check (7).
+9. **ESP32-P4 Series SoC Errata** (`latest`, retrieved 2026-11-03):
+   [chip revision identification](https://docs.espressif.com/projects/esp-chip-errata/en/latest/esp32p4/01-chip-identification/index.html),
+   [errata summary](https://docs.espressif.com/projects/esp-chip-errata/en/latest/esp32p4/02-errata-summary/index.html)
+   and the pages for ECDSA_DS-836 and ROM-816. Re-read before relying on them.
+10. **ESP-IDF revision settings**, at the same commit as (1):
+    `components/esp_hw_support/port/esp32p4/Kconfig.hw_support` and `COMPATIBILITY.md`.
+
+## Target silicon: revision v3.2
+
+The device targets ESP32-P4 chip revision **v3.2** (owner, 2026-11-03). Read
+the revision of the chip you actually hold before relying on this section.
+
+| Fact | Status | Evidence |
+| --- | --- | --- |
+| v3.2 is wafer version major 3, minor 2 in eFuse; its package carries manufacturing code `X H XX` or `X J XX`. ESP-IDF prints the revision at boot. | Verified | (9) identification Tables 1 and 2; (4) `WAFER_VERSION_MAJOR_LO`/`_HI`, `WAFER_VERSION_MINOR` |
+| v3.x firmware is not compatible with v0.x and v1.x chips. ESP-IDF builds for v3.x by default (minimum revision v3.1, maximum v3.99); it has no v3.2-specific setting. | Verified | (10) `Kconfig.hw_support`: "Revisions higher than 3.0 (included) is not compatible with 0.x and 1.x", `default ESP32P4_REV_MIN_301`, `ESP32P4_REV_MAX_FULL` 399 |
+| ESP-IDF's `COMPATIBILITY.md` lists only P4 v1.0 and v1.3, not v3.x | Verified | (10) |
+| **ECDSA_DS-836 (v3.0-v3.2, "No fix scheduled"): the hardware ECDSA peripheral accepts the signature `r, s = 0 or n` for any message and key. Espressif's workaround: use RSA Secure Boot, not ECDSA.** | Verified | (9) ECDSA_DS-836 page |
+| ROM-816 (v3.2 only): the `rom_download_xpd_on` eFuse, new in v3.2, can hang the chip. Program it only if Secure Download Mode is required, and power-cycle fully before a USB download after programming it. | Verified | (9) ROM-816 page |
+| v3.2 is not affected by APM-560 or DMA-767, the permission-unit errata of v3.0 and earlier, so the APM advice below applies | Verified for the errata table; Inferred for the advice | (9) errata summary, v3.2 column |
+| Register maps for v3: ESP-IDF's `hw_ver3` headers and the version-3 SVD | Verified (location) | (7), (8) |
 
 ## Facts
 
@@ -63,7 +84,7 @@ Retrieved 2026-11-03.
 | **Hardware ECDSA covers NIST P-192, P-256 and P-384 only, not secp256k1** | Verified | `SOC_ECDSA_SUPPORTED`; `SOC_ECDSA_SUPPORT_CURVE_SPECIFIC_KEY_PURPOSES`, commented "(P192, P256, P384)" (1). Bitcoin signing on secp256k1 must run in software. |
 | ECC point multiplication is constant time | Verified (as declared) | `SOC_ECC_CONSTANT_TIME_POINT_MUL 1` (1). The claim covers the NIST-curve ECC peripheral only. |
 | No BLAKE2 accelerator | Verified (as declared) | (1) defines no BLAKE2 capability. BLAKE2b would run in software. |
-| Secure Boot V2 with RSA or ECC keys, 3 key digests, revocation | Verified | `SOC_SECURE_BOOT_V2_RSA`, `SOC_SECURE_BOOT_V2_ECC`, `SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS 3`, `SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY` (1) |
+| Secure Boot V2 with RSA or ECC keys, 3 key digests, revocation (on v3.x use RSA; see ECDSA_DS-836 above) | Verified | `SOC_SECURE_BOOT_V2_RSA`, `SOC_SECURE_BOOT_V2_ECC`, `SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS 3`, `SOC_SUPPORT_SECURE_BOOT_REVOKE_KEY` (1) |
 | Flash encryption with XTS-AES-128 or -256 | Verified | `SOC_FLASH_ENCRYPTION_XTS_AES`, `SOC_FLASH_ENCRYPTION_XTS_AES_128`, `SOC_EFUSE_XTS_AES_KEY_256` (1) |
 | **Key Manager hardware is present**: a hardware unique key (HUK) derived from a physically unclonable function, regenerated at every power-on and gone at power-off; keys stored as recovery information in external memory; AES, ECDH0 and ECDH1 deploy modes | Verified (as declared) | (3) §4.1.5.10 "Key Manager" |
 | **ESP-IDF does not support the Key Manager yet** | Verified | (1) sets `SOC_KEY_MANAGER_SUPPORTED 0` while declaring the deploy capabilities. Firmware cannot rely on it until ESP-IDF turns it on. |
