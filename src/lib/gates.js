@@ -5,11 +5,14 @@
  * and any human approval records. Every gate fails closed when a record is
  * missing, stale or produced by the role it should check. Producer names are
  * claims. An approval counts only when the caller marks it authenticated, which
- * the CLI does only for overseer comments it read from GitHub.
+ * the CLI does only for overseer comments it read from GitHub. A changed path in
+ * an enabled review domain (.review-domains.json) that names the security
+ * auditor requires a security review at any risk level.
  */
 import { ContractRegistry } from "./contracts.js";
 import { loadApprovals, loadStateMachine, requiredHumanStages } from "./orchestration.js";
 import { evaluateBudget, findOutOfScopePaths } from "../evidence.js";
+import { loadReviewDomains, selectReviewDomains } from "../review-domains.js";
 
 const APPROVING = new Set(["approve", "approve_with_comments"]);
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
@@ -100,6 +103,14 @@ function needsHumanAtPlan(ctx) {
   const paths = [...new Set([...planStagePaths(plan), ...(ctx.changedPaths ?? [])])];
   const { stages, reasons } = requiredHumanStages(ctx.policy, { risk: ctx.packet.task.risk, paths });
   return { required: stages.includes("plan"), reasons };
+}
+
+/** Enabled review domains that name the security auditor for a changed path. */
+function securityDomains(ctx) {
+  const paths = ctx.changedPaths ?? ctx.packet.evidence.filter((e) => e.subject.sha === ctx.headSha).flatMap((e) => e.diff?.paths ?? []);
+  if (!paths.length) return [];
+  const { covered } = selectReviewDomains([...new Set(paths)], ctx.reviewDomains ?? loadReviewDomains());
+  return covered.filter((d) => d.role === "security_auditor" || d.security_role === "security_auditor").map((d) => d.domain);
 }
 
 const EVALUATORS = {
@@ -197,9 +208,15 @@ const EVALUATORS = {
     const code = latestReview(ctx, "code", { notBy: ctx.implementers, label: "code" });
     if (!code.pass) return code;
     const level = ctx.packet.task.risk.level;
-    if (ctx.policy.by_risk?.[level]?.security_review !== "required") return code;
+    const because = [];
+    if (ctx.policy.by_risk?.[level]?.security_review === "required") because.push(`${level} risk`);
+    const domains = securityDomains(ctx);
+    if (domains.length) because.push(`review domain ${domains.join(", ")}`);
+    if (!because.length) return code;
     const sec = latestReview(ctx, "security", { notBy: ctx.implementers, label: "security" });
-    return sec.pass ? { pass: true, reason: `${code.reason}; ${sec.reason}` } : sec;
+    return sec.pass
+      ? { pass: true, reason: `${code.reason}; ${sec.reason}` }
+      : { pass: false, reason: `${sec.reason} (required by ${because.join(" and ")})` };
   },
 
   verification_passed: (ctx) => {
@@ -239,8 +256,8 @@ export const IMPLEMENTED_GATES = Object.freeze(Object.keys(EVALUATORS));
  * @param {{
  *   from?: string, to?: string, headSha: string, mergeSha?: string, changedPaths?: string[],
  *   approvals?: object[], overseers?: string[], now?: number,
- *   stateMachine?: any, policy?: any,
- * }} opts
+ *   stateMachine?: any, policy?: any, reviewDomains?: any,
+ * }} opts (reviewDomains defaults to .review-domains.json)
  */
 export function evaluateTransition(docs, opts) {
   const { from = "awaiting_approval", to = "done", headSha } = opts;
@@ -272,6 +289,7 @@ export function evaluateTransition(docs, opts) {
     policy: policyDoc,
     stage: to === "done" ? "merge" : "plan",
     implementers: implementerNames(packet),
+    reviewDomains: opts.reviewDomains,
   };
   const gates = transition.gates.map((gate) => {
     const evaluate = EVALUATORS[gate];

@@ -22,7 +22,8 @@ evaluator (`gate check`, run by the `task-gate` check on PRs that commit task
 records) work today. The evaluator rejects
 missing or stale approvals, stale evidence, self-review and out-of-scope paths
 in supplied records, but it trusts the producer names in those records. It
-reads your approval from a PR comment (below). The coordinator profile exists,
+reads your approval from a PR comment (below). `task-gate` blocks a merge only
+while the declared ruleset is live; `node src/cli.js settings check` shows drift. The coordinator profile exists,
 but an automatic dispatcher and runtime halt handling are not implemented. The process below describes duties for the
 people and agents running the task until that automation exists. Labels,
 checkboxes, and approval-like comments do not trigger it.

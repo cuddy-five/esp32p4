@@ -19,8 +19,8 @@ desired (JSON in git)  ──plan──►  ops  ──apply──►  GitHub
 CI's `settings-check` job reports drift in its summary without blocking the PR.
 Changes to desired settings must merge before the approved manual apply, so
 pending drift is expected. API errors and invalid configuration still fail CI.
-The three required code checks remain `test`, `validate-examples`, and
-`lint-workflows`; compare these names with `settings/rulesets.json`.
+The required checks are `test`, `validate-examples`, `lint-workflows` and
+`task-gate`. `tests/unit/rulesets.test.js` fails when one names no pull-request job.
 
 Op types: `create`, `update`, `rename` (labels, via `aliases`), `delete`
 (only with `prune: true`), `unmanaged` (live but undeclared, informational),

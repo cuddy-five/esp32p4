@@ -70,8 +70,8 @@ approved a merge. Intake dispatch, agent routing and automatic evidence
 collection are not implemented. In [merge-gate.yml](.github/workflows/merge-gate.yml),
 `admission-gate` only reports changed paths and declared approval stages;
 `task-gate` fails a PR whose committed task records do not pass the merge
-gates, and passes a PR without records as not applicable. Neither is a
-required check unless the ruleset lists it. The `.disabled` files are placeholders. The
+gates, and passes a PR without records as not applicable. `settings/rulesets.json`
+declares `task-gate` required; it blocks a merge only after `settings apply` puts that ruleset live. The `.disabled` files are placeholders. The
 [state machine](.github/control-plane/orchestration/state-machine.yaml) and
 approval policy describe the intended process; no coordinator executes them.
 The [settings-sync guide](docs/runbooks/settings-sync.md) covers the separate

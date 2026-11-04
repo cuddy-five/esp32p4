@@ -135,7 +135,33 @@ test("other blockers: open escalation, failing verification, security review at 
 
   const medium = packet();
   medium[0].risk.level = "medium";
-  assert.match(gate(run(medium), "reviews_approve").reason, /no security review/);
+  assert.match(gate(run(medium), "reviews_approve").reason, /no security review \(required by medium risk\)/);
+});
+
+test("a review domain that names the security auditor requires a security review at low risk", () => {
+  const domains = (over = {}) => ({
+    schema_version: 1,
+    domains: [{
+      id: "signing", enabled: true, language: "javascript", role: "reviewer", security_role: "security_auditor",
+      paths: ["src/lib/settings/**"], checks: ["Signing code needs a security audit before merge."], ...over,
+    }],
+  });
+  const reason = (docs, doc, over = {}) => gate(run(docs, { reviewDomains: doc, ...over }), "reviews_approve");
+  assert.match(reason(packet(), domains()).reason, /no security review \(required by review domain signing\)/);
+  assert.equal(reason(packet(), domains({ enabled: false })).pass, true, "a disabled domain requires nothing");
+  assert.equal(reason(packet(), domains({ paths: ["firmware/**"] })).pass, true, "an unmatched domain requires nothing");
+  assert.equal(reason(packet(), domains(), { changedPaths: ["docs/x.md"] }).pass, true, "git paths replace evidence paths");
+  assert.match(reason(packet(), domains(), { changedPaths: ["src/lib/settings/a.js"] }).reason, /review domain signing/);
+
+  const audit = {
+    ...example("review"), id: "review_security_0001", created_at: "2026-10-12T00:58:00Z",
+    producer: { kind: "agent", name: "auditor", role: "security_auditor" }, review_kind: "security",
+  };
+  assert.equal(reason([...packet(), audit], domains()).pass, true);
+  const byImplementer = { ...audit, producer: { kind: "agent", name: "implementer", role: "security_auditor" } };
+  assert.match(reason([...packet(), byImplementer], domains()).reason, /self-review/);
+  // The repository's own file is the default; its firmware domain is off until firmware/ exists.
+  assert.equal(reason(packet(), undefined, { changedPaths: ["firmware/src/main.rs"] }).pass, true);
 });
 
 test("plan routing sends ci_cd work to the human and ordinary work straight on", () => {

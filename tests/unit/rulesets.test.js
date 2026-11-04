@@ -2,6 +2,10 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import * as rulesets from "../../src/lib/settings/rulesets.js";
 import { fakeClient } from "../helpers/fake-github.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import YAML from "yaml";
 
 const repo = { owner: "o", name: "r" };
 
@@ -236,4 +240,24 @@ describe("rulesets bypass_actors visibility", () => {
     const live = await fetchHidden();
     assert.throws(() => rulesets.exportDesired(live), /bypass_actors not readable with this token/);
   });
+});
+
+test("every declared required check is a job that runs on pull requests", () => {
+  // A required check that no job reports blocks every PR, so the workflow comes first.
+  const root = fileURLToPath(new URL("../..", import.meta.url));
+  const dir = path.join(root, ".github/workflows");
+  const reported = new Set();
+  for (const file of fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f))) {
+    const doc = YAML.parse(fs.readFileSync(path.join(dir, file), "utf8"));
+    const on = doc?.on ?? doc?.[true];
+    const triggers = typeof on === "string" ? [on] : Array.isArray(on) ? on : Object.keys(on ?? {});
+    if (!triggers.includes("pull_request")) continue;
+    for (const [id, job] of Object.entries(doc.jobs ?? {})) reported.add(job?.name ?? id);
+  }
+  const declared = JSON.parse(fs.readFileSync(path.join(root, ".github/control-plane/settings/rulesets.json"), "utf8"));
+  const required = declared.rulesets.flatMap((r) => r.rules ?? [])
+    .filter((rule) => rule.type === "required_status_checks")
+    .flatMap((rule) => rule.parameters.required_status_checks.map((c) => c.context));
+  assert.ok(required.includes("task-gate"));
+  assert.deepEqual(required.filter((c) => !reported.has(c)), []);
 });
