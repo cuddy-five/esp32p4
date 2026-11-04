@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { ContractRegistry, validateFile } from "./lib/contracts.js";
 import { GitHubClient, resolveRepo } from "./lib/github.js";
+import { checkAgentProfiles } from "./lib/agent-profiles.js";
 import { checkPolicies, requiredHumanStages } from "./lib/orchestration.js";
 import { CONTRACTS_DIR, resolveProjectPaths } from "./lib/paths.js";
 import { applyAll, exportResource, planAll, RESOURCE_NAMES, selectResources } from "./lib/settings/index.js";
@@ -227,11 +228,14 @@ function cmdPolicy(args, { stdout, stderr }) {
       }
     }
     if (!checkFormat("policy check", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
-    const { problems, stateMachine, approvals } = checkPolicies({
+    const { problems: policyProblems, stateMachine, approvals } = checkPolicies({
       stateMachineFile: paths.stateMachineFile,
       approvalsFile: paths.approvalsFile,
       contractsDir: CONTRACTS_DIR,
     });
+    // Agent profiles against tool-access.yaml; skipped where either is absent.
+    const agents = checkAgentProfiles({ agentsDir: paths.agentsDir, toolAccessFile: paths.toolAccessFile });
+    const problems = [...policyProblems, ...agents.problems];
     if (values.format === "json") {
       stdout(JSON.stringify({ ok: problems.length === 0, problems }, null, 2));
     } else {
@@ -244,6 +248,7 @@ function cmdPolicy(args, { stdout, stderr }) {
         `state machine: ${count(stateMachine.states)} states, ${count(stateMachine.transitions)} transition rules, ${gates.length} gates (${implemented} implemented)`,
       );
       stdout(`approvals: ${count(approvals.by_risk)} risk levels, ${count(approvals.always_human)} always-human rules`);
+      stdout(agents.skipped ? "agents: skipped (no .github/agents or tool-access.yaml)" : `agents: ${agents.checked} profiles checked against tool-access.yaml`);
       stdout(problems.length === 0 ? "policy: ok" : `policy: ${problems.length} problem${problems.length === 1 ? "" : "s"}`);
     }
     return problems.length === 0 ? EXIT.OK : EXIT.FAILED;

@@ -59,12 +59,19 @@ No agent has `delete_note`, `move_note` or the project tools. A test
 (`tests/unit/agent-team-config.test.js`) fails if any other agent gets a write
 tool or if anyone gets a delete, move or project tool.
 
+**CI gate.** `node src/cli.js policy check`, part of CI's `test` job, reads every
+profile and fails unless it is mapped to a role in
+`.github/control-plane/policies/tool-access.yaml`, lists only tools that role
+allows, and pins one model ID. Review roles must also set `model-policy: required`
+and use a different model family from the coding agents. The gate checks
+declarations; the client still decides what an agent can actually do.
+
 ### Models
 
 Every profile pins one model ID. ADR 0003 requires security-critical review
 from a different model family than the author's, so the two coding agents
-share OpenAI's `gpt-6-luna` and every review role uses another family. A test
-checks both rules and that the review roles set `model-policy: required`.
+share OpenAI's `gpt-6-luna` and every review role uses another family. The
+[CI gate](#agents) enforces both rules.
 
 | Agent | Pinned model | Family | `model-policy` | Model that ran (2026-11-03) |
 | --- | --- | --- | --- | --- |

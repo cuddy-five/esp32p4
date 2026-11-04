@@ -64,28 +64,14 @@ describe("Owner-directed agent team configuration", () => {
     assert.ok(!tools("reviewer").includes("github/*"));
   });
 
-  test("every profile pins a model ID, matching the registry for registered roles", () => {
+  // Model pins, model-policy and review-family separation are checked by
+  // `control-plane policy check` (src/lib/agent-profiles.js) against tool-access.yaml.
+  test("profile models match the registry for registered roles", () => {
     const registered = new Map(JSON.parse(fs.readFileSync(".agents.registry.json", "utf8")).agents
       .map((agent) => [agent.id.replaceAll("_", "-"), agent.model]));
     for (const name of expectedAgents) {
       const { model } = readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
-      // Without a pin the agent runs on whatever model the session uses.
-      assert.equal(typeof model, "string", `${name} must pin one model`);
-      assert.match(model, /^[a-z0-9][a-z0-9.-]*$/, `${name} model must be an ID, not a display name`);
       if (registered.has(name)) assert.equal(model, registered.get(name), `${name} profile and registry models differ`);
-    }
-  });
-
-  test("review roles set model-policy and share no model family with a coding agent", () => {
-    const header = (name) => readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
-    const family = (name) => header(name).model.split("-")[0];
-    for (const reviewer of ["reviewer", "security-auditor", "verifier"]) {
-      // model-policy keeps session model changes on the pin. It does not stop Copilot from
-      // running the agent on the session model when the pinned model is unavailable.
-      assert.equal(header(reviewer)["model-policy"], "required", `${reviewer} must set model-policy: required`);
-      for (const coder of ["implementer", "rust-coder"]) {
-        assert.notEqual(family(reviewer), family(coder), `${reviewer} must not share ${coder}'s model family`);
-      }
     }
   });
 

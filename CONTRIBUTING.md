@@ -59,7 +59,7 @@ and manual dispatch:
 
 | Job | What it proves |
 |---|---|
-| `test` | Existing unit/security tests pass, policy declarations agree with contracts, and the change adds no whitespace errors. |
+| `test` | Existing unit/security tests pass, policy declarations agree with contracts, agent profiles stay within `tool-access.yaml`, and the change adds no whitespace errors. |
 | `validate-examples` | Example JSON documents satisfy their schemas. |
 | `lint-workflows` | Active GitHub Actions workflows pass actionlint. |
 | `dependency-review` | Pull requests add no dependency with a known high-severity vulnerability. |
@@ -89,7 +89,9 @@ npm run package:smoke
 `npm test` runs the test script in `package.json`; it has no options.
 `npm run` runs a named script, here `validate:examples` for the example
 contracts. `node` executes `src/cli.js`; `policy check` asks the CLI to
-check that state-machine and approval declarations agree with the schemas.
+check that state-machine and approval declarations agree with the schemas,
+and that each agent profile in `.github/agents/` stays within its role in
+`tool-access.yaml` and follows its model rules.
 `package:smoke` packs the release tarball, installs it into an empty
 temporary project, and runs the installed CLI there. The CLI reads contracts
 and policies from its install directory, so a file missing from the
