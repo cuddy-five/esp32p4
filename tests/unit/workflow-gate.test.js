@@ -127,6 +127,11 @@ test("workflow wires PR head/base, entry point and removes hosted paid evaluatio
   assert.ok(step);
   assert.match(step.env.CP_BASE_SHA, /pull_request\.base\.sha/);
   assert.match(step.env.CP_HEAD_SHA, /pull_request\.head\.sha/);
+  const task = gate.jobs["task-gate"];
+  assert.equal(task.steps[0].with.ref, "${{ github.event.pull_request.base.sha }}", "gate code and policy must come from the base commit");
+  assert.ok(task.steps.every((st) => !st.uses?.startsWith("actions/checkout") || st === task.steps[0]), "only the base is checked out");
+  assert.deepEqual(task.permissions, { contents: "read", "pull-requests": "read", issues: "read" });
+  assert.match(task.steps.at(-1).run, /gate check --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"[\s\\]+--pr "\$PR_NUMBER"/);
   const evals = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/agent-evals.yml"), "utf8"));
   assert.deepEqual(Object.keys(evals.jobs), ["guardrail-and-registry-audit"]);
 });

@@ -155,7 +155,7 @@ const EVALUATORS = {
       const at = Date.parse(a.granted_at);
       if (!Number.isFinite(at) || at > ctx.now) why.push("bad timestamp");
       else if (ctx.now - at > limit) why.push("expired");
-      if (stage === "merge" && a.sha !== ctx.headSha) why.push(`approves ${short(a.sha)}, head is ${short(ctx.headSha)}`);
+      if (stage === "merge" && a.sha !== ctx.mergeSha) why.push(`approves ${short(a.sha)}, head is ${short(ctx.mergeSha)}`);
       if (!why.length) return { pass: true, reason: `${stage} approval by ${a.approver} at ${a.granted_at} (${a.reference})` };
       rejected.push(why.join(", "));
     }
@@ -232,16 +232,22 @@ export const IMPLEMENTED_GATES = Object.freeze(Object.keys(EVALUATORS));
 
 /**
  * Evaluate every gate on the transition `from -> to`.
+ * `headSha` is the commit that evidence and reviews must cover; `mergeSha`
+ * (default `headSha`) is the commit a merge approval must name. They differ
+ * when records-only commits follow the reviewed commit (see task-records.js).
  * @param {object[]} docs parsed contract documents for one task
  * @param {{
- *   from?: string, to?: string, headSha: string, changedPaths?: string[],
+ *   from?: string, to?: string, headSha: string, mergeSha?: string, changedPaths?: string[],
  *   approvals?: object[], overseers?: string[], now?: number,
  *   stateMachine?: any, policy?: any,
  * }} opts
  */
 export function evaluateTransition(docs, opts) {
   const { from = "awaiting_approval", to = "done", headSha } = opts;
-  if (typeof headSha !== "string" || !/^[0-9a-f]{40}$/.test(headSha)) throw new Error("head sha must be 40 lowercase hex characters");
+  const mergeSha = opts.mergeSha ?? headSha;
+  for (const sha of [headSha, mergeSha]) {
+    if (typeof sha !== "string" || !/^[0-9a-f]{40}$/.test(sha)) throw new Error("head sha must be 40 lowercase hex characters");
+  }
   const sm = opts.stateMachine ?? loadStateMachine();
   if (!opts.stateMachine && sm.problems.length) throw new Error("state machine is invalid; run policy check");
   const policyDoc = opts.policy ?? (() => {
@@ -258,6 +264,7 @@ export function evaluateTransition(docs, opts) {
     packet,
     plan: current.length === 1 ? current[0] : undefined,
     headSha,
+    mergeSha,
     changedPaths: opts.changedPaths,
     approvals: opts.approvals ?? [],
     overseers: new Set((opts.overseers ?? policyDoc.approval?.overseers ?? []).map((o) => String(o).toLowerCase())),
@@ -274,7 +281,10 @@ export function evaluateTransition(docs, opts) {
   return {
     transition: `${from} -> ${to}`,
     task_id: packet.task.id,
+    plan_id: ctx.plan?.id ?? null,
+    stage: ctx.stage,
     head_sha: headSha,
+    merge_sha: mergeSha,
     ok: gates.every((g) => g.pass),
     gates,
     authority: AUTHORITY_NOTE,

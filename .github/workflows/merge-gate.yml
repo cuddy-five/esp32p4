@@ -1,7 +1,11 @@
 name: merge-gate
 
-# Informational only. Success means the report ran, not that admission,
-# reviews, human approval, or merge permission were established.
+# admission-gate is informational: success means the report ran.
+# task-gate evaluates the awaiting_approval -> done gates over the task records
+# a PR commits under .github/control-plane/records/<task_id>/. It runs the base
+# commit's code and policy over the PR head, so a PR cannot change the rules it
+# is judged by. A PR without records passes as not applicable. Re-run the job
+# after the overseer posts /approve; it reads PR comments live.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -53,3 +57,45 @@ jobs:
           CP_HEAD_REF: ${{ inputs.head-ref || 'HEAD' }}
           CP_TASK_FILE: ${{ inputs.task-file || '' }}
         run: node src/lib/workflow-gate.js
+
+  task-gate:
+    name: task-gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Checkout the base commit (gate code and policy come from here)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+      - name: Fetch the PR head as data
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
+      - name: Evaluate the task gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # Explicit bash adds pipefail, so tee cannot hide the gate's exit code.
+        shell: bash
+        run: |
+          if [ ! -f src/lib/task-records.js ]; then
+            echo "SKIP the base commit predates task-gate; not applicable" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node src/cli.js gate check --discover --base "$BASE_SHA" --head-sha "$HEAD_SHA" \
+            --pr "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"

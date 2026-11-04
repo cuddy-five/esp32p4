@@ -26,9 +26,13 @@ points. This runbook uses the existing [contracts](../architecture/contracts.md)
 and [approval policy](../../.github/control-plane/policies/approvals.yaml).
 There is no running dispatcher. People and agents must uphold these working
 agreements. `node src/cli.js gate check` evaluates one transition's gates over
-the task's records on request; nothing runs it automatically yet. It trusts
-producer names in the records. Human approval counts only from an overseer's
-`/approve` PR comment, which `--pr` reads from GitHub.
+the task's records. The `task-gate` job in `merge-gate.yml` runs it on every
+PR that commits records to `.github/control-plane/records/<task_id>/`. Commit
+the records after the reviewed commit, in commits that touch only that
+directory; evidence and reviews then name the last code commit, and the merge
+approval names the PR head. It trusts producer names in the records. Human
+approval counts only from an overseer's `/approve` PR comment, which `--pr`
+reads from GitHub.
 
 A successful report is not proof of task scope or completed reviews, and it grants no merge permission. Agents never post `/approve` comments.
 
@@ -99,7 +103,7 @@ npm test
 npm run validate:examples
 node src/cli.js policy check
 node src/cli.js validate path/to/task.json path/to/plan.json
-node src/cli.js gate check records/*.json --head-sha <sha> --base origin/main \
+node src/cli.js gate check --discover --base origin/main --head-sha <sha> \
   --pr <number>
 git diff --check
 ```
@@ -109,7 +113,8 @@ example-validation script. `node` executes `src/cli.js`: `policy check`
 checks declaration consistency, and `validate` checks the contract files
 given as positional paths (replace them with the actual records). These
 commands have no flags, except `gate check`: `--head-sha` names the commit
-under decision, `--base` reads its changed paths from git, and `--pr` reads
+under decision, `--base` reads its changed paths from git, `--discover` reads
+the committed task records from git (or pass record files instead), and `--pr` reads
 approval comments from that pull request by the `approval.overseers` logins
 in `policies/approvals.yaml`. It refuses a `--head-sha` that is not the PR's
 head. Without `--pr`, `approval_granted` fails.

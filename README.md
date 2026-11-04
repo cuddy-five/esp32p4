@@ -33,9 +33,9 @@ to choose its owner, actual protections, reporting contact, and license.
 ## The loop
 
 This is the intended team process. Roles can follow it manually today;
-the automated coordinator is not built. The `evidence` command and the
-`merge-gate` workflow report scope and approval stages; no workflow enforces
-their results.
+the automated coordinator is not built. The `merge-gate` workflow's
+`task-gate` job checks a PR's committed task records against the merge gates,
+including the overseer's `/approve` comment; PRs without records skip it.
 
 ```
           ┌────────────────────────────────────────────────────────────┐
