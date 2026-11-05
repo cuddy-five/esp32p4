@@ -1,0 +1,27 @@
+{
+  "contract": "task",
+  "schema_version": "1.0.0",
+  "id": "task_cli-subcommand-help",
+  "created_at": "2026-11-04T23:20:00Z",
+  "producer": { "kind": "agent", "name": "claude-code/coordinator", "role": "coordinator", "model": "claude-opus-5-5" },
+  "trace": { "correlation_id": "trace_issue-7-representative-task" },
+  "title": "Make subcommand --help print usage instead of an error",
+  "intent": "`node src/cli.js gate check --help` (and every other subcommand) fails with \"Unknown option '--help'\". A reader who asks a command for help should get the usage text and exit 0. This is the representative low-risk task that finishes issue #7.",
+  "acceptance_criteria": [
+    { "id": "ac-1", "statement": "`--help` or `-h` after any command or subcommand (validate, schema, policy, evidence, gate, compact, settings) prints the usage text to stdout and exits 0", "verification": "automated_test" },
+    { "id": "ac-2", "statement": "Unknown options other than --help/-h still fail with exit 1 as before", "verification": "automated_test" },
+    { "id": "ac-3", "statement": "npm test, npm run validate:examples, node src/cli.js policy check and git diff --check all pass", "verification": "automated_test" }
+  ],
+  "scope": {
+    "repository": { "owner": "cuddy-five", "name": "esp32p4" },
+    "allowed_paths": ["src/cli.js", "tests/unit/cli.test.js"],
+    "forbidden_paths": [".github/**", "AGENTS.md", "docs/decisions/**", "package.json", "package-lock.json"],
+    "network_access": "none"
+  },
+  "risk": { "level": "low", "requires_human_approval": true, "tags": [] },
+  "status": "accepted",
+  "priority": "p3",
+  "source": { "kind": "issue", "issue": { "number": 7 }, "requested_by": "cuddy-five" },
+  "budget": { "usd": 3, "wall_clock_seconds": 7200 },
+  "assigned_role": "planner"
+}
