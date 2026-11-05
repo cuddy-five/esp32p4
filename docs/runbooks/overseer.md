@@ -71,7 +71,7 @@ of its own:
 `approval.overseers` in `policies/approvals.yaml`, it is not edited, and it
 names the current plan and, at merge, the PR head. A new push or 72 hours
 voids it; post a new comment instead of editing. The `task-gate` check prints
-the exact line to post; re-run that check after you post it. GitHub identifies the
+the exact line to post once every other gate passes; re-run that check after you post it. GitHub identifies the
 account, not the person: an agent with your GitHub token could post one, so
 give agents a token that cannot comment, or check the comment yourself.
 Approving does not merge; you still merge in GitHub.

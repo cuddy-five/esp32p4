@@ -419,7 +419,11 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     for (const g of report.gates) stdout(`  ${g.pass ? "ok  " : "FAIL"} ${g.gate}: ${printable(g.reason)}`);
     for (const why of ignored) stdout(`  ignored ${printable(why)}`);
     const approval = report.gates.find((g) => g.gate === "approval_granted");
-    if (approval && !approval.pass && report.plan_id) {
+    // Offer the approval line only when approval is the last missing gate, so it is never posted before the reviews.
+    const blocking = report.gates.filter((g) => !g.pass && g.gate !== "approval_granted").map((g) => g.gate);
+    if (approval && !approval.pass && report.plan_id && blocking.length) {
+      stdout(`Overseer approval line withheld until these gates pass: ${blocking.join(", ")}`);
+    } else if (approval && !approval.pass && report.plan_id) {
       const sha = report.stage === "merge" ? ` sha=${headSha}` : "";
       stdout(`Overseer approval line: /approve ${report.stage} task=${printable(report.task_id)} plan=${printable(report.plan_id)}${sha}`);
     }

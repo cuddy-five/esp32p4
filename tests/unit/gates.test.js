@@ -382,6 +382,8 @@ test("discover: a code change after the records makes them stale; a scope breach
   res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", head], undefined);
   assert.equal(res.code, 2, res.text);
   assert.match(res.text, /out of scope: \.github\/workflows\/x\.yml/);
+  assert.doesNotMatch(res.text, /Overseer approval line:/);
+  assert.match(res.text, /approval line withheld until these gates pass: within_scope/);
 });
 
 test("discover: an empty-diff merge of the base is the subject, so its effect cannot hide", async (t) => {
