@@ -86,7 +86,7 @@ gates:
     description: Cumulative budget_used across documents does not exceed task.budget.
     status: implemented
   reviews_approve:
-    description: Latest code review verdict is approve or approve_with_comments, and for risk medium or above a security review with the same verdict exists. Reviewers are distinct from the implementer.
+    description: Latest code review verdict is approve or approve_with_comments. A security review with the same verdict exists when risk is medium or above, or when an enabled review domain names the security auditor for a changed path. Reviewers are distinct from the implementer.
     status: implemented
   verification_passed:
     description: Verifier's own evidence shows required checks green and tests passing, and a review of kind verification approves.

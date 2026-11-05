@@ -72,7 +72,8 @@ a reviewer cannot waive it, and expiry cannot authorize it.
 ## 3. Assign separate roles and integrate
 
 Keep the planner separate from implementers. Assign independent code review,
-security audit (required for medium risk and above), and verification; a
+security audit (required for medium risk and above, and for files in an
+enabled review domain that names the security auditor), and verification; a
 producer cannot approve, audit or verify its own artifact. Use another model
 family for review where available, and record when that independence is
 unavailable. Give reviewers artifacts and criteria, not implementer scratch.
