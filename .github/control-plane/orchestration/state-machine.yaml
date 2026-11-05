@@ -95,8 +95,15 @@ gates:
     description: No escalation for this task has status open or acknowledged.
     status: implemented
   retry_budget_remaining:
-    description: Number of in_review -> in_progress or verifying -> in_progress loops is below the retry limit (ADR 0003 allows two repair rounds; policies/retries.yaml is not yet written).
-    status: planned
+    description: Repair rounds used, counted as distinct reviewed commits with a request_changes or block verdict from a non-implementer, do not exceed limits.repair_rounds. A further round needs a repeated_failure escalation to the human.
+    status: implemented
+
+# ADR 0003 operating limits. retry_budget_remaining reads repair_rounds; a
+# review conflict at one commit gets adjudication_attempts independent reviews,
+# then a conflicting_reviews escalation to the human.
+limits:
+  repair_rounds: 2
+  adjudication_attempts: 1
 
 # Every route into done must pass each of these gates, whatever path the task took.
 mandatory_gates:

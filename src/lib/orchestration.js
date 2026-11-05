@@ -69,6 +69,11 @@ export function loadStateMachine({ file = STATE_MACHINE_FILE, enums = contractEn
     if (!["implemented", "planned"].includes(def?.status)) p(`/gates/${g}/status`, "must be implemented or planned");
   }
 
+  const limits = isMapping(doc.limits) ? doc.limits : {};
+  if (!isMapping(doc.limits)) p("/limits", "must map limit names to integers");
+  if (!Number.isInteger(limits.repair_rounds) || limits.repair_rounds < 0) p("/limits/repair_rounds", "must be a non-negative integer");
+  if (!Number.isInteger(limits.adjudication_attempts) || limits.adjudication_attempts < 0) p("/limits/adjudication_attempts", "must be a non-negative integer");
+
   const transitions = asArray(doc.transitions);
   const edges = [];
   transitions.forEach((t, i) => {

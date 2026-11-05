@@ -21,6 +21,7 @@ import { loadReviewDomains } from "./review-domains.js";
 import { buildEvidenceContract } from "./evidence.js";
 import { compactLogs } from "./compaction.js";
 import { evaluateTransition } from "./lib/gates.js";
+import { assessTask } from "./lib/recovery.js";
 import { parseApprovalComments } from "./lib/approval-comments.js";
 import { changedPaths, commit, git } from "./lib/workflow-gate.js";
 import { discoverTask, RECORDS_ROOT } from "./lib/task-records.js";
@@ -75,6 +76,16 @@ Commands
                                --head-sha must be its head commit
     --repo <owner/name>        Repository of --pr (default: GH_REPO or origin)
     --now <timestamp>          Evaluation time (default: now)
+    --format text|json         Output format (default: text)
+
+  task status <file...> --head-sha <sha>
+  task status --discover --base <ref> --head-sha <sha>
+                               Report where a task stands from its records: state,
+                               next role, stale reviews and evidence, objections,
+                               repair rounds, escalations and next actions. It reads
+                               records only; check running workers and jobs directly
+    --discover, --base         As for gate check
+    --now <timestamp>          Evaluation time for handoff expiry (default: now)
     --format text|json         Output format (default: text)
 
   compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
@@ -153,6 +164,8 @@ export async function main(argv, io = {}) {
         return cmdEvidence(rest, { stdout, stderr, env });
       case "gate":
         return await cmdGate(rest, { stdout, stderr, env, client: io.client });
+      case "task":
+        return cmdTask(rest, { stdout, stderr });
       case "compact":
         return await cmdCompact(rest, { stdout, stderr, stdin: io.stdin });
       case undefined:
@@ -357,6 +370,79 @@ function cmdPolicy(args, { stdout, stderr }) {
   return EXIT.ERROR;
 }
 
+/**
+ * Task documents from files, or with --discover from the records a diff changes.
+ * Returns null when --discover finds no records.
+ */
+function readTaskInput(values, positionals, headSha) {
+  if (values.discover) {
+    const found = discoverTask(commit(values.base, false, git), commit(headSha, true, git), git);
+    if (!found) return null;
+    return { docs: found.docs, subject: found.subject, paths: found.paths, recordsDir: found.dir };
+  }
+  const docs = positionals.map((file) => JSON.parse(fs.readFileSync(file, "utf8")));
+  const paths = values.base ? changedPaths(commit(values.base, false, git), commit(headSha, true, git), git) : undefined;
+  return { docs, subject: headSha, paths, recordsDir: undefined };
+}
+
+function cmdTask(args, { stdout, stderr }) {
+  const [sub, ...subArgs] = args;
+  if (sub !== "status") {
+    stderr(`task: unknown subcommand "${printable(sub ?? "")}" (expected status)`);
+    return EXIT.ERROR;
+  }
+  const { values, positionals } = parseArgs({
+    args: subArgs,
+    allowPositionals: true,
+    options: {
+      "head-sha": { type: "string" },
+      base: { type: "string" },
+      now: { type: "string" },
+      discover: { type: "boolean", default: false },
+      format: { type: "string", default: "text" },
+    },
+  });
+  if (!checkFormat("task status", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
+  if (values.discover ? positionals.length > 0 || !values.base : positionals.length === 0) {
+    stderr(values.discover
+      ? "task status: --discover needs --base and takes no document files"
+      : "task status: at least one contract document is required");
+    return EXIT.ERROR;
+  }
+  const now = values.now === undefined ? Date.now() : Date.parse(values.now);
+  if (!Number.isFinite(now)) {
+    stderr("task status: --now must be an ISO-8601 timestamp");
+    return EXIT.ERROR;
+  }
+  const headSha = values["head-sha"];
+  const input = readTaskInput(values, positionals, headSha);
+  if (!input) {
+    stdout(values.format === "json"
+      ? JSON.stringify({ applicable: false, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` }, null, 2)
+      : `SKIP no task records under ${RECORDS_ROOT}`);
+    return EXIT.OK;
+  }
+  const report = assessTask(input.docs, { headSha: input.subject, now });
+  if (input.recordsDir) report.records_dir = input.recordsDir;
+  if (values.format === "json") {
+    stdout(JSON.stringify(report, null, 2));
+    return EXIT.OK;
+  }
+  const at = input.subject === headSha ? headSha : `${input.subject} (records-only commits up to ${headSha})`;
+  stdout(`task ${printable(report.task_id)}: ${printable(report.title)}`);
+  stdout(`  state:    ${report.state} (${printable(report.state_source)})`);
+  stdout(`  next:     ${report.next_role ?? "nobody; the task is finished"}`);
+  stdout(`  head:     ${at}`);
+  stdout(`  repairs:  ${report.repair.used} of ${report.repair.limit ?? "?"} rounds used${report.repair.exhausted ? " (limit reached)" : ""}`);
+  for (const s of report.stale) stdout(`  stale:    ${printable(s.id)} (${s.kind}) covers ${s.covers.slice(0, 12)}`);
+  for (const o of report.objections) stdout(`  objects:  ${printable(o.id)} (${o.kind}) ${o.verdict} by ${printable(String(o.by))}`);
+  for (const e of report.open_escalations) stdout(`  blocked:  ${printable(e.id)} (${e.reason}, ${e.severity}, ${e.status})`);
+  stdout("Next actions:");
+  for (const a of report.next_actions) stdout(`  - ${printable(a)}`);
+  stdout(report.note);
+  return EXIT.OK;
+}
+
 async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
   const [sub, ...subArgs] = args;
   if (sub !== "check") {
@@ -409,22 +495,13 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     }
     ({ approvals, ignored } = parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`)));
   }
-  let docs;
-  let subject = headSha;
-  let paths;
-  let recordsDir;
-  if (values.discover) {
-    const found = discoverTask(commit(values.base, false, git), commit(headSha, true, git), git);
-    if (!found) {
-      const skip = { applicable: false, ok: true, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` };
-      stdout(values.format === "json" ? JSON.stringify(skip, null, 2) : `SKIP ${skip.reason}; the task gate does not apply to this change`);
-      return EXIT.OK;
-    }
-    ({ docs, subject, paths, dir: recordsDir } = found);
-  } else {
-    docs = positionals.map((file) => JSON.parse(fs.readFileSync(file, "utf8")));
-    paths = values.base ? changedPaths(commit(values.base, false, git), commit(headSha, true, git), git) : undefined;
+  const input = readTaskInput(values, positionals, headSha);
+  if (!input) {
+    const skip = { applicable: false, ok: true, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` };
+    stdout(values.format === "json" ? JSON.stringify(skip, null, 2) : `SKIP ${skip.reason}; the task gate does not apply to this change`);
+    return EXIT.OK;
   }
+  const { docs, subject, paths, recordsDir } = input;
   const report = evaluateTransition(docs, {
     from: values.from,
     to: values.to,
