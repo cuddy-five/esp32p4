@@ -1,0 +1,79 @@
+{
+  "contract": "evidence",
+  "schema_version": "1.0.0",
+  "id": "evidence_verify-cli-subcommand-help-4",
+  "created_at": "2026-11-04T23:53:57Z",
+  "collected_at": "2026-11-04T23:53:57Z",
+  "producer": {
+    "kind": "agent",
+    "name": "copilot/verifier",
+    "role": "verifier",
+    "model": "claude-haiku-4.5"
+  },
+  "trace": {
+    "correlation_id": "trace_issue-7-representative-task",
+    "parent_id": "review_code-cli-subcommand-help-1"
+  },
+  "task_id": "task_cli-subcommand-help",
+  "subject": {
+    "repository": {
+      "owner": "cuddy-five",
+      "name": "esp32p4"
+    },
+    "sha": "a49d227db1d6ec656b25416458b79845c6cba64c"
+  },
+  "checks": [
+    {
+      "name": "git diff --stat a49d227db1d6ec656b25416458b79845c6cba64c HEAD",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "npm test",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "npm run validate:examples",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "node src/cli.js policy check",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "git diff --check d3476ee6af2b85dfc0d2ba1f5380ecdca20acc2a a49d227db1d6ec656b25416458b79845c6cba64c",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "node src/cli.js gate check --help",
+      "conclusion": "success",
+      "required": true
+    },
+    {
+      "name": "node src/cli.js validate --nope",
+      "conclusion": "success",
+      "required": true
+    }
+  ],
+  "tests": {
+    "total": 364,
+    "passed": 364,
+    "failed": 0,
+    "skipped": 0
+  },
+  "diff": {
+    "base_sha": "d3476ee6af2b85dfc0d2ba1f5380ecdca20acc2a",
+    "files_changed": 2,
+    "additions": 69,
+    "deletions": 0,
+    "paths": [
+      "src/cli.js",
+      "tests/unit/cli.test.js"
+    ],
+    "out_of_scope_paths": []
+  }
+}

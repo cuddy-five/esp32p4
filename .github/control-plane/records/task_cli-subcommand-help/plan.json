@@ -1,0 +1,84 @@
+{
+  "contract": "plan",
+  "schema_version": "1.0.0",
+  "id": "plan_cli-subcommand-help-1",
+  "created_at": "2026-11-04T23:23:30.210Z",
+  "producer": {
+    "kind": "agent",
+    "name": "copilot/planner",
+    "role": "planner",
+    "model": "gpt-5.6-luna"
+  },
+  "trace": {
+    "correlation_id": "trace_issue-7-representative-task",
+    "parent_id": "task_cli-subcommand-help"
+  },
+  "task_id": "task_cli-subcommand-help",
+  "summary": "Make -h and --help print the existing USAGE text to stdout with exit code 0 for every supported command and subcommand while preserving errors for other unknown options.",
+  "status": "proposed",
+  "steps": [
+    {
+      "id": "implement-help-handling",
+      "description": "Update main() in src/cli.js to recognize -h and --help after supported commands or subcommands before command-specific parsing, print USAGE to stdout, and return EXIT.OK without changing handling of other unknown options.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": [
+        "src/cli.js"
+      ],
+      "tests": [
+        "tests/unit/cli.test.js: add coverage for -h and --help after validate, schema, schema show/list, policy, policy check/stages, evidence, gate, gate check, compact, settings, and settings plan/check/apply/export",
+        "tests/unit/cli.test.js: add coverage that an unrelated unknown option still returns EXIT.ERROR"
+      ],
+      "risk": "low",
+      "reversible": true
+    },
+    {
+      "id": "add-help-regressions",
+      "description": "Add node:test and node:assert/strict regression tests asserting usage is emitted on stdout, stderr remains unused, and every supported command/subcommand help form returns EXIT.OK.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": [
+        "tests/unit/cli.test.js"
+      ],
+      "tests": [
+        "tests/unit/cli.test.js: help flags print usage and exit successfully for all supported commands and subcommands",
+        "tests/unit/cli.test.js: unknown options remain usage errors"
+      ],
+      "depends_on": [
+        "implement-help-handling"
+      ],
+      "risk": "low",
+      "reversible": true
+    },
+    {
+      "id": "verify-cli-help",
+      "description": "Independently verify the help behavior, unchanged unknown-option failure behavior, and all task acceptance checks.",
+      "kind": "verify",
+      "role": "verifier",
+      "depends_on": [
+        "add-help-regressions"
+      ],
+      "tests": [
+        "npm test",
+        "npm run validate:examples",
+        "node src/cli.js policy check",
+        "git diff --check",
+        "node src/cli.js gate check --help"
+      ],
+      "risk": "low",
+      "reversible": true
+    }
+  ],
+  "assumptions": [
+    "The existing USAGE constant is the required output for every command-level and subcommand-level help request.",
+    "Help takes precedence over command-specific required-argument validation, while unknown options without -h or --help continue to fail."
+  ],
+  "rollback_strategy": "Revert the changes to src/cli.js and tests/unit/cli.test.js; no persistent external state is modified.",
+  "verification_strategy": "Run the added focused unit tests and the acceptance commands, including a direct executable invocation of gate check --help and an unknown-option regression.",
+  "approvals_required": [
+    {
+      "approver": "human",
+      "reason": "The task record requires human approval before implementation and merge."
+    }
+  ]
+}

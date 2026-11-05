@@ -98,6 +98,26 @@ Exit codes
   0  success / no drift        1  usage or runtime error        2  validation failed or drift detected
 `;
 
+const VALUE_OPTIONS = new Set([
+  "--kind", "--format", "--project", "--risk", "--tag", "--path",
+  "--head-sha", "--from", "--to", "--base", "--pr", "--repo", "--now",
+  "--task", "--sha", "--base-sha", "--files-changed", "--additions",
+  "--deletions", "--tokens-used", "--producer-kind", "--producer-name",
+  "--producer-role", "--producer-model", "--output", "--file", "--max-chars",
+  "--only",
+]);
+
+/** @param {string[]} argv @returns {boolean} */
+function hasHelpFlag(argv) {
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--") return false;
+    if (arg === "--help" || arg === "-h") return true;
+    if (VALUE_OPTIONS.has(arg)) i += 1;
+  }
+  return false;
+}
+
 /**
  * @param {string[]} argv
  * @param {{
@@ -112,6 +132,11 @@ export async function main(argv, io = {}) {
   const stdout = io.stdout ?? ((s) => process.stdout.write(`${s}\n`));
   const stderr = io.stderr ?? ((s) => process.stderr.write(`${s}\n`));
   const env = io.env ?? process.env;
+
+  if (hasHelpFlag(argv)) {
+    stdout(USAGE);
+    return EXIT.OK;
+  }
 
   const [command, ...rest] = argv;
   try {
