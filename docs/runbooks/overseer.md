@@ -90,14 +90,27 @@ The declared policy does not require plan approval for low-risk work in
 ordinary files. That does not grant agents permission to merge: the owner
 still reviews the PR and chooses whether to merge.
 
-## What "halt" does
+## Stopping and resuming
 
-The working agreement requires each role to stop and write a `handoff`
-describing its state. Today you must tell the running agents to stop and
-inspect or cancel any separately running jobs. A comment does not cancel a
-workflow or undo changes. The coordinator records the blocked task and
-outstanding work manually; review that record before resuming or rolling
-back. Automated halt and recovery remain planned.
+A halt comment or message is a request: it stops nothing and undoes nothing.
+Stop each thing that runs, then confirm it stopped. No single stop command
+exists yet.
+
+| What runs | Stop it | Confirm it stopped |
+|---|---|---|
+| A Copilot CLI agent in a terminal | Ctrl-C in that terminal, or `kill <pid>` | `pgrep -af copilot` no longer lists it |
+| A GitHub Actions run, including the Copilot cloud agent | `gh run cancel <run-id>` (find it with `gh run list --status in_progress`) | `gh run view <run-id> --json status,conclusion` shows `completed` / `cancelled` |
+| A workflow that must not start again | `gh workflow disable <name>` | `gh workflow list --all` shows `disabled_manually` |
+
+Disabling `merge-gate` blocks every PR, because `task-gate` is a required
+check. Re-enable it with `gh workflow enable merge-gate`.
+
+Each stopped role should leave a `handoff`; a killed process cannot. Then run
+`node src/cli.js task status` (see the [team runbook](agent-team.md#halt-resume-and-rollback)):
+it tells you where the task stands from its records and who acts next. It
+cannot see running processes, which is why you confirm the stop first. An
+action that was interrupted (a push, a comment, a paid run) has an unknown
+result until you look; never repeat it blindly.
 
 ## Reading to learn
 

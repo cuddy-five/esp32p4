@@ -99,3 +99,18 @@ jobs:
           fi
           node src/cli.js gate check --discover --base "$BASE_SHA" --head-sha "$HEAD_SHA" \
             --pr "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Report where the task stands and who acts next
+        # Runs after a failing gate too: the report says what to do about it.
+        # Informational: the gate step above decides the job's result.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if [ ! -f src/lib/recovery.js ]; then
+            echo "SKIP the base commit predates task status" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node src/cli.js task status --discover --base "$BASE_SHA" --head-sha "$HEAD_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
