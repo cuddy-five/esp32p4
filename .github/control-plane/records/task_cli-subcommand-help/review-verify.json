@@ -1,0 +1,51 @@
+{
+  "contract": "review",
+  "schema_version": "1.0.0",
+  "id": "review_verify-cli-subcommand-help-4",
+  "created_at": "2026-11-04T23:53:57Z",
+  "producer": {
+    "kind": "agent",
+    "name": "copilot/verifier",
+    "role": "verifier",
+    "model": "claude-haiku-4.5"
+  },
+  "trace": {
+    "correlation_id": "trace_issue-7-representative-task",
+    "parent_id": "evidence_verify-cli-subcommand-help-4"
+  },
+  "task_id": "task_cli-subcommand-help",
+  "plan_id": "plan_cli-subcommand-help-1",
+  "evidence_id": "evidence_verify-cli-subcommand-help-4",
+  "subject": {
+    "sha": "a49d227db1d6ec656b25416458b79845c6cba64c"
+  },
+  "review_kind": "verification",
+  "verdict": "approve",
+  "summary": "All acceptance criteria verified: --help now prints usage and exits 0, unknown options still fail properly, and all test suites pass.",
+  "overseer_note": "Independently ran all required commands on commit a49d227db1d6ec656b25416458b79845c6cba64c. Verified: (1) git diff --stat shows changes only in scope (src/cli.js, tests/unit/cli.test.js, 69 additions), (2) npm test: 364 passed, 0 failed, (3) npm run validate:examples: 7/7 documents valid, (4) node src/cli.js policy check: ok, (5) git diff --check: no whitespace issues, (6) node src/cli.js gate check --help: prints full usage and exits 0, (7) node src/cli.js validate --nope: correctly errors with exit 1. Implementation adds hasHelpFlag() function that intercepts --help/-h at the top of main(), scanning VALUE_OPTIONS to skip option arguments properly. Tests comprehensively cover all 16 command/subcommand paths with both --help and -h flags, plus edge cases (option values and arguments after -- are not treated as help requests, unknown options remain errors). All acceptance criteria satisfied.",
+  "findings": [],
+  "checklist": [
+    {
+      "item": "--help or -h after any command or subcommand prints usage and exits 0",
+      "criterion_id": "ac-1",
+      "satisfied": true,
+      "notes": "Verified by command 5 (node src/cli.js gate check --help exits 0 with usage printed) and test coverage of all 16 command/subcommand combinations"
+    },
+    {
+      "item": "Unknown options other than --help/-h still fail with exit 1 as before",
+      "criterion_id": "ac-2",
+      "satisfied": true,
+      "notes": "Verified by command 6 (node src/cli.js validate --nope exits 1) and test case 'unknown options remain usage errors'"
+    },
+    {
+      "item": "npm test, npm run validate:examples, node src/cli.js policy check and git diff --check all pass",
+      "criterion_id": "ac-3",
+      "satisfied": true,
+      "notes": "Commands 1-4 all succeeded: npm test (364/364 passed), npm run validate:examples (7/7 valid), node src/cli.js policy check (ok), git diff --check (no errors)"
+    }
+  ],
+  "scope_compliance": {
+    "within_scope": true,
+    "violations": []
+  }
+}
