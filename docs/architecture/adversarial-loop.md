@@ -29,7 +29,7 @@ or merge gate. Repository protections enforce only their configured checks.
 | planner | constructive | `task` | `plan` | implementing its own plan |
 | implementer | constructive | `task`, approved `plan`, `review` findings | code, `handoff` | editing the plan; reviewing, verifying, or merging its own change |
 | reviewer | adversarial | `plan` or `evidence` + diff | `review` (`plan`, `code`) | fixing what it finds; approving without the acceptance checklist |
-| security_auditor | hostile | `evidence` + diff | `review` (`security`) | being skipped at risk medium or above |
+| security_auditor | hostile | `evidence` + diff | `review` (`security`) | being skipped at risk medium or above, or for a changed path in an enabled review domain that names it |
 | verifier | skeptical | `plan`, `evidence` | own `evidence`, `review` (`verification`) | reusing the implementer's test run |
 | human | overseer | `overseer_note` on review, result, escalation; plans when asked | approvals, escalation resolutions, halt | being bypassed |
 
@@ -103,8 +103,9 @@ and every gate holds. The CLI checks declarations, not running transitions.
    subject, no out-of-scope paths and a budget not exceeded. Parallel work is
    integrated before review; dirty-tree evidence needs the base HEAD and a
    digest manifest under the manual runbook, and remains local-only.
-6. **Review (`in_review`).** The reviewer and, from medium risk up, the
-   security auditor each emit a `review`. Findings are structured and
+6. **Review (`in_review`).** The reviewer and, from medium risk up or for a
+   changed path in an enabled review domain that names it, the security
+   auditor each emit a `review`. Findings are structured and
    severity-tagged; blocking findings force `request_changes`, which returns
    the task to the implementer with the findings attached. The implementer
    cannot edit findings, only resolve them. Retries are bounded.
@@ -167,7 +168,7 @@ or rollback exists yet.
 | `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | planned coordinator; `policy stages` evaluates required stages only |
 | `approval_granted` | Current original human approval covers this task, plan, stage and revision | planned coordinator; manually checked today |
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; empty `out_of_scope_paths`; `budget_used` ≤ `task.budget` | collect-evidence (next stage) |
-| `reviews_approve` | Latest code review and, when required, security review approve; reviewers distinct from implementer | planned coordinator |
+| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer | planned coordinator |
 | `verification_passed` | Verifier's own evidence green and verification review approves | planned verifier integration + merge gate |
 | `no_open_escalation` | No escalation open or acknowledged | planned coordinator |
 | `retry_budget_remaining` | Review/verify loops below the configured retry budget | planned coordinator |
