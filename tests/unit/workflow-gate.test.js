@@ -131,7 +131,14 @@ test("workflow wires PR head/base, entry point and removes hosted paid evaluatio
   assert.equal(task.steps[0].with.ref, "${{ github.event.pull_request.base.sha }}", "gate code and policy must come from the base commit");
   assert.ok(task.steps.every((st) => !st.uses?.startsWith("actions/checkout") || st === task.steps[0]), "only the base is checked out");
   assert.deepEqual(task.permissions, { contents: "read", "pull-requests": "read", issues: "read" });
-  assert.match(task.steps.at(-1).run, /gate check --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"[\s\\]+--pr "\$PR_NUMBER"/);
+  const gateStep = task.steps.find((st) => /gate check/.test(st.run ?? ""));
+  assert.match(gateStep.run, /gate check --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"[\s\\]+--pr "\$PR_NUMBER"/);
+  // The status report runs after a failing gate, never instead of it, and cannot change the job's result.
+  const status = task.steps.at(-1);
+  assert.equal(task.steps.indexOf(status), task.steps.indexOf(gateStep) + 1);
+  assert.equal(status.if, "${{ !cancelled() }}");
+  assert.equal(status["continue-on-error"], true);
+  assert.match(status.run, /task status --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"/);
   const evals = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/agent-evals.yml"), "utf8"));
   assert.deepEqual(Object.keys(evals.jobs), ["guardrail-and-registry-audit"]);
 });

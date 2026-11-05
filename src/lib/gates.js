@@ -15,6 +15,9 @@ import { evaluateBudget, findOutOfScopePaths } from "../evidence.js";
 import { loadReviewDomains, selectReviewDomains } from "../review-domains.js";
 
 const APPROVING = new Set(["approve", "approve_with_comments"]);
+const BLOCKING = new Set(["request_changes", "block"]);
+/** Review kinds whose blocking verdict sends the change back to the implementer. */
+const REPAIR_KINDS = new Set(["code", "security", "verification"]);
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
 const HOUR_MS = 3600 * 1000;
 
@@ -27,9 +30,26 @@ const short = (sha) => (typeof sha === "string" ? sha.slice(0, 12) : String(sha)
 
 /**
  * Group validated documents for one task. Throws on invalid or mixed input.
+ * A record delivered twice with identical content counts once and is listed in
+ * `duplicates`; two different records under one id are an error, because
+ * either could be the real one.
  * @param {object[]} docs parsed contract documents
  */
-export function collectPacket(docs, { contracts = new ContractRegistry() } = {}) {
+export function collectPacket(input, { contracts = new ContractRegistry() } = {}) {
+  const seen = new Map();
+  const duplicates = [];
+  const docs = [];
+  for (const doc of input) {
+    const id = doc?.id;
+    const body = JSON.stringify(doc);
+    if (typeof id === "string" && seen.has(id)) {
+      if (seen.get(id) !== body) throw new Error(`conflicting records: two different documents share id ${id}`);
+      duplicates.push(id);
+      continue;
+    }
+    if (typeof id === "string") seen.set(id, body);
+    docs.push(doc);
+  }
   const problems = [];
   docs.forEach((doc, i) => {
     const r = contracts.validate(doc);
@@ -50,6 +70,7 @@ export function collectPacket(docs, { contracts = new ContractRegistry() } = {})
     handoffs: of("handoff"),
     escalations: of("escalation"),
     results: of("result"),
+    duplicates,
   };
 }
 
@@ -60,13 +81,43 @@ function currentPlans(plans) {
 }
 
 /** Names that produced the change: implementer handoffs and implementer-role producers. */
-function implementerNames(packet) {
+export function implementerNames(packet) {
   const names = new Set();
   for (const d of [...packet.handoffs, ...packet.evidence, ...packet.reviews]) {
     if (d.producer?.role === "implementer" || (d.contract === "handoff" && d.from_role === "implementer")) names.add(nameOf(d));
   }
   names.delete("");
   return names;
+}
+
+/**
+ * Reviewers whose own latest review of `kind` at `sha` blocks. A blocking
+ * verdict is cleared only by the same reviewer's later review or by a new
+ * commit; another reviewer's approval does not outvote it (ADR 0003).
+ */
+export function openObjections(reviews, kind, sha, implementers) {
+  const latestBy = new Map();
+  for (const r of reviews) {
+    if (r.review_kind !== kind || r.subject.sha !== sha) continue;
+    if (implementers.has(nameOf(r)) || r.producer?.role === "implementer") continue;
+    latestBy.set(nameOf(r), r);
+  }
+  return [...latestBy.values()].filter((r) => BLOCKING.has(r.verdict));
+}
+
+/**
+ * Repair rounds used: distinct reviewed commits that a non-implementer's code,
+ * security or verification review sent back. Each round produces a new commit,
+ * so several blocking reviews of one commit are one round.
+ */
+export function repairRounds(packet, implementers) {
+  const shas = new Set();
+  for (const r of packet.reviews) {
+    if (!REPAIR_KINDS.has(r.review_kind) || !BLOCKING.has(r.verdict)) continue;
+    if (implementers.has(nameOf(r)) || r.producer?.role === "implementer") continue;
+    shas.add(r.subject.sha);
+  }
+  return shas.size;
 }
 
 /** Latest review of a kind for the head commit, with a reason when none qualifies. */
@@ -83,6 +134,11 @@ function latestReview(ctx, kind, { notBy, label }) {
     return { pass: false, reason: `${label} review is self-review: "${latest.producer.name}" produced the work` };
   }
   if (!APPROVING.has(latest.verdict)) return { pass: false, reason: `latest ${label} review verdict is ${latest.verdict}` };
+  const objections = openObjections(ctx.packet.reviews, kind, ctx.headSha, notBy).filter((r) => nameOf(r) !== nameOf(latest));
+  if (objections.length) {
+    const who = objections.map((r) => `"${r.producer.name}" (${r.id}) ${r.verdict}`).join(", ");
+    return { pass: false, reason: `conflicting ${label} reviews at ${short(ctx.headSha)}: ${who}, "${latest.producer.name}" approves; adjudicate, then escalate conflicting_reviews` };
+  }
   return { pass: true, reason: `${label} review ${latest.id} by ${latest.producer.name} approves ${short(ctx.headSha)}` };
 }
 
@@ -236,6 +292,15 @@ const EVALUATORS = {
     return review.pass ? { pass: true, reason: `evidence ${ev.id}; ${review.reason}` } : review;
   },
 
+  retry_budget_remaining: (ctx) => {
+    const limit = ctx.limits.repair_rounds;
+    if (!Number.isInteger(limit)) return { pass: false, reason: "state machine sets no limits.repair_rounds" };
+    const used = repairRounds(ctx.packet, ctx.implementers);
+    return used <= limit
+      ? { pass: true, reason: `repair round ${used} of ${limit}` }
+      : { pass: false, reason: `repair limit reached: ${used} rounds, limit ${limit}; escalate repeated_failure to the human` };
+  },
+
   no_open_escalation: (ctx) => {
     const open = ctx.packet.escalations.filter((e) => OPEN_ESCALATION.has(e.status));
     return open.length
@@ -290,6 +355,7 @@ export function evaluateTransition(docs, opts) {
     stage: to === "done" ? "merge" : "plan",
     implementers: implementerNames(packet),
     reviewDomains: opts.reviewDomains,
+    limits: sm.doc?.limits ?? {},
   };
   const gates = transition.gates.map((gate) => {
     const evaluate = EVALUATORS[gate];
@@ -305,6 +371,7 @@ export function evaluateTransition(docs, opts) {
     merge_sha: mergeSha,
     ok: gates.every((g) => g.pass),
     gates,
+    duplicates: packet.duplicates,
     authority: AUTHORITY_NOTE,
   };
 }

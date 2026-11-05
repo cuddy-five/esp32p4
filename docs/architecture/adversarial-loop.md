@@ -134,7 +134,11 @@ Escalations carry concrete options with one recommended.
 Reasons that must escalate rather than be worked around: budget exceeded,
 policy violation, ambiguous requirements, repeated failure, security
 concern, human approval required, scope expansion, external dependency,
-conflicting reviews.
+conflicting reviews. A third repair round is refused (`repeated_failure`).
+An objection at a commit is cleared only by its own reviewer or a new
+commit; when another reviewer approves the same commit, one independent
+adjudication runs, then `conflicting_reviews` goes to the human. A record
+delivered twice counts once; two different records under one id stop the gate.
 
 ## Where the human sits
 
@@ -168,10 +172,10 @@ or rollback exists yet.
 | `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | planned coordinator; `policy stages` evaluates required stages only |
 | `approval_granted` | Current original human approval covers this task, plan, stage and revision | planned coordinator; manually checked today |
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; empty `out_of_scope_paths`; `budget_used` ≤ `task.budget` | collect-evidence (next stage) |
-| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer | planned coordinator |
+| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no other reviewer's latest review of that commit objects | planned coordinator |
 | `verification_passed` | Verifier's own evidence green and verification review approves | planned verifier integration + merge gate |
 | `no_open_escalation` | No escalation open or acknowledged | planned coordinator |
-| `retry_budget_remaining` | Review/verify loops below the configured retry budget | planned coordinator |
+| `retry_budget_remaining` | Repair rounds (reviewed commits sent back by a blocking review) do not exceed `limits.repair_rounds` (2) | `gate check`; `task status` reports the count |
 
 `node src/cli.js policy check` checks declaration consistency and reports gate
 status. `policy stages` calculates required stages from risk, paths and tags;
