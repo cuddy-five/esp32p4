@@ -97,7 +97,7 @@ approval:
 
 # What the overseer may do without an approval request being pending.
 overseer_powers:
-  - halt any task at any time; moves it to blocked with an escalation of reason other and status acknowledged
+  - halt any task at any time with a `/halt task=<id>` PR comment; no_open_escalation fails until `/resume task=<id>`. The comment stops no process; stop and confirm running workers and jobs separately
   - cancel any task at any time
   - request a re-plan from awaiting_approval with free-text feedback
   - raise the risk level of any task; the loop re-evaluates stages immediately

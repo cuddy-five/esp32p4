@@ -138,7 +138,7 @@ test("workflow wires PR head/base, entry point and removes hosted paid evaluatio
   assert.equal(task.steps.indexOf(status), task.steps.indexOf(gateStep) + 1);
   assert.equal(status.if, "${{ !cancelled() }}");
   assert.equal(status["continue-on-error"], true);
-  assert.match(status.run, /task status --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"/);
+  assert.match(status.run, /task status --discover --base "\$BASE_SHA" --head-sha "\$HEAD_SHA"[\s\\]+--pr "\$PR_NUMBER"/);
   const evals = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/agent-evals.yml"), "utf8"));
   assert.deepEqual(Object.keys(evals.jobs), ["guardrail-and-registry-audit"]);
 });
