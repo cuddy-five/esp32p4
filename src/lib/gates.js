@@ -169,6 +169,16 @@ function securityDomains(ctx) {
   return covered.filter((d) => d.role === "security_auditor" || d.security_role === "security_auditor").map((d) => d.domain);
 }
 
+/**
+ * The overseer's latest /halt or /resume for this task, when it is a halt.
+ * Only authenticated controls by a policy overseer count.
+ */
+export function haltInForce(ctx) {
+  const mine = (ctx.controls ?? []).filter((c) => c.authenticated === true && c.task_id === ctx.packet.task.id && ctx.overseers.has(String(c.by ?? "").toLowerCase()) && Number.isFinite(Date.parse(c.at)));
+  const last = mine.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).at(-1);
+  return last?.action === "halt" ? last : null;
+}
+
 const EVALUATORS = {
   task_valid: (ctx) => ({ pass: true, reason: `task ${ctx.packet.task.id} validates` }),
 
@@ -302,10 +312,12 @@ const EVALUATORS = {
   },
 
   no_open_escalation: (ctx) => {
+    const halt = haltInForce(ctx);
+    if (halt) return { pass: false, reason: `halted by overseer ${halt.by} at ${halt.at} (${halt.reference}); post /resume task=${ctx.packet.task.id} to lift it` };
     const open = ctx.packet.escalations.filter((e) => OPEN_ESCALATION.has(e.status));
     return open.length
       ? { pass: false, reason: `open escalations: ${open.map((e) => `${e.id} (${e.reason})`).join(", ")}` }
-      : { pass: true, reason: "no open escalation" };
+      : { pass: true, reason: "no open escalation or halt" };
   },
 };
 
@@ -320,7 +332,7 @@ export const IMPLEMENTED_GATES = Object.freeze(Object.keys(EVALUATORS));
  * @param {object[]} docs parsed contract documents for one task
  * @param {{
  *   from?: string, to?: string, headSha: string, mergeSha?: string, changedPaths?: string[],
- *   approvals?: object[], overseers?: string[], now?: number,
+ *   approvals?: object[], controls?: object[], overseers?: string[], now?: number,
  *   stateMachine?: any, policy?: any, reviewDomains?: any,
  * }} opts (reviewDomains defaults to .review-domains.json)
  */
@@ -349,6 +361,7 @@ export function evaluateTransition(docs, opts) {
     mergeSha,
     changedPaths: opts.changedPaths,
     approvals: opts.approvals ?? [],
+    controls: opts.controls ?? [],
     overseers: new Set((opts.overseers ?? policyDoc.approval?.overseers ?? []).map((o) => String(o).toLowerCase())),
     now: opts.now ?? Date.now(),
     policy: policyDoc,
@@ -372,6 +385,7 @@ export function evaluateTransition(docs, opts) {
     ok: gates.every((g) => g.pass),
     gates,
     duplicates: packet.duplicates,
+    overseers: [...ctx.overseers],
     authority: AUTHORITY_NOTE,
   };
 }

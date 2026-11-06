@@ -72,7 +72,7 @@ Commands
                                ${RECORDS_ROOT}<task_id>/ from git at
                                --head-sha; evidence covers the last commit before
                                records-only commits. No records: exit 0, not applicable
-    --pr <number>              Read overseer /approve comments from this pull request;
+    --pr <number>              Read overseer /approve, /halt and /resume comments from this pull request;
                                --head-sha must be its head commit
     --repo <owner/name>        Repository of --pr (default: GH_REPO or origin)
     --now <timestamp>          Evaluation time (default: now)
@@ -85,6 +85,7 @@ Commands
                                repair rounds, escalations and next actions. It reads
                                records only; check running workers and jobs directly
     --discover, --base         As for gate check
+    --pr <number>, --repo      Read overseer /halt and /resume comments from this pull request
     --now <timestamp>          Evaluation time for handoff expiry (default: now)
     --format text|json         Output format (default: text)
 
@@ -165,7 +166,7 @@ export async function main(argv, io = {}) {
       case "gate":
         return await cmdGate(rest, { stdout, stderr, env, client: io.client });
       case "task":
-        return cmdTask(rest, { stdout, stderr });
+        return await cmdTask(rest, { stdout, stderr, env, client: io.client });
       case "compact":
         return await cmdCompact(rest, { stdout, stderr, stdin: io.stdin });
       case undefined:
@@ -385,7 +386,29 @@ function readTaskInput(values, positionals, headSha) {
   return { docs, subject: headSha, paths, recordsDir: undefined };
 }
 
-function cmdTask(args, { stdout, stderr }) {
+/**
+ * With --pr, the overseer commands (/approve, /halt, /resume) posted on that
+ * pull request, after checking --head-sha is its head. Null after a usage error.
+ */
+async function readPrCommands(cmd, values, headSha, { env, stderr, client: injectedClient }) {
+  if (values.pr === undefined) return { approvals: [], controls: [], ignored: [] };
+  const pr = parseCount(values.pr);
+  if (!pr) {
+    stderr(`${cmd}: --pr must be a pull request number`);
+    return null;
+  }
+  const { owner, name } = resolveRepo(values.repo, { env });
+  const client = injectedClient ?? new GitHubClient();
+  const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const { data: pull } = await client.request("GET", `${base}/pulls/${pr}`);
+  if (pull?.head?.sha !== headSha) {
+    stderr(`${cmd}: --head-sha ${printable(String(headSha))} is not the head of PR #${pr} (${printable(String(pull?.head?.sha))})`);
+    return null;
+  }
+  return parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`));
+}
+
+async function cmdTask(args, { stdout, stderr, env, client }) {
   const [sub, ...subArgs] = args;
   if (sub !== "status") {
     stderr(`task: unknown subcommand "${printable(sub ?? "")}" (expected status)`);
@@ -397,6 +420,8 @@ function cmdTask(args, { stdout, stderr }) {
     options: {
       "head-sha": { type: "string" },
       base: { type: "string" },
+      pr: { type: "string" },
+      repo: { type: "string" },
       now: { type: "string" },
       discover: { type: "boolean", default: false },
       format: { type: "string", default: "text" },
@@ -415,6 +440,8 @@ function cmdTask(args, { stdout, stderr }) {
     return EXIT.ERROR;
   }
   const headSha = values["head-sha"];
+  const comments = await readPrCommands("task status", values, headSha, { env, stderr, client });
+  if (!comments) return EXIT.ERROR;
   const input = readTaskInput(values, positionals, headSha);
   if (!input) {
     stdout(values.format === "json"
@@ -422,7 +449,7 @@ function cmdTask(args, { stdout, stderr }) {
       : `SKIP no task records under ${RECORDS_ROOT}`);
     return EXIT.OK;
   }
-  const report = assessTask(input.docs, { headSha: input.subject, now });
+  const report = assessTask(input.docs, { headSha: input.subject, now, changedPaths: input.paths, controls: comments.controls });
   if (input.recordsDir) report.records_dir = input.recordsDir;
   if (values.format === "json") {
     stdout(JSON.stringify(report, null, 2));
@@ -436,6 +463,7 @@ function cmdTask(args, { stdout, stderr }) {
   stdout(`  repairs:  ${report.repair.used} of ${report.repair.limit ?? "?"} rounds used${report.repair.exhausted ? " (limit reached)" : ""}`);
   for (const s of report.stale) stdout(`  stale:    ${printable(s.id)} (${s.kind}) covers ${s.covers.slice(0, 12)}`);
   for (const o of report.objections) stdout(`  objects:  ${printable(o.id)} (${o.kind}) ${o.verdict} by ${printable(String(o.by))}`);
+  if (report.halted) stdout(`  halted:   by ${printable(report.halted.by)} at ${report.halted.at} (${printable(report.halted.reference)})`);
   for (const e of report.open_escalations) stdout(`  blocked:  ${printable(e.id)} (${e.reason}, ${e.severity}, ${e.status})`);
   stdout("Next actions:");
   for (const a of report.next_actions) stdout(`  - ${printable(a)}`);
@@ -477,24 +505,9 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     return EXIT.ERROR;
   }
   const headSha = values["head-sha"];
-  let approvals = [];
-  let ignored = [];
-  if (values.pr !== undefined) {
-    const pr = parseCount(values.pr);
-    if (!pr) {
-      stderr("gate check: --pr must be a pull request number");
-      return EXIT.ERROR;
-    }
-    const { owner, name } = resolveRepo(values.repo, { env });
-    const client = injectedClient ?? new GitHubClient();
-    const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
-    const { data: pull } = await client.request("GET", `${base}/pulls/${pr}`);
-    if (pull?.head?.sha !== headSha) {
-      stderr(`gate check: --head-sha ${printable(String(headSha))} is not the head of PR #${pr} (${printable(String(pull?.head?.sha))})`);
-      return EXIT.ERROR;
-    }
-    ({ approvals, ignored } = parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`)));
-  }
+  const comments = await readPrCommands("gate check", values, headSha, { env, stderr, client: injectedClient });
+  if (!comments) return EXIT.ERROR;
+  const { approvals, controls, ignored } = comments;
   const input = readTaskInput(values, positionals, headSha);
   if (!input) {
     const skip = { applicable: false, ok: true, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` };
@@ -509,6 +522,7 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     mergeSha: headSha,
     changedPaths: paths,
     approvals,
+    controls,
     now,
   });
   if (recordsDir) report.records_dir = recordsDir;

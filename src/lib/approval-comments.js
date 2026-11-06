@@ -6,24 +6,34 @@
  *   /approve merge task=<task_id> plan=<plan_id> sha=<40-hex head commit>
  *   /approve plan task=<task_id> plan=<plan_id>
  *
+ * and halts or resumes a task with
+ *
+ *   /halt task=<task_id> [reason]
+ *   /resume task=<task_id> [reason]
+ *
  * GitHub records who posted the comment and when, so the approver and time come
  * from the platform, not from the comment text. That authenticates the account,
  * not the person using it: anything holding the overseer's token can post one.
  */
 
 const LINE = /^\/approve[ \t]+(plan|merge)[ \t]+task=(\S+)[ \t]+plan=(\S+)(?:[ \t]+sha=([0-9a-f]{40}))?[ \t]*$/;
+const CONTROL = /^\/(halt|resume)[ \t]+task=(\S+)(?:[ \t]+(\S.*))?$/;
+const COMMAND = /^\/(approve|halt|resume)\b/;
 
 /**
- * Turn issue comments (GitHub REST shape) into approval records.
- * Comments that are edited, posted by an app or a bot, or malformed are ignored with a reason.
+ * Turn issue comments (GitHub REST shape) into approval records and halt or
+ * resume controls. Comments that are edited, posted by an app or a bot, or
+ * malformed are ignored with a reason. Whether the author is an overseer is
+ * decided by the gate, against policies/approvals.yaml.
  * @param {any[]} comments
- * @returns {{ approvals: object[], ignored: string[] }}
+ * @returns {{ approvals: object[], controls: object[], ignored: string[] }}
  */
 export function parseApprovalComments(comments) {
   const approvals = [];
+  const controls = [];
   const ignored = [];
   for (const c of comments) {
-    const lines = String(c?.body ?? "").split(/\r?\n/).filter((l) => l.startsWith("/approve"));
+    const lines = String(c?.body ?? "").split(/\r?\n/).filter((l) => COMMAND.test(l));
     if (!lines.length) continue;
     const where = c.html_url ?? `comment ${c.id}`;
     const login = c.user?.login;
@@ -41,6 +51,15 @@ export function parseApprovalComments(comments) {
       continue;
     }
     for (const line of lines) {
+      const control = CONTROL.exec(line.trimEnd());
+      if (/^\/(halt|resume)\b/.test(line)) {
+        if (!control) {
+          ignored.push(`${where}: malformed ${line.split(/\s/)[0]} line`);
+          continue;
+        }
+        controls.push({ action: control[1], task_id: control[2], reason: control[3] ?? null, by: login, at: c.created_at, reference: where, authenticated: true });
+        continue;
+      }
       const m = LINE.exec(line.trimEnd());
       if (!m || (m[1] === "merge" && !m[4])) {
         ignored.push(`${where}: malformed approval line`);
@@ -58,5 +77,5 @@ export function parseApprovalComments(comments) {
       });
     }
   }
-  return { approvals, ignored };
+  return { approvals, controls, ignored };
 }

@@ -105,12 +105,15 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
-          if [ ! -f src/lib/recovery.js ]; then
-            echo "SKIP the base commit predates task status" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ ! -f src/lib/recovery.js ] || ! grep -q '/halt' src/lib/approval-comments.js; then
+            echo "SKIP the base commit predates task status with /halt" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          node src/cli.js task status --discover --base "$BASE_SHA" --head-sha "$HEAD_SHA" | tee -a "$GITHUB_STEP_SUMMARY"
+          node src/cli.js task status --discover --base "$BASE_SHA" --head-sha "$HEAD_SHA" \
+            --pr "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" | tee -a "$GITHUB_STEP_SUMMARY"
