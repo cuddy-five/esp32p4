@@ -93,11 +93,16 @@ Copilot then runs the agent on the session model and only writes
 to stderr. rust-coder had no pin at all, so a security audit of its signing code
 ran on the model that wrote it.
 
-**`modelPolicy: required`** (camelCase, as the CLI reference spells it) makes
-Copilot refuse to dispatch the agent instead of falling back: "dispatch is
-refused rather than silently substituting an unauthored model". The review
-roles set it. This is documented, not live-checked. The 1.0.83 changelog's
-spelling, `model-policy`, did nothing in a probe: the agent still fell back.
+**`modelPolicy: required`** (camelCase, as the CLI reference spells it) is
+documented to refuse dispatch "rather than silently substituting an unauthored
+model". The review roles set it, but live (CLI 1.0.105, 2026-11-07) it changed
+nothing: dispatched as a subagent, an agent whose pin is unavailable is refused
+with or without it; started with `--agent`, it falls back with only the stderr
+warning. Passing the pin as the session model fails closed:
+`copilot --agent reviewer --model kimi-k3` exits 1 with
+`Model "…" from --model flag is not available` before any model call. Start
+review roles that way. The 1.0.83 changelog's spelling, `model-policy`, did
+nothing either.
 With the session model set to `Auto`, subagents always run on the resolved
 session model whatever their pin (CLI reference), so do not use `Auto` for
 security-critical review. After a run that matters, check stderr for `which is not available`, or the
@@ -366,8 +371,8 @@ Known limits that stay:
 
 - Starting several Copilot sessions at once breaks Basic Memory's handshake
   (see the live check record). Start them one at a time.
-- `modelPolicy: required` should stop a review from running on another model,
-  but that is not live-checked. Check which model ran (see [Models](#models)).
+- An agent started directly still falls back when its pin is unavailable;
+  start review roles with `--model <its pin>` (see [Models](#models)).
 
 `poppler-utils` is installed in `devbox` (2026-11-03): `pdftotext -layout <file> -`
 reads the vendor PDFs.
@@ -469,6 +474,17 @@ something to index and was deleted afterwards. Results are in the table under
 The rust-coder's skill text was in context despite the misquote: the
 `selected_agent_instructions` entry under `system_segments` in
 `session.usage_checkpoint` had the size of the profile plus its three skills.
+
+**2026-11-07, failure exercises ([#8](https://github.com/cuddy-five/esp32p4/issues/8)).**
+A temporary profile pinned `claude-sonnet-4.6`, which this account lacks.
+
+| Run | Result |
+| --- | --- |
+| `--agent`, with `modelPolicy: required` | Warning on stderr, ran on the session model, exit 0. $0.003. |
+| Dispatched as a subagent, with and without `modelPolicy` | Refused both times: "Model `claude-sonnet-4.6` is not available". $0.007 each. |
+| `--agent` with `--model claude-sonnet-4.6` | `Error: Model "claude-sonnet-4.6" from --model flag is not available`, exit 1, no model call. |
+| verifier, with `shell(npm:*)` denied | Ran the `test` script's commands instead and reported every check passed, without the two denials. With the `verify-and-stop` rule added: both reported unavailable, but `policy check` was also called denied without being run. $0.055, $0.039. |
+| Default agent with an invalid `GH_TOKEN` | Ran on the stored login, exit 0. $0.006. |
 
 ## Next slices
 

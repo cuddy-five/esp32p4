@@ -74,6 +74,8 @@ voids it; post a new comment instead of editing. The `task-gate` check prints
 the exact line to post once every other gate passes; re-run that check after you post it. GitHub identifies the
 account, not the person: an agent with your GitHub token could post one, so
 give agents a token that cannot comment, or check the comment yourself.
+Copilot CLI ran on its stored login when given an invalid `GH_TOKEN`
+(2026-11-07), so a restricted token binds it only when no other login is stored.
 Approving does not merge; you still merge in GitHub.
 3. **Escalation resolution.** Pick an option. The recommended one is marked.
    If none fit, reply with free text; the coordinator will turn it into a
@@ -103,12 +105,17 @@ process and undoes nothing: stop each thing that runs, then confirm it stopped.
 
 | What runs | Stop it | Confirm it stopped |
 |---|---|---|
-| A Copilot CLI agent in a terminal | Ctrl-C in that terminal, or `kill <pid>` | `pgrep -af copilot` no longer lists it |
+| A Copilot CLI agent in a terminal | Ctrl-C in that terminal, or `kill <pid>` | `pgrep -ax copilot` no longer lists it |
 | A GitHub Actions run, including the Copilot cloud agent | `gh run cancel <run-id>` (find it with `gh run list --status in_progress`) | `gh run view <run-id> --json status,conclusion` shows `completed` / `cancelled` |
 | A workflow that must not start again | `gh workflow disable <name>` | `gh workflow list --all` shows `disabled_manually` |
 
 Disabling `merge-gate` blocks every PR, because `task-gate` is a required
 check. Re-enable it with `gh workflow enable merge-gate`.
+
+`pgrep -x` matches the process name only; `-f` also matches any command line
+that mentions copilot. A killed Copilot run still exits 0. With
+`--output-format json` its log ends with an `abort` event and lists the files
+it changed under `codeChanges`, and `copilot --resume <session id>` continues it.
 
 Each stopped role should leave a `handoff`; a killed process cannot. Then run
 `node src/cli.js task status` (see the [team runbook](agent-team.md#halt-resume-and-rollback)):

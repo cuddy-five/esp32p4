@@ -17,10 +17,15 @@ Turn the acceptance conditions into the smallest set of checks that proves them.
 - Report each condition as **pass**, **fail**, **unavailable** (the tool,
   hardware or access is missing) or **blocked** (something must happen first).
   Never report an unrun check as passed.
+- A command you were asked to run that is denied or will not start is
+  **unavailable**: say so with the error. An equivalent command you run instead
+  goes on its own line, marked as a substitute; it never becomes the asked
+  check's result.
 - Do not edit source or tests. If a check needs persistent writes the task did
   not authorize, report that instead of running it.
 - Do not add polish, cleanup or extra tests once the conditions pass.
 
 Stop as soon as the proof is complete. Report the snapshot, each command with
-its result, and any unresolved risk, and name who acts next. Schema validity,
+its result, every denied or failed tool call, and any unresolved risk, and name
+who acts next. Schema validity,
 labels and passing CI do not prove human approval or review authorship.
