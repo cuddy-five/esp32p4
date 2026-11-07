@@ -10,7 +10,7 @@
  * escalations, repair rounds against the limit, and duplicate deliveries.
  * Records are claims: they do not show what a worker or GitHub job is doing now.
  */
-import { collectPacket, evaluateTransition, haltInForce, implementerNames, openObjections, repairRounds } from "./gates.js";
+import { collectPacket, evaluateTransition, haltInForce, implementerNames, openObjections, repairRounds, sortControls } from "./gates.js";
 import { loadStateMachine } from "./orchestration.js";
 
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
@@ -47,10 +47,13 @@ const POSITION = [
 
 /**
  * @param {object[]} docs parsed contract documents for one task
- * @param {{ headSha: string, now?: number, changedPaths?: string[], controls?: object[], overseers?: string[], stateMachine?: any, policy?: any }} opts
+ * @param {{ headSha: string, now?: number, changedPaths?: string[], controls?: object[], ignoredComments?: string[], overseers?: string[], stateMachine?: any, policy?: any }} opts
  *   headSha: the commit the records must cover (the subject, see task-records.js)
+ *   controls: the /halt and /resume controls read from the task's pull request;
+ *     leave it out when they were not read, and the report says the halt is unchecked
+ *   ignoredComments: why overseer commands on the pull request did not count
  */
-export function assessTask(docs, { headSha, now = Date.now(), changedPaths, controls = [], overseers, stateMachine, policy } = {}) {
+export function assessTask(docs, { headSha, now = Date.now(), changedPaths, controls, ignoredComments = [], overseers, stateMachine, policy } = {}) {
   if (typeof headSha !== "string" || !/^[0-9a-f]{40}$/.test(headSha)) throw new Error("head sha must be 40 lowercase hex characters");
   const sm = stateMachine ?? loadStateMachine();
   const packet = collectPacket(docs);
@@ -62,8 +65,10 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
   const result = packet.results.at(-1);
   const escalations = packet.escalations.filter((e) => OPEN_ESCALATION.has(e.status));
   const handoff = packet.handoffs.at(-1);
-  const report = evaluateTransition(docs, { headSha, now, changedPaths, approvals: [], controls, overseers, stateMachine: sm, policy });
-  const halt = haltInForce({ controls, packet, overseers: new Set((overseers ?? report.overseers ?? []).map((o) => String(o).toLowerCase())) });
+  const report = evaluateTransition(docs, { headSha, now, changedPaths, approvals: [], controls: controls ?? [], overseers, stateMachine: sm, policy });
+  const overseerSet = new Set((overseers ?? report.overseers ?? []).map((o) => String(o).toLowerCase()));
+  const halt = haltInForce({ controls, packet, overseers: overseerSet });
+  const ignoredCommands = [...ignoredComments, ...sortControls(controls, task.id, overseerSet).ignored];
   if (halt) actions.push(`human: the task is halted by ${halt.by} at ${halt.at} (${halt.reference}); confirm every worker and job stopped, then post /resume task=${task.id} to continue`);
   for (const e of escalations) actions.push(`human: resolve escalation ${e.id} (${e.reason}, ${e.severity}): ${e.requested_decision}`);
 
@@ -85,14 +90,19 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     for (const r of packet.reviews) {
       if (r.review_kind === kind && r.subject.sha === headSha && !implementers.has(nameOf(r)) && r.producer?.role !== "implementer") latestBy.set(nameOf(r), r);
     }
+    // Two reviewers make a conflict; every further reviewer of the same commit is an adjudication.
+    const adjudicated = Math.max(0, latestBy.size - 2);
     for (const r of openObjections(packet.reviews, kind, headSha, implementers)) {
       const conflict = [...latestBy.values()].some((o) => nameOf(o) !== nameOf(r) && APPROVING.has(o.verdict));
-      objections.push({ id: r.id, kind, verdict: r.verdict, by: r.producer?.name ?? null, conflict });
+      objections.push({ id: r.id, kind, verdict: r.verdict, by: r.producer?.name ?? null, conflict, ...(conflict ? { adjudications: adjudicated } : {}) });
     }
   }
   const adjudications = sm.doc?.limits?.adjudication_attempts;
   for (const o of objections.filter((x) => x.conflict)) {
-    actions.push(`coordinator: ${o.kind} reviews conflict at ${short(headSha)} (${o.id} by ${o.by} ${o.verdict}, another reviewer approves); run ${adjudications ?? "the agreed"} independent adjudication, then escalate conflicting_reviews to the human`);
+    const conflict = `${o.kind} reviews conflict at ${short(headSha)} (${o.id} by ${o.by} ${o.verdict}, another reviewer approves)`;
+    actions.push(Number.isInteger(adjudications) && o.adjudications >= adjudications
+      ? `coordinator: ${conflict} after ${o.adjudications} adjudication review${o.adjudications === 1 ? "" : "s"}, the limit; escalate conflicting_reviews to the human and start no further review`
+      : `coordinator: ${conflict}; run ${adjudications ?? "the agreed"} independent adjudication, then escalate conflicting_reviews to the human`);
   }
 
   // Repair rounds: blocking reviews send work back; past the limit only the human decides.
@@ -142,7 +152,10 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     const blocking = gates.filter((g) => !g.pass && g.gate !== "approval_granted").map((g) => g.gate);
     if (!blocking.length) actions.push("human: read the reviews and evidence, then post the /approve merge line that gate check prints, or reject");
   }
-  if (!actions.length && nextRole) actions.push(`${nextRole}: ${source}`);
+  // The role that acts next comes first, and always has at least the failing gate to act on.
+  const mine = (a) => nextRole && a.startsWith(`${nextRole}:`);
+  if (nextRole && !actions.some(mine)) actions.unshift(`${nextRole}: ${source}`);
+  const ordered = [...actions.filter(mine), ...actions.filter((a) => !mine(a))];
 
   return {
     task_id: task.id,
@@ -156,10 +169,12 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     repair: { used, limit: limit ?? null, exhausted },
     stale,
     objections,
-    halted: halt ? { by: halt.by, at: halt.at, reference: halt.reference, reason: halt.reason } : null,
+    halt_checked: controls !== undefined,
+    halted: halt ? { by: halt.by, at: halt.at, reference: halt.reference, reason: halt.reason, task_named: halt.task_id } : null,
+    ignored_commands: ignoredCommands,
     open_escalations: escalations.map((e) => ({ id: e.id, reason: e.reason, severity: e.severity, status: e.status })),
     duplicates: packet.duplicates,
-    next_actions: actions,
+    next_actions: ordered,
     note: "This report reads records only. It does not show whether a worker, CLI process or GitHub job is still running; check those directly.",
   };
 }

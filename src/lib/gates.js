@@ -170,12 +170,31 @@ function securityDomains(ctx) {
 }
 
 /**
- * The overseer's latest /halt or /resume for this task, when it is a halt.
- * Only authenticated controls by a policy overseer count.
+ * Split /halt and /resume controls into those that count for `taskId` and the
+ * rest, each with a reason. Only authenticated controls by a policy overseer
+ * count. A halt fails safe: every overseer /halt on the task's pull request
+ * counts, whatever task it names. A /resume must name the task and be unedited.
+ * @returns {{ counted: object[], ignored: string[] }}
  */
+export function sortControls(controls, taskId, overseers) {
+  const counted = [];
+  const ignored = [];
+  for (const c of controls ?? []) {
+    const what = `${c.reference ?? "a comment"}: /${c.action}`;
+    if (c.authenticated !== true) ignored.push(`${what} was not read from GitHub`);
+    else if (!overseers.has(String(c.by ?? "").toLowerCase())) ignored.push(`${what} by ${c.by} does not count; only an overseer in policies/approvals.yaml can halt or resume`);
+    else if (!Number.isFinite(Date.parse(c.at))) ignored.push(`${what} has no valid time`);
+    else if (c.action === "resume" && c.task_id !== taskId) ignored.push(`${what} names task ${c.task_id}, not ${taskId}`);
+    else if (c.action === "resume" && c.edited) ignored.push(`${what} was edited after posting; post a new comment`);
+    else counted.push(c);
+  }
+  return { counted, ignored };
+}
+
+/** The overseer's latest counted /halt or /resume for this task, when it is a halt. */
 export function haltInForce(ctx) {
-  const mine = (ctx.controls ?? []).filter((c) => c.authenticated === true && c.task_id === ctx.packet.task.id && ctx.overseers.has(String(c.by ?? "").toLowerCase()) && Number.isFinite(Date.parse(c.at)));
-  const last = mine.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).at(-1);
+  const { counted } = sortControls(ctx.controls, ctx.packet.task.id, ctx.overseers);
+  const last = counted.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).at(-1);
   return last?.action === "halt" ? last : null;
 }
 
@@ -313,7 +332,10 @@ const EVALUATORS = {
 
   no_open_escalation: (ctx) => {
     const halt = haltInForce(ctx);
-    if (halt) return { pass: false, reason: `halted by overseer ${halt.by} at ${halt.at} (${halt.reference}); post /resume task=${ctx.packet.task.id} to lift it` };
+    if (halt) {
+      const named = halt.task_id && halt.task_id !== ctx.packet.task.id ? `; it names task ${halt.task_id}, and a halt on the pull request stops this task` : "";
+      return { pass: false, reason: `halted by overseer ${halt.by} at ${halt.at} (${halt.reference})${named}; post /resume task=${ctx.packet.task.id} to lift it` };
+    }
     const open = ctx.packet.escalations.filter((e) => OPEN_ESCALATION.has(e.status));
     return open.length
       ? { pass: false, reason: `open escalations: ${open.map((e) => `${e.id} (${e.reason})`).join(", ")}` }
@@ -385,6 +407,7 @@ export function evaluateTransition(docs, opts) {
     ok: gates.every((g) => g.pass),
     gates,
     duplicates: packet.duplicates,
+    ignored_controls: sortControls(ctx.controls, packet.task.id, ctx.overseers).ignored,
     overseers: [...ctx.overseers],
     authority: AUTHORITY_NOTE,
   };

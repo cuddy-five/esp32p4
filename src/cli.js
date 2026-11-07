@@ -398,14 +398,24 @@ async function readPrCommands(cmd, values, headSha, { env, stderr, client: injec
     return null;
   }
   const { owner, name } = resolveRepo(values.repo, { env });
-  const client = injectedClient ?? new GitHubClient();
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
-  const { data: pull } = await client.request("GET", `${base}/pulls/${pr}`);
+  let pull;
+  let comments;
+  try {
+    const client = injectedClient ?? new GitHubClient();
+    ({ data: pull } = await client.request("GET", `${base}/pulls/${pr}`));
+    if (pull?.head?.sha === headSha) comments = await client.paginate(`${base}/issues/${pr}/comments`);
+  } catch (error) {
+    // Without the comments nobody knows whether the overseer halted the task; say so instead of guessing.
+    stderr(`${cmd}: cannot read the overseer's comments on PR #${pr}: ${printable(error.message)}`);
+    stderr(`${cmd}: until they are read, whether the task is halted or approved is unknown, so no role may act on it. Fix GitHub access (check \`gh auth status\`), then run this again.`);
+    return null;
+  }
   if (pull?.head?.sha !== headSha) {
     stderr(`${cmd}: --head-sha ${printable(String(headSha))} is not the head of PR #${pr} (${printable(String(pull?.head?.sha))})`);
     return null;
   }
-  return parseApprovalComments(await client.paginate(`${base}/issues/${pr}/comments`));
+  return parseApprovalComments(comments);
 }
 
 async function cmdTask(args, { stdout, stderr, env, client }) {
@@ -449,7 +459,13 @@ async function cmdTask(args, { stdout, stderr, env, client }) {
       : `SKIP no task records under ${RECORDS_ROOT}`);
     return EXIT.OK;
   }
-  const report = assessTask(input.docs, { headSha: input.subject, now, changedPaths: input.paths, controls: comments.controls });
+  const report = assessTask(input.docs, {
+    headSha: input.subject,
+    now,
+    changedPaths: input.paths,
+    controls: values.pr === undefined ? undefined : comments.controls,
+    ignoredComments: comments.ignored,
+  });
   if (input.recordsDir) report.records_dir = input.recordsDir;
   if (values.format === "json") {
     stdout(JSON.stringify(report, null, 2));
@@ -463,7 +479,12 @@ async function cmdTask(args, { stdout, stderr, env, client }) {
   stdout(`  repairs:  ${report.repair.used} of ${report.repair.limit ?? "?"} rounds used${report.repair.exhausted ? " (limit reached)" : ""}`);
   for (const s of report.stale) stdout(`  stale:    ${printable(s.id)} (${s.kind}) covers ${s.covers.slice(0, 12)}`);
   for (const o of report.objections) stdout(`  objects:  ${printable(o.id)} (${o.kind}) ${o.verdict} by ${printable(String(o.by))}`);
-  if (report.halted) stdout(`  halted:   by ${printable(report.halted.by)} at ${report.halted.at} (${printable(report.halted.reference)})`);
+  if (!report.halt_checked) stdout("  halt:     not checked; pass --pr <number> to read the overseer's /halt and /resume");
+  if (report.halted) {
+    const named = report.halted.task_named && report.halted.task_named !== report.task_id ? `; it names task ${printable(report.halted.task_named)}` : "";
+    stdout(`  halted:   by ${printable(report.halted.by)} at ${report.halted.at} (${printable(report.halted.reference)})${named}`);
+  }
+  for (const why of report.ignored_commands) stdout(`  ignored:  ${printable(why)}`);
   for (const e of report.open_escalations) stdout(`  blocked:  ${printable(e.id)} (${e.reason}, ${e.severity}, ${e.status})`);
   stdout("Next actions:");
   for (const a of report.next_actions) stdout(`  - ${printable(a)}`);
@@ -533,7 +554,7 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
     const at = subject === headSha ? headSha : `${subject} (records-only commits up to ${headSha})`;
     stdout(`${report.ok ? "PASS" : "FAIL"} ${report.transition} for ${printable(report.task_id)} at ${at}`);
     for (const g of report.gates) stdout(`  ${g.pass ? "ok  " : "FAIL"} ${g.gate}: ${printable(g.reason)}`);
-    for (const why of ignored) stdout(`  ignored ${printable(why)}`);
+    for (const why of [...ignored, ...report.ignored_controls]) stdout(`  ignored ${printable(why)}`);
     const approval = report.gates.find((g) => g.gate === "approval_granted");
     // Offer the approval line only when approval is the last missing gate, so it is never posted before the reviews.
     const blocking = report.gates.filter((g) => !g.pass && g.gate !== "approval_granted").map((g) => g.gate);

@@ -92,7 +92,7 @@ gates:
     description: Verifier's own evidence shows required checks green and tests passing, and a review of kind verification approves.
     status: implemented
   no_open_escalation:
-    description: No escalation for this task has status open or acknowledged, and the overseer's latest /halt or /resume comment for it is not a halt.
+    description: No escalation for this task has status open or acknowledged, and the overseer's latest /halt or /resume comment on its pull request is not a halt. A halt counts edited or naming another task; a resume must name the task and be unedited.
     status: implemented
   retry_budget_remaining:
     description: Repair rounds used, counted as distinct reviewed commits with a request_changes or block verdict from a non-implementer, do not exceed limits.repair_rounds. A further round needs a repeated_failure escalation to the human.
@@ -100,7 +100,8 @@ gates:
 
 # ADR 0003 operating limits. retry_budget_remaining reads repair_rounds; a
 # review conflict at one commit gets adjudication_attempts independent reviews,
-# then a conflicting_reviews escalation to the human.
+# then a conflicting_reviews escalation to the human. `task status` counts every
+# reviewer of that commit beyond the two in conflict as one adjudication.
 limits:
   repair_rounds: 2
   adjudication_attempts: 1

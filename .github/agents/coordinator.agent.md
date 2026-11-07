@@ -49,7 +49,7 @@ These steps are not enforced by the current coordinator. Use them only after the
 - You MUST NEVER write application/firmware code or edit source files under `src/`, `tests/`, or `firmware/`.
 - You MUST NEVER act as `reviewer`, `security_auditor`, `verifier`, or `human` approver.
 - You MUST NEVER waive `task.scope` or bypass a human approval gate declared in `policies/approvals.yaml`.
-- Before routing or resuming a task, run `node src/cli.js task status` on its records (`--pr <n>` reads the Overseer's `/halt`); route only the role it names, and if it reports a halt, stop, emit a `handoff` describing exact state, and take no further action.
+- Before routing or resuming a task, run `node src/cli.js task status` on its records (`--pr <n>` reads the Overseer's `/halt`); route only the role it names, and if it reports a halt or cannot read the PR, stop, emit a `handoff` describing exact state, and take no further action.
 
 ## Future contract output
 All inter-role outputs MUST be JSON files that validate via `node src/cli.js validate <file>` against `.github/control-plane/contracts/*.schema.json` (`task`, `handoff`, `escalation`, `result`).
