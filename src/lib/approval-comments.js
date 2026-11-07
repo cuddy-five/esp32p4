@@ -8,8 +8,13 @@
  *
  * and halts or resumes a task with
  *
- *   /halt task=<task_id> [reason]
+ *   /halt [task=<task_id>] [reason]
  *   /resume task=<task_id> [reason]
+ *
+ * A halt only ever stops work, so it fails safe: it counts when indented, without
+ * a task id, or edited, and an edited halt is timed from the edit, since the text
+ * may not have existed earlier. An approval or a resume moves work on, so it must
+ * start its line and be unedited.
  *
  * GitHub records who posted the comment and when, so the approver and time come
  * from the platform, not from the comment text. That authenticates the account,
@@ -17,14 +22,22 @@
  */
 
 const LINE = /^\/approve[ \t]+(plan|merge)[ \t]+task=(\S+)[ \t]+plan=(\S+)(?:[ \t]+sha=([0-9a-f]{40}))?[ \t]*$/;
-const CONTROL = /^\/(halt|resume)[ \t]+task=(\S+)(?:[ \t]+(\S.*))?$/;
-const COMMAND = /^\/(approve|halt|resume)\b/;
+const RESUME = /^\/resume[ \t]+task=(\S+)(?:[ \t]+(\S.*))?$/;
+const HALT = /^[ \t]*\/halt\b(.*)$/;
+const COMMAND = /^[ \t]*\/(approve|resume|halt)\b/;
+
+/** `task=<id>` first, then free text; both optional. */
+function haltArgs(rest) {
+  const m = /^[ \t]*(?:task=(\S+))?[ \t]*(.*)$/.exec(rest);
+  return { task_id: m[1] ?? null, reason: m[2] || null };
+}
 
 /**
  * Turn issue comments (GitHub REST shape) into approval records and halt or
- * resume controls. Comments that are edited, posted by an app or a bot, or
- * malformed are ignored with a reason. Whether the author is an overseer is
- * decided by the gate, against policies/approvals.yaml.
+ * resume controls. Comments posted by an app or a bot are ignored with a reason,
+ * as are edited or malformed approval and resume lines. Controls carry `edited`;
+ * whether the author is an overseer, and whether a control counts, is decided by
+ * the gate against policies/approvals.yaml (see sortControls in gates.js).
  * @param {any[]} comments
  * @returns {{ approvals: object[], controls: object[], ignored: string[] }}
  */
@@ -33,7 +46,7 @@ export function parseApprovalComments(comments) {
   const controls = [];
   const ignored = [];
   for (const c of comments) {
-    const lines = String(c?.body ?? "").split(/\r?\n/).filter((l) => COMMAND.test(l));
+    const lines = String(c?.body ?? "").split(/\r?\n/).filter((l) => COMMAND.test(l)).map((l) => l.trimEnd());
     if (!lines.length) continue;
     const where = c.html_url ?? `comment ${c.id}`;
     const login = c.user?.login;
@@ -46,21 +59,29 @@ export function parseApprovalComments(comments) {
       continue;
     }
     // An edit can change the commit or plan after the fact; post a new comment instead.
-    if (c.updated_at !== c.created_at) {
-      ignored.push(`${where}: edited after posting`);
-      continue;
-    }
+    const edited = c.updated_at !== c.created_at;
+    const control = { by: login, at: c.created_at, reference: where, authenticated: true, edited };
     for (const line of lines) {
-      const control = CONTROL.exec(line.trimEnd());
-      if (/^\/(halt|resume)\b/.test(line)) {
-        if (!control) {
-          ignored.push(`${where}: malformed ${line.split(/\s/)[0]} line`);
-          continue;
-        }
-        controls.push({ action: control[1], task_id: control[2], reason: control[3] ?? null, by: login, at: c.created_at, reference: where, authenticated: true });
+      const halt = HALT.exec(line);
+      if (halt) {
+        controls.push({ action: "halt", ...haltArgs(halt[1]), ...control, at: edited ? c.updated_at : c.created_at });
         continue;
       }
-      const m = LINE.exec(line.trimEnd());
+      if (/^[ \t]/.test(line)) {
+        ignored.push(`${where}: ${line.trim().split(/\s/)[0]} is indented; it must start the line`);
+        continue;
+      }
+      if (line.startsWith("/resume")) {
+        const m = RESUME.exec(line);
+        if (m) controls.push({ action: "resume", task_id: m[1], reason: m[2] ?? null, ...control });
+        else ignored.push(`${where}: malformed /resume line; it must be /resume task=<task_id>`);
+        continue;
+      }
+      if (edited) {
+        ignored.push(`${where}: approval edited after posting; post a new comment`);
+        continue;
+      }
+      const m = LINE.exec(line);
       if (!m || (m[1] === "merge" && !m[4])) {
         ignored.push(`${where}: malformed approval line`);
         continue;

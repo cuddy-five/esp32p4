@@ -54,6 +54,11 @@ test("a later commit names every stale review and evidence and who redoes it", (
     ["verification review", "verifier"],
     ["verifier evidence", "verifier"],
   ]);
+  // Without implementer evidence nothing is stale for the implementer, yet it acts next: it still gets the first action.
+  const noOwnEvidence = packet().filter((d) => !(d.contract === "evidence" && d.producer.role !== "verifier"));
+  const r2 = assess(noOwnEvidence, { headSha: NEW_HEAD });
+  assert.equal(r2.next_role, "implementer");
+  assert.match(r2.next_actions[0], /^implementer: gate evidence_collected: evidence is stale/);
 });
 
 test("a blocking review sends the work back and counts one repair round per commit", () => {
@@ -89,14 +94,19 @@ test("a third repair round is refused and the coordinator must escalate", () => 
 test("another reviewer's approval does not outvote an objection at the same commit", () => {
   const objection = codeReview("review_code_block_1", "reviewer-a", "request_changes", HEAD, "2026-10-12T00:56:00Z");
   const docs = [...packet(), objection];
-  // The example code review (by "reviewer", 00:55) approves; reviewer-a objects later; reviewer-b approves last.
+  // The example code review (by "reviewer", 00:55) approves; reviewer-a objects later: one adjudication is due.
+  const r1 = assess(docs);
+  assert.equal(r1.next_role, "coordinator");
+  assert.match(r1.next_actions[0], /run 1 independent adjudication, then escalate conflicting_reviews/);
+  // reviewer-b adjudicates and approves: that uses the one attempt, and the objection still stands.
   docs.push(codeReview("review_code_ok_b", "reviewer-b", "approve", HEAD, "2026-10-12T01:20:00Z"));
   const g = gate(docs, "reviews_approve");
   assert.equal(g.pass, false);
   assert.match(g.reason, /conflicting code reviews .*"reviewer-a" \(review_code_block_1\) request_changes, "reviewer-b" approves; adjudicate/);
   const r = assess(docs);
   assert.equal(r.next_role, "coordinator");
-  assert.match(r.next_actions.join("\n"), /run 1 independent adjudication, then escalate conflicting_reviews/);
+  assert.equal(r.objections[0].adjudications, 1);
+  assert.match(r.next_actions[0], /after 1 adjudication review, the limit; escalate conflicting_reviews to the human/);
   // The objector's own later approval clears it.
   docs.push(codeReview("review_code_ok_a", "reviewer-a", "approve", HEAD, "2026-10-12T01:30:00Z"));
   assert.equal(gate(docs, "reviews_approve").pass, true);
@@ -176,7 +186,7 @@ const comment = (body, over = {}) => ({
 });
 const TASK = example("task").id;
 
-test("halt and resume comments: authenticated like approvals; malformed, edited and bot lines are ignored", () => {
+test("halt and resume comments: a halt fails safe, a resume must be exact; bot lines are ignored", () => {
   const { controls, ignored } = parseApprovalComments([
     comment(`/halt task=${TASK} the verifier is misreporting`),
     comment(`/resume task=${TASK}`, { id: 10, created_at: "2026-10-12T01:40:00Z", updated_at: "2026-10-12T01:40:00Z" }),
@@ -184,13 +194,43 @@ test("halt and resume comments: authenticated like approvals; malformed, edited 
     comment(`/halt task=${TASK}`, { id: 12, updated_at: "2026-10-12T01:50:00Z" }),
     comment(`/halt task=${TASK}`, { id: 13, user: { login: "bot", type: "Bot" } }),
     comment(`/halted task=${TASK}`, { id: 14 }),
+    comment("  /halt! stop everything", { id: 15 }),
+    comment("/resume", { id: 16 }),
   ]);
-  assert.deepEqual(controls.map((c) => [c.action, c.task_id, c.by, c.reason]), [
-    ["halt", TASK, "cuddy-five", "the verifier is misreporting"],
-    ["resume", TASK, "cuddy-five", null],
+  assert.deepEqual(controls.map((c) => [c.action, c.task_id, c.reason, c.edited]), [
+    ["halt", TASK, "the verifier is misreporting", false],
+    ["resume", TASK, null, false],
+    ["halt", null, null, false],
+    ["halt", TASK, null, true],
+    ["halt", null, "! stop everything", false],
   ]);
-  assert.equal(ignored.length, 3);
-  assert.match(ignored.join("\n"), /malformed \/halt line/);
+  assert.equal(ignored.length, 2);
+  assert.match(ignored.join("\n"), /bot is not a user account/);
+  assert.match(ignored.join("\n"), /malformed \/resume line; it must be \/resume task=<task_id>/);
+  // An edit still voids an approval.
+  const edited = parseApprovalComments([comment(`/approve plan task=${TASK} plan=p1`, { updated_at: "2026-10-12T01:50:00Z" })]);
+  assert.deepEqual(edited.approvals, []);
+  assert.match(edited.ignored[0], /approval edited after posting/);
+});
+
+test("an edited-in /halt counts from the edit, a halt wins a tie, and an indented /resume is listed", () => {
+  const at = (t) => `2026-10-12T01:${t}:00Z`;
+  const halted = (comments) => gate(packet(), "no_open_escalation", { controls: parseApprovalComments(comments).controls, overseers: ["cuddy-five"] }).pass === false;
+  // The overseer adds /halt by editing an older comment, after a /resume: the halt is the latest act.
+  const editedIn = comment(`/halt task=${TASK}`, { id: 20, created_at: at("00"), updated_at: at("20") });
+  const resume = comment(`/resume task=${TASK}`, { id: 21, created_at: at("10"), updated_at: at("10") });
+  assert.equal(halted([editedIn, resume]), true, "an edited-in halt is timed from the edit");
+  assert.equal(parseApprovalComments([editedIn]).controls[0].at, at("20"));
+  assert.equal(assess(packet(), { controls: parseApprovalComments([editedIn]).controls, overseers: ["cuddy-five"] }).halted.edited, true);
+  // A halt and a resume posted in the same second: the halt wins, whatever order GitHub returns them in.
+  const sameHalt = comment(`/halt task=${TASK}`, { id: 22, created_at: at("30"), updated_at: at("30") });
+  const sameResume = comment(`/resume task=${TASK}`, { id: 23, created_at: at("30"), updated_at: at("30") });
+  assert.equal(halted([sameHalt, sameResume]), true);
+  assert.equal(halted([sameResume, sameHalt]), true);
+  // An indented /resume does not count, and says why.
+  const indented = parseApprovalComments([comment(`  /resume task=${TASK}`, { id: 24 })]);
+  assert.deepEqual(indented.controls, []);
+  assert.match(indented.ignored[0], /\/resume is indented; it must start the line/);
 });
 
 test("an overseer's /halt fails the gates and blocks the task until /resume", () => {
@@ -202,7 +242,12 @@ test("an overseer's /halt fails the gates and blocks the task until /resume", ()
   assert.equal(g([resume, { ...halt, at: "2026-10-12T01:50:00Z" }]).pass, false, "the latest control wins");
   assert.equal(g([{ ...halt, by: "implementer" }]).pass, true, "only an overseer can halt");
   assert.equal(g([{ ...halt, authenticated: false }]).pass, true, "only controls read from GitHub count");
-  assert.equal(g([{ ...halt, task_id: "task_other_0001" }]).pass, true);
+  // A halt fails safe: one naming another task, or none, still stops the pull request's task.
+  assert.match(g([{ ...halt, task_id: "task_other_0001" }]).reason, /halted by overseer owner .*it names task task_other_0001/);
+  assert.equal(g([{ ...halt, task_id: null }]).pass, false);
+  // A resume must be exact: another task's, or an edited one, does not lift the halt.
+  assert.equal(g([halt, { ...resume, task_id: "task_other_0001" }]).pass, false);
+  assert.equal(g([halt, { ...resume, edited: true }]).pass, false);
   // Every agent transition that checks escalations now stops, including the implementer's handoff to review.
   assert.equal(gate(packet(), "no_open_escalation", { from: "in_progress", to: "in_review", controls: [halt], overseers: ["owner"] }).pass, false);
   const r = assess(packet(), { controls: [halt], overseers: ["owner"] });
@@ -229,7 +274,30 @@ test("task status --pr reads the overseer's halt from the pull request", async (
   assert.equal(await main(args, io(client())), 0, out.join("\n"));
   assert.match(out.join("\n"), /state: +blocked/);
   assert.match(out.join("\n"), /halted: +by cuddy-five/);
+  assert.doesNotMatch(out.join("\n"), /halt: +not checked/);
   out.length = 0;
   assert.equal(await main(args, io(client(NEW_HEAD))), 1);
   assert.match(out.join("\n"), /is not the head of PR #24/);
+
+  // Commands that do not count are shown, so a halt or resume that failed is never silent.
+  out.length = 0;
+  const later = { created_at: "2026-10-12T01:40:00Z", updated_at: "2026-10-12T01:45:00Z" };
+  const mixed = { ...client(), paginate: async () => [comment(`/halt task=${TASK}`), comment(`/resume task=${TASK}`, { id: 10, ...later }), comment(`/halt task=${TASK}`, { id: 11, user: { login: "passer-by", type: "User" } })] };
+  assert.equal(await main(args, io(mixed)), 0, out.join("\n"));
+  const text = out.join("\n");
+  assert.match(text, /state: +blocked/, "an edited /resume does not lift the halt");
+  assert.match(text, /ignored: +.*\/resume was edited after posting; post a new comment/);
+  assert.match(text, /ignored: +.*\/halt by passer-by does not count; only an overseer/);
+
+  // Without --pr the halt is unknown, and the report says so.
+  out.length = 0;
+  assert.equal(await main(["task", "status", ...files, "--head-sha", HEAD, "--now", "2026-10-12T02:00:00Z"], io(client())), 0);
+  assert.match(out.join("\n"), /halt: +not checked; pass --pr <number>/);
+
+  // When GitHub cannot be read, the command fails and says that no role may act.
+  out.length = 0;
+  const denied = { request: async () => { throw new Error("GET /repos/o/r/pulls/24 -> 401: Bad credentials"); }, paginate: async () => [] };
+  assert.equal(await main(args, io(denied)), 1);
+  assert.match(out.join("\n"), /cannot read the overseer's comments on PR #24: GET .* 401: Bad credentials/);
+  assert.match(out.join("\n"), /whether the task is halted or approved is unknown, so no role may act on it/);
 });

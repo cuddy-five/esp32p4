@@ -174,7 +174,7 @@ or rollback exists yet.
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; empty `out_of_scope_paths`; `budget_used` ≤ `task.budget` | collect-evidence (next stage) |
 | `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no other reviewer's latest review of that commit objects | planned coordinator |
 | `verification_passed` | Verifier's own evidence green and verification review approves | planned verifier integration + merge gate |
-| `no_open_escalation` | No escalation open or acknowledged, and no overseer `/halt` in force (latest `/halt` or `/resume` PR comment) | `gate check --pr`; `task status --pr` |
+| `no_open_escalation` | No escalation open or acknowledged, and no overseer `/halt` in force (latest `/halt` or `/resume` PR comment; a halt counts edited or naming another task, a resume only exact and unedited) | `gate check --pr`; `task status --pr` |
 | `retry_budget_remaining` | Repair rounds (reviewed commits sent back by a blocking review) do not exceed `limits.repair_rounds` (2) | `gate check`; `task status` reports the count |
 
 `node src/cli.js policy check` checks declaration consistency and reports gate

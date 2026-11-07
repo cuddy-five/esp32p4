@@ -22,4 +22,6 @@ license.
   unavailable and blocked.
 - Adds that schema validity, labels and CI do not prove approval or authorship,
   and names who acts next.
+- Adds that a denied asked command is unavailable and a substitute is reported
+  separately, after a live run (issue #8, 2026-11-07) hid two denied commands.
 - Drops the Codex-only `agents/openai.yaml`.

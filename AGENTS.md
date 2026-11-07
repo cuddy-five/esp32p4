@@ -47,6 +47,8 @@ Automatic lesson capture does not override that request. Return findings in the
 conversation; defer saving them until a write is authorized.
 
 Report observed tool and MCP failures even when they do not block the task.
+Under an allow-list a shell command is denied whole when any part of it is not
+allowed, so run checks one command at a time and report each denial.
 Distinguish configured, available and successfully used capabilities. A file
 mention or explicit profile read does not prove the client selected that agent.
 Distinguish automatically supplied instructions from explicitly read files.
