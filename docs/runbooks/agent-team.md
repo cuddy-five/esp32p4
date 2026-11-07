@@ -161,8 +161,9 @@ inspect and cancel running jobs; a comment cannot stop a workflow. Preserve
 the work so it can be resumed or reversed without losing unrelated changes.
 
 To resume, first confirm what still runs ([overseer guide](overseer.md#stopping-and-resuming)),
-then run `node src/cli.js task status --discover --base origin/main --head-sha <head>`
-(or pass the record files). It reports the task's position from the gates at the
+then run `node src/cli.js task status --discover --base origin/main --head-sha <head> --pr <n>`
+(or pass the record files). Before acting on a task, every role runs it; a
+halted task waits for the overseer's `/resume`. It reports the task's position from the gates at the
 head, the role that acts next, stale reviews and evidence and who redoes them,
 open objections and escalations, and repair rounds used. Compare the actual
 checkout with the reported head; check authorization, approval freshness and

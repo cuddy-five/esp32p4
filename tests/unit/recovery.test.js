@@ -9,6 +9,7 @@ import { evaluateTransition } from "../../src/lib/gates.js";
 import { loadStateMachine } from "../../src/lib/orchestration.js";
 import { assessTask } from "../../src/lib/recovery.js";
 import { main } from "../../src/cli.js";
+import { parseApprovalComments } from "../../src/lib/approval-comments.js";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const example = (kind) => JSON.parse(fs.readFileSync(path.join(root, `.github/control-plane/contracts/examples/${kind}.example.json`), "utf8"));
@@ -160,4 +161,75 @@ test("task status CLI prints the report and exits 0; usage errors exit 1", async
   assert.equal(JSON.parse(out.join("\n")).next_role, "human");
   assert.equal(await main(["task", "nope"], io), 1);
   assert.equal(await main(["task", "status", "--head-sha", HEAD], io), 1);
+});
+
+/** A PR conversation comment in the GitHub REST shape, by the policy overseer. */
+const comment = (body, over = {}) => ({
+  id: 9,
+  html_url: "https://github.com/o/r/pull/24#issuecomment-9",
+  body,
+  user: { login: "cuddy-five", type: "User" },
+  created_at: "2026-10-12T01:30:00Z",
+  updated_at: "2026-10-12T01:30:00Z",
+  performed_via_github_app: null,
+  ...over,
+});
+const TASK = example("task").id;
+
+test("halt and resume comments: authenticated like approvals; malformed, edited and bot lines are ignored", () => {
+  const { controls, ignored } = parseApprovalComments([
+    comment(`/halt task=${TASK} the verifier is misreporting`),
+    comment(`/resume task=${TASK}`, { id: 10, created_at: "2026-10-12T01:40:00Z", updated_at: "2026-10-12T01:40:00Z" }),
+    comment("/halt", { id: 11 }),
+    comment(`/halt task=${TASK}`, { id: 12, updated_at: "2026-10-12T01:50:00Z" }),
+    comment(`/halt task=${TASK}`, { id: 13, user: { login: "bot", type: "Bot" } }),
+    comment(`/halted task=${TASK}`, { id: 14 }),
+  ]);
+  assert.deepEqual(controls.map((c) => [c.action, c.task_id, c.by, c.reason]), [
+    ["halt", TASK, "cuddy-five", "the verifier is misreporting"],
+    ["resume", TASK, "cuddy-five", null],
+  ]);
+  assert.equal(ignored.length, 3);
+  assert.match(ignored.join("\n"), /malformed \/halt line/);
+});
+
+test("an overseer's /halt fails the gates and blocks the task until /resume", () => {
+  const halt = { action: "halt", task_id: TASK, by: "owner", at: "2026-10-12T01:30:00Z", reference: "c1", authenticated: true };
+  const resume = { ...halt, action: "resume", at: "2026-10-12T01:40:00Z", reference: "c2" };
+  const g = (controls, over = {}) => gate(packet(), "no_open_escalation", { controls, overseers: ["owner"], ...over });
+  assert.match(g([halt]).reason, /halted by overseer owner .*post \/resume task=/);
+  assert.equal(g([halt, resume]).pass, true);
+  assert.equal(g([resume, { ...halt, at: "2026-10-12T01:50:00Z" }]).pass, false, "the latest control wins");
+  assert.equal(g([{ ...halt, by: "implementer" }]).pass, true, "only an overseer can halt");
+  assert.equal(g([{ ...halt, authenticated: false }]).pass, true, "only controls read from GitHub count");
+  assert.equal(g([{ ...halt, task_id: "task_other_0001" }]).pass, true);
+  // Every agent transition that checks escalations now stops, including the implementer's handoff to review.
+  assert.equal(gate(packet(), "no_open_escalation", { from: "in_progress", to: "in_review", controls: [halt], overseers: ["owner"] }).pass, false);
+  const r = assess(packet(), { controls: [halt], overseers: ["owner"] });
+  assert.equal(r.state, "blocked");
+  assert.equal(r.next_role, "human");
+  assert.equal(r.halted.by, "owner");
+  assert.match(r.next_actions[0], /halted by owner .*confirm every worker and job stopped, then post \/resume/);
+});
+
+test("task status --pr reads the overseer's halt from the pull request", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "task-halt-"));
+  const files = packet().map((doc, i) => {
+    const f = path.join(dir, `${i}.json`);
+    fs.writeFileSync(f, JSON.stringify(doc));
+    return f;
+  });
+  const client = (headSha = HEAD) => ({
+    request: async () => ({ data: { head: { sha: headSha } } }),
+    paginate: async () => [comment(`/halt task=${TASK}`)],
+  });
+  const out = [];
+  const io = (c) => ({ stdout: (s) => out.push(s), stderr: (s) => out.push(s), env: {}, client: c });
+  const args = ["task", "status", ...files, "--head-sha", HEAD, "--pr", "24", "--repo", "o/r", "--now", "2026-10-12T02:00:00Z"];
+  assert.equal(await main(args, io(client())), 0, out.join("\n"));
+  assert.match(out.join("\n"), /state: +blocked/);
+  assert.match(out.join("\n"), /halted: +by cuddy-five/);
+  out.length = 0;
+  assert.equal(await main(args, io(client(NEW_HEAD))), 1);
+  assert.match(out.join("\n"), /is not the head of PR #24/);
 });

@@ -92,7 +92,7 @@ gates:
     description: Verifier's own evidence shows required checks green and tests passing, and a review of kind verification approves.
     status: implemented
   no_open_escalation:
-    description: No escalation for this task has status open or acknowledged.
+    description: No escalation for this task has status open or acknowledged, and the overseer's latest /halt or /resume comment for it is not a halt.
     status: implemented
   retry_budget_remaining:
     description: Repair rounds used, counted as distinct reviewed commits with a request_changes or block verdict from a non-implementer, do not exceed limits.repair_rounds. A further round needs a repeated_failure escalation to the human.
@@ -152,7 +152,7 @@ transitions:
   - from: in_progress
     to: in_review
     actor: implementer
-    gates: [evidence_collected, within_scope, within_budget]
+    gates: [evidence_collected, within_scope, within_budget, no_open_escalation]
     note: Implementer emits a handoff to reviewer; coordinator records the transition.
 
   - from: in_review

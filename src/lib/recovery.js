@@ -10,7 +10,7 @@
  * escalations, repair rounds against the limit, and duplicate deliveries.
  * Records are claims: they do not show what a worker or GitHub job is doing now.
  */
-import { collectPacket, evaluateTransition, implementerNames, openObjections, repairRounds } from "./gates.js";
+import { collectPacket, evaluateTransition, haltInForce, implementerNames, openObjections, repairRounds } from "./gates.js";
 import { loadStateMachine } from "./orchestration.js";
 
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
@@ -47,10 +47,10 @@ const POSITION = [
 
 /**
  * @param {object[]} docs parsed contract documents for one task
- * @param {{ headSha: string, now?: number, changedPaths?: string[], stateMachine?: any, policy?: any }} opts
+ * @param {{ headSha: string, now?: number, changedPaths?: string[], controls?: object[], overseers?: string[], stateMachine?: any, policy?: any }} opts
  *   headSha: the commit the records must cover (the subject, see task-records.js)
  */
-export function assessTask(docs, { headSha, now = Date.now(), changedPaths, stateMachine, policy } = {}) {
+export function assessTask(docs, { headSha, now = Date.now(), changedPaths, controls = [], overseers, stateMachine, policy } = {}) {
   if (typeof headSha !== "string" || !/^[0-9a-f]{40}$/.test(headSha)) throw new Error("head sha must be 40 lowercase hex characters");
   const sm = stateMachine ?? loadStateMachine();
   const packet = collectPacket(docs);
@@ -62,6 +62,9 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, stat
   const result = packet.results.at(-1);
   const escalations = packet.escalations.filter((e) => OPEN_ESCALATION.has(e.status));
   const handoff = packet.handoffs.at(-1);
+  const report = evaluateTransition(docs, { headSha, now, changedPaths, approvals: [], controls, overseers, stateMachine: sm, policy });
+  const halt = haltInForce({ controls, packet, overseers: new Set((overseers ?? report.overseers ?? []).map((o) => String(o).toLowerCase())) });
+  if (halt) actions.push(`human: the task is halted by ${halt.by} at ${halt.at} (${halt.reference}); confirm every worker and job stopped, then post /resume task=${task.id} to continue`);
   for (const e of escalations) actions.push(`human: resolve escalation ${e.id} (${e.reason}, ${e.severity}): ${e.requested_decision}`);
 
   // Stale: the newest record of a kind covers another commit and none covers the head.
@@ -100,7 +103,7 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, stat
   else if (toRepair.length) actions.push(`implementer: repair the findings in ${toRepair.map((o) => o.id).join(", ")} (round ${used} of ${limit ?? "?"})`);
 
   // Position: a result ends the task; otherwise the first failing merge-decision gate in pipeline order.
-  const gates = evaluateTransition(docs, { headSha, now, changedPaths, approvals: [], stateMachine: sm, policy }).gates;
+  const { gates } = report;
   const failing = new Map(gates.filter((g) => !g.pass).map((g) => [g.gate, g.reason]));
   let state;
   let nextRole;
@@ -153,6 +156,7 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, stat
     repair: { used, limit: limit ?? null, exhausted },
     stale,
     objections,
+    halted: halt ? { by: halt.by, at: halt.at, reference: halt.reference, reason: halt.reason } : null,
     open_escalations: escalations.map((e) => ({ id: e.id, reason: e.reason, severity: e.severity, status: e.status })),
     duplicates: packet.duplicates,
     next_actions: actions,
