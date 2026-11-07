@@ -170,7 +170,7 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     stale,
     objections,
     halt_checked: controls !== undefined,
-    halted: halt ? { by: halt.by, at: halt.at, reference: halt.reference, reason: halt.reason, task_named: halt.task_id } : null,
+    halted: halt ? { by: halt.by, at: halt.at, reference: halt.reference, reason: halt.reason, task_named: halt.task_id, edited: halt.edited === true } : null,
     ignored_commands: ignoredCommands,
     open_escalations: escalations.map((e) => ({ id: e.id, reason: e.reason, severity: e.severity, status: e.status })),
     duplicates: packet.duplicates,

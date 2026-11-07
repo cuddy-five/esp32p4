@@ -213,6 +213,26 @@ test("halt and resume comments: a halt fails safe, a resume must be exact; bot l
   assert.match(edited.ignored[0], /approval edited after posting/);
 });
 
+test("an edited-in /halt counts from the edit, a halt wins a tie, and an indented /resume is listed", () => {
+  const at = (t) => `2026-10-12T01:${t}:00Z`;
+  const halted = (comments) => gate(packet(), "no_open_escalation", { controls: parseApprovalComments(comments).controls, overseers: ["cuddy-five"] }).pass === false;
+  // The overseer adds /halt by editing an older comment, after a /resume: the halt is the latest act.
+  const editedIn = comment(`/halt task=${TASK}`, { id: 20, created_at: at("00"), updated_at: at("20") });
+  const resume = comment(`/resume task=${TASK}`, { id: 21, created_at: at("10"), updated_at: at("10") });
+  assert.equal(halted([editedIn, resume]), true, "an edited-in halt is timed from the edit");
+  assert.equal(parseApprovalComments([editedIn]).controls[0].at, at("20"));
+  assert.equal(assess(packet(), { controls: parseApprovalComments([editedIn]).controls, overseers: ["cuddy-five"] }).halted.edited, true);
+  // A halt and a resume posted in the same second: the halt wins, whatever order GitHub returns them in.
+  const sameHalt = comment(`/halt task=${TASK}`, { id: 22, created_at: at("30"), updated_at: at("30") });
+  const sameResume = comment(`/resume task=${TASK}`, { id: 23, created_at: at("30"), updated_at: at("30") });
+  assert.equal(halted([sameHalt, sameResume]), true);
+  assert.equal(halted([sameResume, sameHalt]), true);
+  // An indented /resume does not count, and says why.
+  const indented = parseApprovalComments([comment(`  /resume task=${TASK}`, { id: 24 })]);
+  assert.deepEqual(indented.controls, []);
+  assert.match(indented.ignored[0], /\/resume is indented; it must start the line/);
+});
+
 test("an overseer's /halt fails the gates and blocks the task until /resume", () => {
   const halt = { action: "halt", task_id: TASK, by: "owner", at: "2026-10-12T01:30:00Z", reference: "c1", authenticated: true };
   const resume = { ...halt, action: "resume", at: "2026-10-12T01:40:00Z", reference: "c2" };

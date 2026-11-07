@@ -482,7 +482,8 @@ async function cmdTask(args, { stdout, stderr, env, client }) {
   if (!report.halt_checked) stdout("  halt:     not checked; pass --pr <number> to read the overseer's /halt and /resume");
   if (report.halted) {
     const named = report.halted.task_named && report.halted.task_named !== report.task_id ? `; it names task ${printable(report.halted.task_named)}` : "";
-    stdout(`  halted:   by ${printable(report.halted.by)} at ${report.halted.at} (${printable(report.halted.reference)})${named}`);
+    const edited = report.halted.edited ? "; the comment was edited, so the halt counts from the edit" : "";
+    stdout(`  halted:   by ${printable(report.halted.by)} at ${report.halted.at} (${printable(report.halted.reference)})${named}${edited}`);
   }
   for (const why of report.ignored_commands) stdout(`  ignored:  ${printable(why)}`);
   for (const e of report.open_escalations) stdout(`  blocked:  ${printable(e.id)} (${e.reason}, ${e.severity}, ${e.status})`);

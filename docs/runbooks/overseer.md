@@ -98,8 +98,8 @@ Post `/halt` on the task's PR, on a line of its own; `task=<task_id>` and a
 reason are optional. From then on every gate check for that task fails
 `no_open_escalation`, and `task status` reports it blocked, until you post
 `/resume task=<task_id>`. A halt from an overseer account counts even when
-edited or naming another task; a resume must name the task and be a new,
-unedited comment. `task status --pr` lists every halt or resume that did not
+edited (from the time of the edit) or naming another task; a resume must start
+its line, name the task and be a new, unedited comment. `task status --pr` lists every halt or resume that did not
 count and why; re-run `task-gate` to show it on the PR. The comment stops no
 process and undoes nothing: stop each thing that runs, then confirm it stopped.
 

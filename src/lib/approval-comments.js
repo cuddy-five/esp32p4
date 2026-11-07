@@ -11,9 +11,10 @@
  *   /halt [task=<task_id>] [reason]
  *   /resume task=<task_id> [reason]
  *
- * A halt only ever stops work, so it fails safe: it counts when edited, indented,
- * or without a task id. An approval or a resume moves work on, so it must be
- * exact and unedited.
+ * A halt only ever stops work, so it fails safe: it counts when indented, without
+ * a task id, or edited, and an edited halt is timed from the edit, since the text
+ * may not have existed earlier. An approval or a resume moves work on, so it must
+ * start its line and be unedited.
  *
  * GitHub records who posted the comment and when, so the approver and time come
  * from the platform, not from the comment text. That authenticates the account,
@@ -23,7 +24,7 @@
 const LINE = /^\/approve[ \t]+(plan|merge)[ \t]+task=(\S+)[ \t]+plan=(\S+)(?:[ \t]+sha=([0-9a-f]{40}))?[ \t]*$/;
 const RESUME = /^\/resume[ \t]+task=(\S+)(?:[ \t]+(\S.*))?$/;
 const HALT = /^[ \t]*\/halt\b(.*)$/;
-const COMMAND = /^(\/(approve|resume)\b|[ \t]*\/halt\b)/;
+const COMMAND = /^[ \t]*\/(approve|resume|halt)\b/;
 
 /** `task=<id>` first, then free text; both optional. */
 function haltArgs(rest) {
@@ -63,7 +64,11 @@ export function parseApprovalComments(comments) {
     for (const line of lines) {
       const halt = HALT.exec(line);
       if (halt) {
-        controls.push({ action: "halt", ...haltArgs(halt[1]), ...control });
+        controls.push({ action: "halt", ...haltArgs(halt[1]), ...control, at: edited ? c.updated_at : c.created_at });
+        continue;
+      }
+      if (/^[ \t]/.test(line)) {
+        ignored.push(`${where}: ${line.trim().split(/\s/)[0]} is indented; it must start the line`);
         continue;
       }
       if (line.startsWith("/resume")) {

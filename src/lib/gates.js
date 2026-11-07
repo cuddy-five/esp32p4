@@ -191,10 +191,11 @@ export function sortControls(controls, taskId, overseers) {
   return { counted, ignored };
 }
 
-/** The overseer's latest counted /halt or /resume for this task, when it is a halt. */
+/** The overseer's latest counted /halt or /resume for this task, when it is a halt. A halt wins a tie. */
 export function haltInForce(ctx) {
   const { counted } = sortControls(ctx.controls, ctx.packet.task.id, ctx.overseers);
-  const last = counted.sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).at(-1);
+  const isHalt = (c) => (c.action === "halt" ? 1 : 0);
+  const last = counted.sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || isHalt(a) - isHalt(b)).at(-1);
   return last?.action === "halt" ? last : null;
 }
 
