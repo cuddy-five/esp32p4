@@ -11,5 +11,6 @@
 *.sqlite-shm
 *.sqlite-journal
 node_modules/
+/firmware/target/
 npm-debug.log*
 .idea/

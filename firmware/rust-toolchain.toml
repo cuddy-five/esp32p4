@@ -1,0 +1,11 @@
+# One pinned compiler for every agent, reviewer and CI run, so the same code
+# gives the same result everywhere. Raising the version is a reviewed change.
+[toolchain]
+channel = "1.97.0"
+profile = "minimal"
+components = ["clippy", "rustfmt"]
+# The target esp-hal's README lists for the ESP32-P4 (read 2026-11-10). It is
+# not yet a pinned, reviewed fact in the device-references skill; confirm it
+# there before relying on it for a device build. Any bare-metal target ships no
+# `std`, so building for it already proves the code is really `no_std`.
+targets = ["riscv32imafc-unknown-none-elf"]

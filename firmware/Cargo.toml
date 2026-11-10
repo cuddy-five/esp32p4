@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["wallet-core"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.97"
+license = "MIT"
+publish = false
+
+# Rules every crate here inherits with `[lints] workspace = true`.
+# CI turns every warning into an error.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# Code that reads untrusted input must return an error, never panic.
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+panic = "deny"
+arithmetic_side_effects = "deny"
+
+[profile.release]
+overflow-checks = true
+panic = "abort"
