@@ -148,6 +148,7 @@ the next stage.
 | `.review-domains.json` | Review checklists selected by changed path |
 | `CONTRIBUTING.md` | File-to-file path from request through review and owner merge |
 | `src/` | CLI and library (plain ESM, Node 20+) |
+| `firmware/` | Empty `no_std` Rust workspace with a pinned toolchain; `scripts/gates/firmware-check.sh` runs its checks. No wallet code yet |
 | `tests/unit/`, `tests/security/` | `node:test` suites |
 | `docs/agents/` | Issue tracker, triage labels, writing rules, and the registry schema |
 | `docs/architecture/` | Contracts, planned team loop, agent memory design, and the team roadmap |
