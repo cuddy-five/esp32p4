@@ -115,10 +115,10 @@ describe("review-domain evidence reporting", () => {
     assert.throws(() => evaluateReviewDomains([], { domains: [] }), /schema_version/);
   });
 
-  test("reports injected security requirements without activating firmware or adding gates", async () => {
+  test("reports injected security requirements without changing the loaded file or adding gates", async () => {
     const { loadReviewDomains } = await import("../../src/review-domains.js");
     const doc = loadReviewDomains();
-    doc.domains.find((d) => d.id === "firmware").enabled = true;
+    doc.domains.find((d) => d.id === "firmware").checks.push("An injected check that the file does not have.");
     const task = structuredClone(taskExample);
     task.scope.allowed_paths = ["firmware/**", "notes/**"];
     const result = buildEvidenceContract(task, {
@@ -132,7 +132,7 @@ describe("review-domain evidence reporting", () => {
     assert.match(policy.details, /security_auditor/);
     assert.equal(contracts.validate(result.evidence).ok, true);
     assert.equal(Object.hasOwn(result.evidence, "review_domains"), false);
-    assert.equal(loadReviewDomains().domains.find((d) => d.id === "firmware").enabled, false);
+    assert.equal(loadReviewDomains().domains.find((d) => d.id === "firmware").checks.includes("An injected check that the file does not have."), false);
   });
 
   test("records skipped or pass mapping outcomes independently of scope and budget", () => {

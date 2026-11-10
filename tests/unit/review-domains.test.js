@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
+import fs from 'node:fs';
 import {
   loadReviewDomains,
   reviewDomainProblems,
@@ -8,26 +9,41 @@ import {
 
 const domains = () => loadReviewDomains();
 
-test('the control-plane checklist is on and firmware stays off', () => {
+test('the control-plane and firmware checklists are on, and firmware/ exists', () => {
   const doc = domains();
   const control = doc.domains.find((domain) => domain.id === 'control-plane');
   const firmware = doc.domains.find((domain) => domain.id === 'firmware');
   assert.equal(control.enabled, true);
   assert.equal(control.language, 'javascript');
-  assert.equal(firmware.enabled, false);
+  assert.equal(firmware.enabled, true);
   assert.equal(firmware.language, 'rust');
   assert.equal(firmware.constraint, 'no_std');
   assert.equal(firmware.requires_root, 'firmware');
   assert.equal(firmware.security_role, 'security_auditor');
-  assert.deepEqual(reviewDomainProblems(doc, { pathExists: () => false }), []);
+  // Checked against the real checkout: an enabled domain needs its directory.
+  assert.deepEqual(reviewDomainProblems(doc, { pathExists: fs.existsSync }), []);
+  assert.ok(reviewDomainProblems(doc, { pathExists: () => false })
+    .some((problem) => problem.includes('firmware/ does not exist')));
 });
 
-test('a control-plane file uses that checklist and firmware is uncovered', () => {
-  const out = selectReviewDomains(['src/cli.js', 'firmware/src/lib.rs'], domains());
-  assert.deepEqual(out.covered.map((row) => row.domain), ['control-plane']);
-  assert.deepEqual(out.covered[0].paths, ['src/cli.js']);
-  assert.equal(out.covered[0].security_role, null);
-  assert.ok(out.covered[0].checks.length >= 1);
+test('each file uses its own checklist, and firmware names the security auditor', () => {
+  const out = selectReviewDomains(
+    ['src/cli.js', 'firmware/wallet-core/src/lib.rs', 'notes/todo.txt'], domains());
+  const row = (id) => out.covered.find((entry) => entry.domain === id);
+  assert.deepEqual(out.covered.map((entry) => entry.domain).sort(), ['control-plane', 'firmware']);
+  assert.deepEqual(row('control-plane').paths, ['src/cli.js']);
+  assert.equal(row('control-plane').security_role, null);
+  assert.ok(row('control-plane').checks.length >= 1);
+  assert.deepEqual(row('firmware').paths, ['firmware/wallet-core/src/lib.rs']);
+  assert.equal(row('firmware').security_role, 'security_auditor');
+  assert.deepEqual(out.uncovered, ['notes/todo.txt']);
+});
+
+test('with firmware off, a Rust file is uncovered rather than judged as JavaScript', () => {
+  const doc = structuredClone(domains());
+  doc.domains.find((domain) => domain.id === 'firmware').enabled = false;
+  const out = selectReviewDomains(['src/cli.js', 'firmware/src/lib.rs'], doc);
+  assert.deepEqual(out.covered.map((entry) => entry.domain), ['control-plane']);
   assert.deepEqual(out.uncovered, ['firmware/src/lib.rs']);
 });
 
