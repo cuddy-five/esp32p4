@@ -90,6 +90,30 @@ jobs:
         with:
           args: -color
 
+  # The Rust checks for firmware/: formatting, lints, host tests and a no_std
+  # build for the ESP32-P4 cores. It runs on every pull request, not only ones
+  # that touch firmware/, because it is a required check and a required check
+  # that never reports would block the merge.
+  firmware:
+    name: firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      # firmware/rust-toolchain.toml pins the compiler, clippy, rustfmt and
+      # the RISC-V target. Newer rustup versions need the explicit install.
+      - name: Install the pinned Rust toolchain
+        working-directory: firmware
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          cargo --version
+          cargo clippy --version
+
+      - name: Format, lint, test and cross-build
+        run: bash scripts/gates/firmware-check.sh
+
   dependency-review:
     name: dependency-review
     if: ${{ github.event_name == 'pull_request' }}

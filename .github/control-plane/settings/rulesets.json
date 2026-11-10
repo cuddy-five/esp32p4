@@ -34,6 +34,7 @@
               { "context": "test" },
               { "context": "validate-examples" },
               { "context": "lint-workflows" },
+              { "context": "firmware" },
               { "context": "task-gate" }
             ]
           }
