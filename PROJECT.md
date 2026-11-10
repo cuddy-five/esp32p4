@@ -12,7 +12,9 @@ Node.js 20+ ESM CLI, closed JSON contracts, policy consistency checks, GitHub se
 
 Seven working agents: coordinator, planner, control-plane implementer, Rust/Bitcoin/ESP32 engineer, reviewer, security auditor and verifier. The Foundry prepares their packages. Project skills cover planning, implementation, review, verification, codebase knowledge, context engineering, Rust patterns and Rust testing. File presence and profile declarations do not prove client loading.
 
-[Issue #5](https://github.com/cuddy-five/esp32p4/issues/5) is closed. [Issue #6](https://github.com/cuddy-five/esp32p4/issues/6) is finished: every agent's skills, tools and model were tried live, and the [tool table and setup guide](docs/runbooks/agent-tools.md) record the results. Next, build durable task records, dispatch, role handoffs and enforcement under issue #7, followed by recovery exercises under issue #8.
+[Issue #5](https://github.com/cuddy-five/esp32p4/issues/5) is closed. [Issue #6](https://github.com/cuddy-five/esp32p4/issues/6) is finished: every agent's skills, tools and model were tried live, and the [tool table and setup guide](docs/runbooks/agent-tools.md) record the results. [Issue #7](https://github.com/cuddy-five/esp32p4/issues/7) is closed: committed task records, the `gate check` and `task status` commands, and the `task-gate` check on pull requests. [Issue #8](https://github.com/cuddy-five/esp32p4/issues/8) is closed: an authenticated `/halt` and `/resume`, recovery reporting, and recorded failure exercises, including one Rust no_std exercise whose code was not kept. There is still no automatic dispatcher; the owner or the coordinator starts each role.
+
+Next is the owner's choice. Nothing in this repository builds or checks Rust yet: there is no `firmware/` directory, CI has no Rust job, and the firmware review checklist in `.review-domains.json` is off.
 
 ## Later firmware work
 
