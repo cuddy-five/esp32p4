@@ -109,6 +109,12 @@ node src/cli.js gate check --discover --base origin/main --head-sha <sha> \
 git diff --check
 ```
 
+For a change under `firmware/`, also run `bash scripts/gates/firmware-check.sh`.
+It runs `cargo fmt --check`, `cargo clippy` with warnings as errors,
+`cargo test` and a release build for `riscv32imafc-unknown-none-elf`, using the
+compiler pinned in `firmware/rust-toolchain.toml`. It needs rustup. A pass
+covers host tests and a cross-build; it is not evidence from a device.
+
 `npm test` runs the test script; `npm run validate:examples` runs the named
 example-validation script. `node` executes `src/cli.js`: `policy check`
 checks declaration consistency, and `validate` checks the contract files

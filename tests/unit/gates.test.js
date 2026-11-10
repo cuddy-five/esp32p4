@@ -160,8 +160,11 @@ test("a review domain that names the security auditor requires a security review
   assert.equal(reason([...packet(), audit], domains()).pass, true);
   const byImplementer = { ...audit, producer: { kind: "agent", name: "implementer", role: "security_auditor" } };
   assert.match(reason([...packet(), byImplementer], domains()).reason, /self-review/);
-  // The repository's own file is the default; its firmware domain is off until firmware/ exists.
-  assert.equal(reason(packet(), undefined, { changedPaths: ["firmware/src/main.rs"] }).pass, true);
+  // The repository's own file is the default; its firmware domain is on, so any firmware change needs the audit.
+  assert.match(reason(packet(), undefined, { changedPaths: ["firmware/wallet-core/src/lib.rs"] }).reason,
+    /no security review \(required by review domain firmware\)/);
+  assert.equal(reason([...packet(), audit], undefined, { changedPaths: ["firmware/wallet-core/src/lib.rs"] }).pass, true);
+  assert.equal(reason(packet(), undefined, { changedPaths: ["docs/x.md"] }).pass, true, "other paths are unaffected");
 });
 
 test("plan routing sends ci_cd work to the human and ordinary work straight on", () => {

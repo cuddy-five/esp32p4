@@ -83,9 +83,10 @@ You are not expected to read the code. You are expected to:
    written for you, not for another agent.
 2. Approve or reject what `policies/approvals.yaml` routes to you. Reject
    when you do not understand; "explain this differently" is a valid reply.
-3. Tell the working agents to stop when something feels wrong. Have them
-   record their state and inspect any running jobs; automatic halt and
-   recovery handling are still planned.
+3. Stop the work when something feels wrong. A `/halt` comment on the pull
+   request makes the merge gates fail until you post `/resume`, but it stops
+   no running process: stop and confirm agents and jobs yourself, as the
+   [overseer guide](docs/runbooks/overseer.md#stopping-and-resuming) describes.
 4. Learn as you go. Plans, reviews, and results are written to be read in
    order; `docs/runbooks/overseer.md` explains how.
 
@@ -147,6 +148,7 @@ the next stage.
 | `.review-domains.json` | Review checklists selected by changed path |
 | `CONTRIBUTING.md` | File-to-file path from request through review and owner merge |
 | `src/` | CLI and library (plain ESM, Node 20+) |
+| `firmware/` | Empty `no_std` Rust workspace with a pinned toolchain; `scripts/gates/firmware-check.sh` runs its checks. No wallet code yet |
 | `tests/unit/`, `tests/security/` | `node:test` suites |
 | `docs/agents/` | Issue tracker, triage labels, writing rules, and the registry schema |
 | `docs/architecture/` | Contracts, planned team loop, agent memory design, and the team roadmap |

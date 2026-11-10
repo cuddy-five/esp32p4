@@ -34,7 +34,7 @@
     },
     {
       "id": "firmware",
-      "enabled": false,
+      "enabled": true,
       "language": "rust",
       "constraint": "no_std",
       "requires_root": "firmware",

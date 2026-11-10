@@ -65,6 +65,8 @@ Research input names the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** and target `
 
 ## 7. Quality & Security Checklist
 
+Run `bash scripts/gates/firmware-check.sh` from the repository root and report its actual output. It is the same script CI's `firmware` job runs: `cargo fmt --check`, `cargo clippy` with warnings as errors, `cargo test`, and a release build for `riscv32imafc-unknown-none-elf`, on the compiler pinned in `firmware/rust-toolchain.toml`. The workspace lints in `firmware/Cargo.toml` already deny `unwrap`, `expect`, indexing, `panic!`, unchecked arithmetic and `unsafe`; do not weaken them or add `#[allow]` without the owner's decision. A pass is host and cross-build evidence only, never device evidence.
+
 Before completing or reviewing any Rust code, verify:
 
 - [ ] **`#![no_std]` Compliance**: No unintended `std` dependencies; check the verified target when available.

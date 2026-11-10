@@ -50,5 +50,7 @@ not a successful code review. Separate reviewer identity, completed reviews,
 acceptance evidence, and human approval remain necessary under the team runbook.
 No paths means no mapping evidence; it does not prove an empty Git diff.
 
-The firmware domain remains disabled. Testing a synthetic firmware mapping does
-not activate it or begin firmware development.
+The firmware domain is enabled: a path under `firmware/` maps to its checklist
+and names the security auditor. The mapping reports what a review must cover;
+it does not run the Rust checks. `bash scripts/gates/firmware-check.sh` and
+CI's `firmware` job do that.

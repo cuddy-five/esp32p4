@@ -62,6 +62,7 @@ and manual dispatch:
 | `test` | Existing unit/security tests pass, policy declarations agree with contracts, agent profiles stay within `tool-access.yaml`, and the change adds no whitespace errors. |
 | `validate-examples` | Example JSON documents satisfy their schemas. |
 | `lint-workflows` | Active GitHub Actions workflows pass actionlint. |
+| `firmware` | The Rust in `firmware/` is formatted, passes clippy with warnings as errors, passes its host tests and builds without `std` for the candidate ESP32-P4 target. It does not prove anything ran on a device. |
 | `dependency-review` | Pull requests add no dependency with a known high-severity vulnerability. |
 | `settings-check` | Live settings can be read and compared. Drift is a notice; API/validation errors fail. |
 
