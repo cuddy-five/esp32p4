@@ -3,8 +3,9 @@
  *
  * The reviewer role does not change when the language changes. This file
  * only chooses the enabled checklist. It does not launch an agent, write
- * code, or approve a merge. The firmware checklist is declared for no_std
- * Rust and stays off until that tree exists.
+ * code, or approve a merge. A domain marked `task_required` also says that a
+ * change to its paths may merge only as a task with committed records;
+ * `gate check --discover` enforces that (see domainsRequiringTask).
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -17,7 +18,7 @@ const ID_PATTERN = /^[a-z][a-z0-9-]{0,63}$/;
 const ROLES = new Set(["reviewer", "security_auditor"]);
 const LANGUAGES = new Set(["javascript", "rust"]);
 const KEYS = new Set([
-  "id", "enabled", "language", "constraint", "requires_root", "role", "security_role", "paths", "checks",
+  "id", "enabled", "language", "constraint", "requires_root", "role", "security_role", "task_required", "paths", "checks",
 ]);
 
 function globOk(value) {
@@ -63,6 +64,9 @@ export function reviewDomainProblems(doc, { pathExists } = {}) {
     if (!ROLES.has(domain.role)) problems.push(`${domain.id}: role must be reviewer or security_auditor.`);
     if (domain.security_role !== undefined && domain.security_role !== "security_auditor") {
       problems.push(`${domain.id}: security_role must be security_auditor.`);
+    }
+    if (domain.task_required !== undefined && typeof domain.task_required !== "boolean") {
+      problems.push(`${domain.id}: task_required must be boolean.`);
     }
     if (domain.requires_root !== undefined && !/^[A-Za-z0-9._-]+$/.test(domain.requires_root)) {
       problems.push(`${domain.id}: requires_root must be one relative directory name.`);
@@ -126,4 +130,25 @@ export function selectReviewDomains(paths, domains) {
     }
   }
   return { covered, uncovered };
+}
+
+/**
+ * Enabled domains marked `task_required` that a changed path falls in, with
+ * those paths. A change there may merge only with committed task records. A
+ * path the patterns cannot express is not an error here; it matches by the
+ * same glob rules as every other path.
+ * @param {string[]} paths repository-relative changed paths
+ * @param {{ domains: object[] }} domains a review-domains document
+ * @returns {{ domain: string, paths: string[] }[]}
+ */
+export function domainsRequiringTask(paths, domains) {
+  const problems = reviewDomainProblems(domains);
+  if (problems.length > 0) throw new Error(problems.join(" "));
+  const rows = [];
+  for (const domain of domains.domains) {
+    if (!domain.enabled || domain.task_required !== true) continue;
+    const hits = paths.filter((file) => domain.paths.some((pattern) => globMatch(pattern, file)));
+    if (hits.length > 0) rows.push({ domain: domain.id, paths: hits });
+  }
+  return rows;
 }

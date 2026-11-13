@@ -154,3 +154,36 @@ test("the changed-path report diffs from the merge base, not the base tip", () =
   const diffArgs = seen.find((a) => a[0] === "diff");
   assert.ok(diffArgs.includes(`${sha}...${sha}`), diffArgs.join(" "));
 });
+
+test("overseer-commands re-runs task-gate on a command comment and can do nothing else", () => {
+  const doc = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/overseer-commands.yml"), "utf8"));
+  const on = doc.on ?? doc[true];
+  assert.deepEqual(on, { issue_comment: { types: ["created", "edited", "deleted"] } }, "a comment is the only trigger");
+  assert.deepEqual(doc.permissions, {}, "no permission by default");
+  assert.deepEqual(Object.keys(doc.jobs), ["rerun-task-gate"]);
+  const job = doc.jobs["rerun-task-gate"];
+  assert.deepEqual(job.permissions, { actions: "write", "pull-requests": "read" });
+
+  // It runs no pull-request code: no checkout, no action at all, one shell step.
+  assert.equal(job.steps.length, 1);
+  const [step] = job.steps;
+  assert.equal(step.uses, undefined);
+  // Comment text reaches the `if` only. In the script it would be shell injection.
+  assert.doesNotMatch(step.run, /\$\{\{/, "no expression is expanded inside the script");
+  assert.doesNotMatch(JSON.stringify(step.env), /comment|body|title/);
+  assert.deepEqual(Object.keys(step.env).sort(), ["GH_TOKEN", "PR_NUMBER"]);
+  assert.equal(step.env.PR_NUMBER, "${{ github.event.issue.number }}");
+
+  // Pull requests only, write access only, and only for the three commands (before or after an edit).
+  assert.match(job.if, /github\.event\.issue\.pull_request/);
+  assert.match(job.if, /\["OWNER", "MEMBER", "COLLABORATOR"\]'\), github\.event\.comment\.author_association/);
+  for (const command of ["/approve", "/halt", "/resume"]) assert.ok(job.if.includes(`'${command}'`), command);
+  assert.match(job.if, /github\.event\.changes\.body\.from/);
+
+  // The workflow file and job it re-runs must exist under those names.
+  const gate = YAML.parse(fs.readFileSync(path.join(root, ".github/workflows/merge-gate.yml"), "utf8"));
+  assert.equal(gate.jobs["task-gate"].name, "task-gate");
+  assert.match(step.run, /actions\/workflows\/merge-gate\.yml\/runs\?head_sha=\$head_sha&event=pull_request/);
+  assert.match(step.run, /select\(\.name == "task-gate"\)/);
+  assert.match(step.run, /--method POST "\$api\/actions\/jobs\/\$job_id\/rerun"/);
+});

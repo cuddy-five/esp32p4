@@ -17,6 +17,15 @@ Use the [manual team runbook](agent-team.md) to start or resume work and the
 [project brief](../templates/project-brief.md) to record requirements and
 unknowns in `PROJECT.md`.
 
+To see what waits on you, run `node src/cli.js overview`. It reads GitHub and
+changes nothing. It lists first the branches that hold work which is not in
+the default branch and has no pull request: no check runs on that work and
+nobody is asked to review it, so it is easy to lose. Then it lists the open
+pull requests, the open issues, and the branches you can delete because their
+work is already merged. `--repo owner/name` selects another repository and
+`--format json` prints the same facts for a program. It needs the same GitHub
+login as `settings plan`.
+
 **Current boundary:** contracts, validation, settings tools, CI and a gate
 evaluator (`gate check`, run by the `task-gate` check on PRs that commit task
 records) work today. The evaluator rejects
@@ -71,7 +80,8 @@ of its own:
 `approval.overseers` in `policies/approvals.yaml`, it is not edited, and it
 names the current plan and, at merge, the PR head. A new push or 72 hours
 voids it; post a new comment instead of editing. The `task-gate` check prints
-the exact line to post once every other gate passes; re-run that check after you post it. GitHub identifies the
+the exact line to post once every other gate passes. The `overseer-commands` workflow re-runs that check when you post
+the line, so it turns green on its own within a minute or two; if it does not, re-run `task-gate` in the Actions tab. GitHub identifies the
 account, not the person: an agent with your GitHub token could post one, so
 give agents a token that cannot comment, or check the comment yourself.
 Copilot CLI ran on its stored login when given an invalid `GH_TOKEN`
@@ -92,6 +102,22 @@ The declared policy does not require plan approval for low-risk work in
 ordinary files. That does not grant agents permission to merge: the owner
 still reviews the PR and chooses whether to merge.
 
+## Which changes must be tasks
+
+`task-gate` judges a PR by the task records it commits. A PR that commits none
+passes as "not applicable". That is right for ordinary edits, but it also means
+a firmware change can reach `main` with no recorded review: leaving out the
+records leaves out the gate.
+
+You can close that for an area. In `.review-domains.json`, set
+`"task_required": true` on the domain. From then on a PR that changes a path in
+that domain and commits no task records fails `task-gate`, and the check names
+the paths. The `firmware` domain carries the switch, set to `false`. Turning it
+on means every firmware PR needs a task, a reviewed plan, a code review, a
+security review, a verifier's evidence and your `/approve`; in 2026-11 one
+full independent review cost about 50 of the 1,500 monthly Copilot credits.
+The rule is read from the base branch, so a PR cannot switch it off for itself.
+
 ## Stopping and resuming
 
 Post `/halt` on the task's PR, on a line of its own; `task=<task_id>` and a
@@ -100,7 +126,9 @@ reason are optional. From then on every gate check for that task fails
 `/resume task=<task_id>`. A halt from an overseer account counts even when
 edited (from the time of the edit) or naming another task; a resume must start
 its line, name the task and be a new, unedited comment. `task status --pr` lists every halt or resume that did not
-count and why; re-run `task-gate` to show it on the PR. The comment stops no
+count and why. The `overseer-commands` workflow re-runs `task-gate` when you post, edit or delete one of these
+comments, so a halt turns the check red and blocks the merge button; if the check does not change, re-run `task-gate`
+in the Actions tab. That workflow has not yet run on GitHub; trust it after you have seen it work once. The comment stops no
 process and undoes nothing: stop each thing that runs, then confirm it stopped.
 
 | What runs | Stop it | Confirm it stopped |
