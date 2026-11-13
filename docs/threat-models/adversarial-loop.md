@@ -165,15 +165,20 @@ understand what they are shown.
 The overseer halts; one role keeps going and merges.
 
 - `halt_is_total` invariant. `declared`
-- Automatic halt and the merge gate are not implemented. The owner or
-  coordinator must stop roles and separately cancel running jobs; a comment
-  cannot stop a workflow. Preserve handoffs before resumption. `declared`
+- A `/halt` comment fails the merge gate (`task-gate`) and stops nothing
+  else. The owner or coordinator must stop roles and separately cancel running
+  jobs; a comment cannot stop a workflow. Preserve handoffs before resumption.
+  `gate available; stopping work is manual`
 
 ## Residual risks at this stage
 
-- The state machine and approvals policy are validated but not executed.
-  Until the coordinator, evidence collector, and merge gate exist, the
-  guardrails are documentation plus repository protections.
+- The gates run only on pull requests that commit task records. A pull
+  request without records passes `task-gate` unless it changes a review domain
+  marked `task_required`, and none is marked. Until the owner marks one, a
+  change to any area, firmware included, can merge on the owner's decision
+  alone with no recorded review.
+- Nothing executes the state machine; roles are started by hand, and the
+  gates trust the producer names written in the records.
 - Rulesets are declared but applied only on manual dispatch; a repo that
   never runs `settings apply` has no branch protection from this template.
 - Distinct-model review depends on the deployment having more than one

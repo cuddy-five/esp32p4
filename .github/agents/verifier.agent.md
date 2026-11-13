@@ -45,14 +45,18 @@ requires explicit authorization to save it.
      node src/cli.js policy check
      git diff --check
      ```
-   - Build and validate the machine-readable `evidence` contract for all changed paths:
+   - Let the `evidence` command read the diff from git and run the checks, so the contract records what happened and not what you typed. It refuses unless the checkout's files equal `<head-sha>`:
      ```bash
-     node src/cli.js evidence --task <task.json> --sha <head-sha> --path <changed-file>... --output <evidence.json>
+     node src/cli.js evidence --task <task.json> --sha <head-sha> --base <base-ref> \
+       --run "npm test" --run "npm run validate:examples" --run "node src/cli.js policy check" \
+       --producer-kind agent --producer-name <your-name> --producer-role verifier --producer-model <model> \
+       --output <evidence.json>
      node src/cli.js validate <evidence.json> --kind evidence
      ```
+     For a change under `firmware/`, add `--run "bash scripts/gates/firmware-check.sh"`. Exit `2` means a check failed or a path is out of scope; the evidence file still records it. Report that result; never rerun with fewer checks to get a pass.
 3. **Emit Verification Review**:
    - Emit a `review` contract with `review_kind: "verification"` referencing your fresh `evidence_id`.
-   - Record actual test commands and results independently. The saved evidence file does not include the reporting envelope's `gates`; retain the envelope separately if needed. The command does not collect test results or all budget usage. Missing measurements are unknown, even if the budget gate reports a pass. Verify required reviews and their authors separately; schema validity alone proves neither execution nor approval.
+   - Record actual test commands and results independently. The saved evidence file does not include the reporting envelope's `gates`; retain the envelope separately if needed. The command records each `--run` check as passed, failed or timed out; it does not count individual tests or measure budget usage. Missing measurements are unknown, even if the budget gate reports a pass. Verify required reviews and their authors separately; schema validity alone proves neither execution nor approval.
    - Include a clear `overseer_note` summarizing the test counts, scope check, and required human approval stages.
 
 ## Constraints & Boundaries

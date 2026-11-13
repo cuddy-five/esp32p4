@@ -67,12 +67,17 @@ and manual dispatch:
 | `settings-check` | Live settings can be read and compared. Drift is a notice; API/validation errors fail. |
 
 A green run does not prove the complete agent loop ran or that the owner
-approved a merge. Intake dispatch, agent routing and automatic evidence
-collection are not implemented. In [merge-gate.yml](.github/workflows/merge-gate.yml),
+approved a merge. Intake dispatch and agent routing are not implemented; a role
+collects evidence by running `node src/cli.js evidence`
+([guide](docs/runbooks/evidence-reporting.md)). In [merge-gate.yml](.github/workflows/merge-gate.yml),
 `admission-gate` only reports changed paths and declared approval stages;
 `task-gate` fails a PR whose committed task records do not pass the merge
-gates, and passes a PR without records as not applicable. `settings/rulesets.json`
-declares `task-gate` required; it blocks a merge only after `settings apply` puts that ruleset live. The `.disabled` files are placeholders. The
+gates, and passes a PR without records as not applicable, unless the PR changes a
+review domain marked `task_required` in `.review-domains.json` (none is today).
+[overseer-commands.yml](.github/workflows/overseer-commands.yml) re-runs `task-gate` when the
+overseer posts `/approve`, `/halt` or `/resume`. `settings/rulesets.json`
+declares `task-gate` required, and the ruleset is live on this repository (checked 2026-11-13 with `settings check`);
+a copy has no such protection until `settings apply` runs there. The `.disabled` files are placeholders. The
 [state machine](.github/control-plane/orchestration/state-machine.yaml) and
 approval policy describe the intended process; no coordinator executes them.
 The [settings-sync guide](docs/runbooks/settings-sync.md) covers the separate

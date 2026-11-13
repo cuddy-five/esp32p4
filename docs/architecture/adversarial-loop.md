@@ -100,9 +100,10 @@ and every gate holds. The CLI checks declarations, not running transitions.
    and ownership paths also require human plan and merge decisions.
 5. **Implementation (`in_progress`).** The implementer executes the plan
    inside `task.scope`. On completion it emits a `handoff` to the reviewer.
-   Today roles collect actual checks, tests, diff paths and policy results
-   manually. The planned collector and gates require evidence for the exact
-   subject, no out-of-scope paths and a budget not exceeded. Parallel work is
+   `control-plane evidence --base <ref> --run <command>` collects the diff
+   paths from git and runs the checks on files that equal the commit; the
+   gates require evidence for the exact subject, no out-of-scope paths and a
+   budget not exceeded. Budget usage is still reported by each role. Parallel work is
    integrated before review; dirty-tree evidence needs the base HEAD and a
    digest manifest under the manual runbook, and remains local-only.
 6. **Review (`in_review`).** The reviewer and, from medium risk up or for a
@@ -169,13 +170,13 @@ or rollback exists yet.
 
 | Gate | Holds when | Implemented by |
 |---|---|---|
-| `task_valid`, `plan_valid` | Document validates | `control-plane validate` |
-| `plan_reviewed` | A plan review from a non-planner approves | coordinator (next stage) |
-| `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | planned coordinator; `policy stages` evaluates required stages only |
-| `approval_granted` | Current original human approval covers this task, plan, stage and revision | planned coordinator; manually checked today |
-| `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; empty `out_of_scope_paths`; `budget_used` ≤ `task.budget` | collect-evidence (next stage) |
-| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no other reviewer's latest review of that commit objects | planned coordinator |
-| `verification_passed` | Verifier's own evidence green and verification review approves | planned verifier integration + merge gate |
+| `task_valid`, `plan_valid` | Document validates; exactly one current plan | `gate check`; `control-plane validate` for one file |
+| `plan_reviewed` | A plan review from a non-planner approves | `gate check` |
+| `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | `gate check`; `policy stages` shows the stages alone |
+| `approval_granted` | An overseer's unedited `/approve` PR comment covers this task, plan, stage and, at merge, the head commit | `gate check --pr` |
+| `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; no changed path outside the task scope; `budget_used` ≤ `task.budget` | `gate check`; `evidence --base --run` produces the evidence |
+| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no other reviewer's latest review of that commit objects | `gate check` |
+| `verification_passed` | Verifier's own evidence green and verification review approves | `gate check` |
 | `no_open_escalation` | No escalation open or acknowledged, and no overseer `/halt` in force (latest `/halt` or `/resume` PR comment; a halt counts edited or naming another task, a resume only exact and unedited) | `gate check --pr`; `task status --pr` |
 | `retry_budget_remaining` | Repair rounds (reviewed commits sent back by a blocking review) do not exceed `limits.repair_rounds` (2) | `gate check`; `task status` reports the count |
 
@@ -183,6 +184,13 @@ or rollback exists yet.
 status. `policy stages` calculates required stages from risk, paths and tags;
 it neither authenticates approval nor executes a transition. Required unmet
 checks remain pending and block the corresponding acceptance criterion.
+
+The gates judge a pull request by the task records it commits, and a pull
+request without records is not a task. One rule removes that exit: a review
+domain in `.review-domains.json` marked `task_required: true` makes
+`gate check --discover` fail a pull request that changes a path in the domain
+and commits no records. The rule is read from the base commit. No domain is
+marked today; the `firmware` domain declares the switch as `false`.
 
 ## Invariants
 
@@ -199,8 +207,11 @@ schema rule is directly enforced by validation today:
 
 ## What this stage does not do yet
 
-The state machine and approvals policy are declared and validated but not
-yet executed: there is no coordinator process, no evidence collector, and no
-merge gate. Those are the next stage. Declaring them first means the
-executor is built to a specification the tests already check, rather than
-the specification being whatever the executor happens to do.
+Nothing starts a role or moves a task between states: there is no
+coordinator process, and the owner or the coordinator agent starts each role
+by hand. What exists is the checking side. `gate check` evaluates every gate
+on request, `task-gate` runs it on each pull request that commits task
+records, `evidence` collects the diff and the check results, and `task status`
+says who acts next. Usage against the budget is reported by each role, not
+measured. The gates trust the producer names in the records; only the
+overseer's approval, halt and resume are read from GitHub.

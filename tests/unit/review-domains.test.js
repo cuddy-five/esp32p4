@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import fs from 'node:fs';
 import {
+  domainsRequiringTask,
   loadReviewDomains,
   reviewDomainProblems,
   selectReviewDomains,
@@ -76,4 +77,29 @@ test('selectReviewDomains normalizes leading ./ paths safely', () => {
   assert.deepEqual(out.covered.map((row) => row.domain), ['control-plane']);
   assert.deepEqual(out.covered[0].paths, ['src/cli.js']);
   assert.deepEqual(out.uncovered, []);
+});
+
+test('task_required names the domains whose changes must be tasks, and is off as declared', () => {
+  const doc = domains();
+  // The owner has not turned the rule on; the switch is declared so the decision is visible.
+  assert.equal(doc.domains.find((domain) => domain.id === 'firmware').task_required, false);
+  const changed = ['firmware/wallet-core/src/lib.rs', 'firmware/Cargo.lock', 'src/cli.js'];
+  assert.deepEqual(domainsRequiringTask(changed, doc), []);
+
+  const on = structuredClone(doc);
+  on.domains.find((domain) => domain.id === 'firmware').task_required = true;
+  assert.deepEqual(domainsRequiringTask(changed, on), [
+    { domain: 'firmware', paths: ['firmware/wallet-core/src/lib.rs', 'firmware/Cargo.lock'] },
+  ]);
+  assert.deepEqual(domainsRequiringTask(['src/cli.js', 'README.md'], on), []);
+  // A path that selectReviewDomains would refuse still matches here: no path evades the rule.
+  assert.deepEqual(domainsRequiringTask(['firmware/a*b.rs', 'firmware/sub/new\nline.rs'], on)[0].paths.length, 2);
+  assert.deepEqual(domainsRequiringTask(['Firmware-notes.md', 'docs/firmware/x.md'], on), []);
+
+  // A disabled domain requires nothing, and the flag must be a real boolean.
+  on.domains.find((domain) => domain.id === 'firmware').enabled = false;
+  assert.deepEqual(domainsRequiringTask(changed, on), []);
+  on.domains.find((domain) => domain.id === 'firmware').task_required = 'yes';
+  assert.ok(reviewDomainProblems(on).some((problem) => problem.includes('task_required must be boolean')));
+  assert.throws(() => domainsRequiringTask(changed, on), /task_required must be boolean/);
 });

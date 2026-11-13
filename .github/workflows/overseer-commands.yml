@@ -1,0 +1,65 @@
+name: overseer-commands
+
+# The task-gate job in merge-gate.yml reads the overseer's /approve, /halt and
+# /resume comments when it runs, and a comment does not start it. Without this
+# workflow a /halt leaves an earlier green check green, and an /approve leaves
+# the red check red, until somebody re-runs the job by hand.
+#
+# This workflow asks GitHub to re-run that one job when such a comment is
+# posted, edited or deleted. It decides nothing: the re-run job reads the
+# comments itself and applies policies/approvals.yaml, so the answer does not
+# depend on who caused the re-run. Only accounts with write access start one,
+# which keeps strangers on a public repository from spending runner time.
+#
+# It checks out no code, uses no action, and never passes comment text to a
+# shell: the comment is read only by the `if` condition below.
+on:
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions: {}
+
+# One re-run at a time per pull request; a later comment waits for the earlier one.
+concurrency:
+  group: overseer-commands-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  rerun-task-gate:
+    name: rerun-task-gate
+    # An edit can remove a command, so the text before the edit counts too.
+    if: >-
+      github.event.issue.pull_request &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      (contains(format('{0} {1}', github.event.comment.body, github.event.changes.body.from), '/approve') ||
+       contains(format('{0} {1}', github.event.comment.body, github.event.changes.body.from), '/halt') ||
+       contains(format('{0} {1}', github.event.comment.body, github.event.changes.body.from), '/resume'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Re-run task-gate for the pull request's head commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="repos/$GITHUB_REPOSITORY"
+          head_sha="$(gh api "$api/pulls/$PR_NUMBER" --jq .head.sha)"
+          run_id="$(gh api "$api/actions/workflows/merge-gate.yml/runs?head_sha=$head_sha&event=pull_request&per_page=1" --jq '.workflow_runs[0].id // empty')"
+          if [ -z "$run_id" ]; then
+            echo "No merge-gate run exists for $head_sha yet; it reads the comments when it starts." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # A run still in progress may have read the comments already, so let it finish first.
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --interval 10 >/dev/null || true
+          job_id="$(gh api "$api/actions/runs/$run_id/jobs?filter=latest" --jq '.jobs[] | select(.name == "task-gate") | .id')"
+          if [ -z "$job_id" ]; then
+            echo "merge-gate run $run_id has no task-gate job; nothing to re-run." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh api --method POST "$api/actions/jobs/$job_id/rerun" >/dev/null
+          echo "Re-ran task-gate (job $job_id of run $run_id) for $head_sha after a command comment on PR #$PR_NUMBER." | tee -a "$GITHUB_STEP_SUMMARY"
