@@ -6,7 +6,9 @@
 
 | Severity | Concern | Evidence | Impact | Suggested action |
 |----------|---------|----------|--------|------------------|
-| Med | Operational reliance on manual team discipline | [PROJECT.md](../../PROJECT.md), [docs/runbooks/agent-team.md](../../docs/runbooks/agent-team.md) | State machine transitions and gate validations are not executed automatically in CI; human or agent errors could bypass intended state order | Keep worker dispatch and approval routing deferred; follow the manual runbook. |
+| High | Firmware can merge with no recorded review | [.review-domains.json](../../.review-domains.json), [docs/runbooks/overseer.md](../../docs/runbooks/overseer.md#which-changes-must-be-tasks) | `task-gate` judges only pull requests that commit task records; one without records passes as not applicable, so the firmware review and security-audit rule applies only when a task is written | Owner decision: set `task_required: true` on the `firmware` review domain. |
+| Med | Operational reliance on manual team discipline | [PROJECT.md](../../PROJECT.md), [docs/runbooks/agent-team.md](../../docs/runbooks/agent-team.md) | Nothing starts a role or moves a task between states; `task-gate` checks the merge gates only on pull requests that commit task records, and the gates trust the producer names in those records | Keep worker dispatch deferred until the owner asks; follow the manual runbook and run `task status` before each role acts. |
+| Med | The npm package ships this repository's review domains | [package.json](../../package.json), [src/review-domains.js](../../src/review-domains.js) | `.review-domains.json` is in `files` and its `firmware` domain needs a `firmware/` directory, so `gate check` in an installed copy stops with "enabled but firmware/ does not exist" as soon as it reads changed paths | Give consumers their own review-domains file before publishing a release (roadmap step 2); `package:smoke` does not run `gate check`. |
 | Med | GitHub API rate limiting on settings reconciliation | [src/lib/github.js](../../src/lib/github.js) | Excessive `settings plan` or `settings check` polling can exhaust the applicable API rate limit | Rely on cached local snapshots or restrict queries with `--only labels` / `--only rulesets`. |
 
 ### 2) Technical Debt
@@ -64,7 +66,7 @@
 ### 8) Agent Pipeline Transition Gaps (Manual -> Autonomous CI Dispatch)
 
 While contracts, schemas, and policies are fully specified, the execution loop is currently manual:
-- **Intake**: Creating task issues and initial `task.json` documents relies on manual human or CLI triggers (`node src/cli.js evidence`).
+- **Intake**: Creating task issues and initial `task.json` documents is manual. `node src/cli.js evidence --base <ref> --run <command>` collects a commit's diff and check results; a role still starts it.
 - **Dispatch**: The coordinator currently operates via manual handoff runbooks ([docs/runbooks/agent-team.md](../../docs/runbooks/agent-team.md)) rather than automated GitHub Actions dispatch.
 - **Handoff Automation**: Future milestones need to implement automated dispatchers that trigger implementers upon plan approval and reviewers upon handoff emission.
 

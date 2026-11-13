@@ -16,7 +16,7 @@ Load this skill in the `verifying` state to independently re-derive `evidence` a
 1. **Re-Run All Deterministic Checks**:
    - Execute `npm test`, `npm run validate:examples`, `node src/cli.js policy check`, and `git diff --check` in a clean shell.
 2. **Generate Standalone Evidence Contract**:
-   - Run `node src/cli.js evidence --task <task.json> --sha <head-sha> --base-sha <base-sha> --path <file>... --output <evidence.json>`.
+   - Run `node src/cli.js evidence --task <task.json> --sha <head-sha> --base <base-ref> --run "<check command>"... --producer-role verifier --output <evidence.json>`. `--base` reads the changed paths from git and `--run` runs each check and records its real result; the command refuses when the checkout's files are not `<head-sha>`. See `docs/runbooks/evidence-reporting.md`.
    - Validate `<evidence.json>` via `node src/cli.js validate <evidence.json> --kind evidence`.
 3. **Record what actually happened**:
    - Record each command and result and whether the reviewed work matches the subject. The saved evidence file does not contain the separate stdout envelope's `gates`, test results, or complete budget usage. Missing usage is unknown even if the command reports a budget pass. Check review authors and approvals separately; never infer them from schema validity.

@@ -115,6 +115,11 @@ It runs `cargo fmt --check`, `cargo clippy` with warnings as errors,
 compiler pinned in `firmware/rust-toolchain.toml`. It needs rustup. A pass
 covers host tests and a cross-build; it is not evidence from a device.
 
+A verifier records these checks with `node src/cli.js evidence --task <task.json>
+--sha <sha> --base origin/main --run "<command>"...`, which reads the diff from
+git and runs each check on files that equal the commit
+([evidence reporting](evidence-reporting.md)).
+
 `npm test` runs the test script; `npm run validate:examples` runs the named
 example-validation script. `node` executes `src/cli.js`: `policy check`
 checks declaration consistency, and `validate` checks the contract files

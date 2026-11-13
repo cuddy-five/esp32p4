@@ -36,6 +36,9 @@ This is the intended team process. Roles can follow it manually today;
 the automated coordinator is not built. The `merge-gate` workflow's
 `task-gate` job checks a PR's committed task records against the merge gates,
 including the overseer's `/approve` comment; PRs without records skip it.
+A review domain marked `task_required` in `.review-domains.json` removes that
+skip for its paths; none is marked today. The `overseer-commands` workflow
+re-runs the job when the overseer posts `/approve`, `/halt` or `/resume`.
 
 ```
           ┌────────────────────────────────────────────────────────────┐
@@ -67,9 +70,13 @@ blind spots do not line up. See `docs/architecture/adversarial-loop.md`.
 | Task lifecycle is explicit; only named roles may move a task between states | `orchestration/state-machine.yaml` | defined |
 | Risk decides how much a human must see | `policies/approvals.yaml`: every risk needs human merge approval; high/critical risk and sensitive paths or tags require earlier decisions | defined |
 | Repository protections cannot silently drift | `settings/rulesets.json` and `labels.json`, reconciled by `control-plane settings` | available |
-| Scope is declared on the task and verified on the diff | `task.scope.allowed_paths`, `evidence.diff.out_of_scope_paths`, `review.scope_compliance` | contracts available, collector next |
-| Budgets stop work before the ceiling | `budget` on task; `budget_used` on evidence, review, result | contracts available, enforcement next |
+| Scope is declared on the task and verified on the diff | `task.scope.allowed_paths`; `evidence --base` and `gate check --base` read the changed paths from git; the `within_scope` gate | available |
+| Checks are observed, not claimed | `evidence --run` runs each check on files equal to the commit and records its real result | available |
+| Budgets stop work before the ceiling | `budget` on task; `budget_used` on evidence, review, result; the `within_budget` gate adds them up | gate available; each role still reports its own usage |
+| A halt or an approval changes the check at once | `overseer-commands` re-runs `task-gate` when the overseer comments | written; first live run pending |
+| A sensitive area cannot skip its reviews | `task_required` on a review domain: a PR there fails `task-gate` without task records | available; off until the owner turns it on |
 | Humans are told what happened in plain language | `overseer_note` on review, result, escalation | available |
+| Finished work cannot sit unseen on a branch | `control-plane overview` lists branches with unmerged work and no pull request | available |
 | Mutating anything requires an explicit flag | `--yes` on apply; `settings-sync` applies only on manual dispatch behind an environment | available |
 
 Every file with a `.disabled` suffix, mostly under `.github/`, is a placeholder
@@ -103,6 +110,8 @@ npm test
 node src/cli.js validate path/to/*.json           # validate contract documents
 node src/cli.js schema list
 node src/cli.js policy check                       # state machine, approvals and agent profiles agree with policy
+
+node src/cli.js overview                           # what waits on you: unmerged branches with no PR, open PRs, open issues
 
 node src/cli.js settings plan                      # what would change in this repo
 node src/cli.js settings check                     # exit 2 on drift
@@ -143,7 +152,7 @@ the next stage.
 | `.github/agents/`, `.github/skills/`, `.github/instructions/`, `.github/prompts/` | Copilot agent profiles, project skills, file-scoped instructions, and editor prompts |
 | `.github/ISSUE_TEMPLATE/`, `.github/PULL_REQUEST_TEMPLATE.md` | Task/bug intake and the owner's PR reading guide |
 | `.github/CODEOWNERS`, `.github/SECURITY.md`, `.github/dependabot.yml` | Review routing, security reporting guidance, and dependency update proposals |
-| `.github/workflows/` | `ci.yml`, `settings-sync.yml`, informational `merge-gate.yml`, scheduled `agent-evals.yml` audit, `release.yml`, and the `repo-status` overseer digest (gh-aw `.md` source and generated `.lock.yml`) |
+| `.github/workflows/` | `ci.yml`, `settings-sync.yml`, `merge-gate.yml` (the informational `admission-gate` and the required `task-gate`), `overseer-commands.yml` (re-runs `task-gate` on an overseer comment), scheduled `agent-evals.yml` audit, `release.yml`, and the `repo-status` overseer digest (gh-aw `.md` source and generated `.lock.yml`) |
 | `.agents.registry.json`, `.skills.registry.json`, `.workflows.registry.json` | Declared role, skill, and workflow catalogues checked by the registry tests |
 | `.review-domains.json` | Review checklists selected by changed path |
 | `CONTRIBUTING.md` | File-to-file path from request through review and owner merge |
@@ -171,6 +180,6 @@ the next stage.
 
 1. Contracts, settings reconciliation, policy declarations, and generic contribution baseline (available)
 2. Reusable checks behind a repo-profile adapter; bootstrap installer for consumer repos
-3. Evidence collector and merge gate that enforce scope, budget, and approvals
-4. Agent charters, routing, tool policy, budgets, recovery
-5. Overseer digest: one place to read what the team did and why
+3. Evidence collector and merge gate that enforce scope, budget, and approvals (available; budget usage is still self-reported)
+4. Agent charters, routing, tool policy, budgets, recovery (charters, tool policy check and recovery reporting available; nothing starts a role automatically)
+5. Overseer digest: one place to read what the team did and why (`overview` lists what waits on the overseer; the written `repo-status` digest is paused)
