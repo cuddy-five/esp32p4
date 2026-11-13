@@ -338,13 +338,13 @@ function recordsRepo(t) {
 }
 
 /** Run the CLI with the fixture repo as the working directory, as CI does. */
-async function inRepo(t, dir, args, client) {
+async function inRepo(t, dir, args, client, { command = ["gate", "check"], reviewDomains } = {}) {
   const cwd = process.cwd();
   process.chdir(dir);
   t.after(() => process.chdir(cwd));
   const out = [];
   try {
-    const code = await main(["gate", "check", "--discover", ...args], { stdout: (s) => out.push(s), stderr: (s) => out.push(s), env: {}, client });
+    const code = await main([...command, "--discover", ...args], { stdout: (s) => out.push(s), stderr: (s) => out.push(s), env: {}, client, reviewDomains });
     return { code, text: out.join("\n") };
   } finally {
     process.chdir(cwd);
@@ -434,4 +434,59 @@ test("discover: no records skips; malformed, mixed or misnamed records are error
   assert.equal(res.code, 1, res.text);
   assert.match(res.text, /must be named after the task id/);
   assert.equal((await inRepo(t, r.dir, ["--head-sha", r.head, "x.json"])).code, 1);
+});
+
+test("discover: a change in a task_required domain cannot merge without task records", async (t) => {
+  const r = recordsRepo(t);
+  const domains = (taskRequired) => ({
+    schema_version: 1,
+    domains: [{
+      id: "firmware", enabled: true, language: "rust", constraint: "no_std", role: "reviewer", security_role: "security_auditor",
+      task_required: taskRequired, paths: ["firmware/**"], checks: ["A signing or key path must not panic."],
+    }],
+  });
+  // A branch from the base that changes firmware and commits no records.
+  r.g("checkout", "-q", "-b", "no-task", r.base);
+  const files = Object.fromEntries(["a", "b", "c", "d", "e", "f"].map((n) => [`firmware/core/src/${n}.rs`, "// x\n"]));
+  const head = r.commitFiles({ ...files, "README.md": "docs too\n" }, "firmware without a task");
+  const args = ["--base", r.base, "--head-sha", head];
+
+  // Off, as this repository declares it today: the task gate does not apply.
+  let res = await inRepo(t, r.dir, args, undefined, { reviewDomains: domains(false) });
+  assert.equal(res.code, 0, res.text);
+  assert.match(res.text, /^SKIP no task records/);
+  res = await inRepo(t, r.dir, args);
+  assert.equal(res.code, 0, "the committed .review-domains.json leaves the rule off");
+
+  // On: skipping the paperwork no longer skips the reviews.
+  res = await inRepo(t, r.dir, args, undefined, { reviewDomains: domains(true) });
+  assert.equal(res.code, 2, res.text);
+  assert.match(res.text, /^FAIL no task records under \S+, and this change needs them/);
+  assert.match(res.text, /review domain firmware: firmware\/core\/src\/a\.rs, .* and 1 more/);
+  assert.match(res.text, /merges only as a task/);
+  assert.doesNotMatch(res.text, /README\.md/);
+
+  res = await inRepo(t, r.dir, [...args, "--format", "json"], undefined, { reviewDomains: domains(true) });
+  assert.equal(res.code, 2);
+  const report = JSON.parse(res.text);
+  assert.equal(report.ok, false);
+  assert.equal(report.applicable, true);
+  assert.equal(report.task_required[0].paths.length, 6);
+
+  // task status says the same thing and who acts; it reports, so it exits 0.
+  res = await inRepo(t, r.dir, args, undefined, { command: ["task", "status"], reviewDomains: domains(true) });
+  assert.equal(res.code, 0, res.text);
+  assert.match(res.text, /^NEEDS TASK no task records/);
+  assert.match(res.text, /- coordinator: A change in this area merges only as a task/);
+  res = await inRepo(t, r.dir, args, undefined, { command: ["task", "status"], reviewDomains: domains(false) });
+  assert.match(res.text, /^SKIP no task records/);
+
+  // A change outside the domain still skips with the rule on, and one that
+  // carries records is judged by its gates as before.
+  r.g("checkout", "-q", "-b", "docs-only", r.base);
+  const docsHead = r.commitFiles({ "docs/y.md": "y\n" }, "docs only");
+  res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", docsHead], undefined, { reviewDomains: domains(true) });
+  assert.equal(res.code, 0, res.text);
+  res = await inRepo(t, r.dir, ["--base", r.base, "--head-sha", r.head], undefined, { reviewDomains: domains(true) });
+  assert.match(res.text, /^(PASS|FAIL) awaiting_approval -> done/);
 });

@@ -17,7 +17,7 @@ import {
   printable,
   writeStepSummary,
 } from "./lib/report.js";
-import { loadReviewDomains } from "./review-domains.js";
+import { domainsRequiringTask, loadReviewDomains } from "./review-domains.js";
 import { buildEvidenceContract } from "./evidence.js";
 import { compactLogs } from "./compaction.js";
 import { evaluateTransition } from "./lib/gates.js";
@@ -25,6 +25,8 @@ import { assessTask } from "./lib/recovery.js";
 import { parseApprovalComments } from "./lib/approval-comments.js";
 import { changedPaths, commit, git } from "./lib/workflow-gate.js";
 import { discoverTask, RECORDS_ROOT } from "./lib/task-records.js";
+import { diffStat, recordsDirFor, runChecks, snapshotProblems } from "./lib/collect.js";
+import { buildOverview, formatOverview } from "./lib/overview.js";
 
 export const EXIT = Object.freeze({ OK: 0, ERROR: 1, FAILED: 2 });
 
@@ -46,10 +48,18 @@ Commands
                                Show which stages require a human for a task
     --format text|json         Output format for policy commands (default: text)
 
+  evidence --task <file> --sha <sha> --base <ref> [--run <command>]... [--output <file>]
   evidence --task <file> --sha <sha> [--project <dir>] [--path <p>]... [--output <file>]
                                Build and validate an evidence contract and
                                report scope, budget and review-domain mapping
-    --base-sha <sha>           Record the diff base commit
+    --base <ref>               Read the changed paths and line counts from
+                               git diff <ref>...<sha> instead of typing them; the
+                               task's own records directory is left out
+    --run <command>            Run a check from the repository root and record its
+                               real result; repeat for each check. Refused unless
+                               the checkout's files equal <sha>. Exit 2 when one fails
+    --run-timeout <seconds>    Time limit for each --run command (default: 900)
+    --base-sha <sha>           Record the diff base commit (with --path)
     --files-changed <n>        Changed-file count (default: number of --path)
     --additions <n>, --deletions <n>
                                Diff line counts (default: 0)
@@ -89,6 +99,11 @@ Commands
     --now <timestamp>          Evaluation time for handoff expiry (default: now)
     --format text|json         Output format (default: text)
 
+  overview [--repo <owner/name>] [--format text|json]
+                               List what waits on the overseer: branches with work
+                               that is not merged and has no pull request, open pull
+                               requests and open issues. Reads GitHub; changes nothing
+
   compact [--file <file>] [--max-chars <n>] [--offline] [--format text|json] [--output <file>]
                                Compact execution/test logs using deterministic local scoring
     --offline                  Accepted for compatibility and ignored; compaction is always local
@@ -116,7 +131,7 @@ const VALUE_OPTIONS = new Set([
   "--task", "--sha", "--base-sha", "--files-changed", "--additions",
   "--deletions", "--tokens-used", "--producer-kind", "--producer-name",
   "--producer-role", "--producer-model", "--output", "--file", "--max-chars",
-  "--only",
+  "--only", "--run", "--run-timeout",
 ]);
 
 /** @param {string[]} argv @returns {boolean} */
@@ -137,7 +152,8 @@ function hasHelpFlag(argv) {
  *   stderr?: (s: string) => void,
  *   env?: NodeJS.ProcessEnv,
  *   client?: GitHubClient,
- * }} [io]
+ *   reviewDomains?: object,
+ * }} [io] (reviewDomains replaces .review-domains.json; tests use it)
  * @returns {Promise<number>} exit code
  */
 export async function main(argv, io = {}) {
@@ -162,11 +178,13 @@ export async function main(argv, io = {}) {
       case "policy":
         return cmdPolicy(rest, { stdout, stderr });
       case "evidence":
-        return cmdEvidence(rest, { stdout, stderr, env });
+        return await cmdEvidence(rest, { stdout, stderr, env });
       case "gate":
-        return await cmdGate(rest, { stdout, stderr, env, client: io.client });
+        return await cmdGate(rest, { stdout, stderr, env, client: io.client, reviewDomains: io.reviewDomains });
       case "task":
-        return await cmdTask(rest, { stdout, stderr, env, client: io.client });
+        return await cmdTask(rest, { stdout, stderr, env, client: io.client, reviewDomains: io.reviewDomains });
+      case "overview":
+        return await cmdOverview(rest, { stdout, stderr, env, client: io.client });
       case "compact":
         return await cmdCompact(rest, { stdout, stderr, stdin: io.stdin });
       case undefined:
@@ -387,6 +405,26 @@ function readTaskInput(values, positionals, headSha) {
 }
 
 /**
+ * For a change that commits no task records: the review domains marked
+ * `task_required` that it touches. Such a change may merge only as a task.
+ */
+function domainsNeedingTask(values, headSha, reviewDomains) {
+  const paths = changedPaths(commit(values.base, false, git), commit(headSha, true, git), git);
+  return paths.length ? domainsRequiringTask(paths, reviewDomains ?? loadReviewDomains()) : [];
+}
+
+/** One line per domain: its name and the first few paths that fall in it. */
+function describeNeeds(needs) {
+  return needs.map((n) => {
+    const shown = n.paths.slice(0, 5).join(", ");
+    return `review domain ${n.domain}: ${shown}${n.paths.length > 5 ? ` and ${n.paths.length - 5} more` : ""}`;
+  });
+}
+
+const TASK_REQUIRED_HELP =
+  `A change in this area merges only as a task: commit its task, plan, reviews and verifier evidence under ${RECORDS_ROOT}<task_id>/ after the code (docs/runbooks/agent-team.md), then the overseer posts /approve.`;
+
+/**
  * With --pr, the overseer commands (/approve, /halt, /resume) posted on that
  * pull request, after checking --head-sha is its head. Null after a usage error.
  */
@@ -418,7 +456,7 @@ async function readPrCommands(cmd, values, headSha, { env, stderr, client: injec
   return parseApprovalComments(comments);
 }
 
-async function cmdTask(args, { stdout, stderr, env, client }) {
+async function cmdTask(args, { stdout, stderr, env, client, reviewDomains }) {
   const [sub, ...subArgs] = args;
   if (sub !== "status") {
     stderr(`task: unknown subcommand "${printable(sub ?? "")}" (expected status)`);
@@ -454,9 +492,17 @@ async function cmdTask(args, { stdout, stderr, env, client }) {
   if (!comments) return EXIT.ERROR;
   const input = readTaskInput(values, positionals, headSha);
   if (!input) {
-    stdout(values.format === "json"
-      ? JSON.stringify({ applicable: false, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` }, null, 2)
-      : `SKIP no task records under ${RECORDS_ROOT}`);
+    const needs = domainsNeedingTask(values, headSha, reviewDomains);
+    if (values.format === "json") {
+      stdout(JSON.stringify({ applicable: false, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}`, task_required: needs }, null, 2));
+    } else if (needs.length) {
+      stdout(`NEEDS TASK no task records under ${RECORDS_ROOT}, and this change needs them`);
+      for (const line of describeNeeds(needs)) stdout(`  ${printable(line)}`);
+      stdout("Next actions:");
+      stdout(`  - coordinator: ${TASK_REQUIRED_HELP}`);
+    } else {
+      stdout(`SKIP no task records under ${RECORDS_ROOT}`);
+    }
     return EXIT.OK;
   }
   const report = assessTask(input.docs, {
@@ -493,7 +539,7 @@ async function cmdTask(args, { stdout, stderr, env, client }) {
   return EXIT.OK;
 }
 
-async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
+async function cmdGate(args, { stdout, stderr, env, client: injectedClient, reviewDomains }) {
   const [sub, ...subArgs] = args;
   if (sub !== "check") {
     stderr(`gate: unknown subcommand "${printable(sub ?? "")}" (expected check)`);
@@ -532,6 +578,20 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
   const { approvals, controls, ignored } = comments;
   const input = readTaskInput(values, positionals, headSha);
   if (!input) {
+    // No records normally means the task gate does not apply. A domain marked
+    // task_required removes that exit: skipping the paperwork must not skip the reviews.
+    const needs = domainsNeedingTask(values, headSha, reviewDomains);
+    if (needs.length) {
+      const reason = `no task records under ${RECORDS_ROOT}, and this change needs them`;
+      if (values.format === "json") {
+        stdout(JSON.stringify({ applicable: true, ok: false, head_sha: headSha, reason, task_required: needs }, null, 2));
+      } else {
+        stdout(`FAIL ${reason}`);
+        for (const line of describeNeeds(needs)) stdout(`  ${printable(line)}`);
+        stdout(TASK_REQUIRED_HELP);
+      }
+      return EXIT.FAILED;
+    }
     const skip = { applicable: false, ok: true, head_sha: headSha, reason: `no task records under ${RECORDS_ROOT}` };
     stdout(values.format === "json" ? JSON.stringify(skip, null, 2) : `SKIP ${skip.reason}; the task gate does not apply to this change`);
     return EXIT.OK;
@@ -570,18 +630,21 @@ async function cmdGate(args, { stdout, stderr, env, client: injectedClient }) {
   return report.ok ? EXIT.OK : EXIT.FAILED;
 }
 
-function cmdEvidence(args, { stdout, stderr, env }) {
+async function cmdEvidence(args, { stdout, stderr, env }) {
   const { values } = parseArgs({
     args,
     options: {
       project: { type: "string" },
       task: { type: "string" },
       sha: { type: "string" },
+      base: { type: "string" },
+      run: { type: "string", multiple: true, default: [] },
+      "run-timeout": { type: "string", default: "900" },
       "base-sha": { type: "string" },
       path: { type: "string", multiple: true, default: [] },
       "files-changed": { type: "string" },
-      additions: { type: "string", default: "0" },
-      deletions: { type: "string", default: "0" },
+      additions: { type: "string" },
+      deletions: { type: "string" },
       "tokens-used": { type: "string" },
       "producer-kind": { type: "string" },
       "producer-name": { type: "string" },
@@ -643,19 +706,73 @@ function cmdEvidence(args, { stdout, stderr, env }) {
       return EXIT.ERROR;
     }
   }
-  const filesChanged = counts["files-changed"] ?? values.path.length;
   const budgetUsed = counts["tokens-used"] !== undefined ? { tokens: counts["tokens-used"] } : undefined;
+
+  // The diff: read from git with --base, otherwise as supplied on the command line.
+  let diffFacts = {
+    baseSha: values["base-sha"],
+    paths: values.path,
+    filesChanged: counts["files-changed"] ?? values.path.length,
+    additions: counts.additions ?? 0,
+    deletions: counts.deletions ?? 0,
+  };
+  const recordsDir = recordsDirFor(task.id);
+  if (values.base !== undefined) {
+    const typed = ["base-sha", "files-changed", "additions", "deletions"].filter((flag) => values[flag] !== undefined);
+    if (values.path.length) typed.unshift("path");
+    if (typed.length) {
+      stderr(`evidence: --base reads the diff from git; remove ${typed.map((flag) => `--${flag}`).join(", ")}`);
+      return EXIT.ERROR;
+    }
+    const stat = diffStat(commit(values.base, false, git), commit(values.sha, true, git), { exclude: recordsDir });
+    diffFacts = { baseSha: stat.baseSha, paths: stat.paths, filesChanged: stat.paths.length, additions: stat.additions, deletions: stat.deletions };
+  }
+
+  // The checks: run here, on files that equal the commit, so their results are observed.
+  let ran = [];
+  if (values.run.length) {
+    const seconds = parseCount(values["run-timeout"]);
+    if (!seconds) {
+      stderr(`evidence: --run-timeout must be a whole number of seconds above 0, got "${printable(values["run-timeout"])}"`);
+      return EXIT.ERROR;
+    }
+    const sha = commit(values.sha, true, git);
+    const problems = snapshotProblems(sha, { exclude: recordsDir });
+    if (problems.length) {
+      stderr(`evidence: --run refused: the checkout is not commit ${sha.slice(0, 12)}, so a check here would not describe it`);
+      for (const problem of problems) stderr(`  ${printable(problem)}`);
+      stderr(`  Check out ${sha.slice(0, 12)} with no other changes (files under ${recordsDir} are ignored), then run this again.`);
+      return EXIT.ERROR;
+    }
+    const root = git(["rev-parse", "--show-toplevel"]).toString("utf8").trim();
+    ran = runChecks(values.run, { cwd: root, timeoutMs: seconds * 1000 });
+    for (const { check, output } of ran) {
+      if (check.conclusion === "success") continue;
+      stderr(`evidence: check ${check.conclusion === "timed_out" ? `timed out after ${seconds} s` : "failed"}: ${printable(check.name)}`);
+      const { compacted } = await compactLogs(output, { maxChars: 2000 });
+      for (const line of compacted.split("\n")) stderr(`  ${printable(line)}`);
+    }
+    // A check that rewrites files leaves the later checks running on something else.
+    const after = snapshotProblems(sha, { exclude: recordsDir });
+    if (after.length) {
+      stderr(`evidence: a check changed the checkout, so the results no longer describe commit ${sha.slice(0, 12)}; no evidence was written`);
+      for (const problem of after) stderr(`  ${printable(problem)}`);
+      return EXIT.ERROR;
+    }
+  }
+  const failedChecks = ran.filter((r) => r.check.conclusion !== "success").map((r) => r.check.name);
 
   let result;
   try {
     result = buildEvidenceContract(task, {
       sha: values.sha,
-      baseSha: values["base-sha"],
-      paths: values.path,
-      filesChanged,
-      additions: counts.additions ?? 0,
-      deletions: counts.deletions ?? 0,
+      baseSha: diffFacts.baseSha,
+      paths: diffFacts.paths,
+      filesChanged: diffFacts.filesChanged,
+      additions: diffFacts.additions,
+      deletions: diffFacts.deletions,
       budgetUsed,
+      ...(ran.length ? { checks: ran.map((r) => r.check) } : {}),
       ...(values["producer-kind"] ? { producerKind: values["producer-kind"] } : {}),
       ...(values["producer-name"] ? { producerName: values["producer-name"] } : {}),
       ...(values["producer-role"] ? { producerRole: values["producer-role"] } : {}),
@@ -666,6 +783,7 @@ function cmdEvidence(args, { stdout, stderr, env }) {
     stderr(`evidence: failed to build evidence contract: ${err.message}`);
     return EXIT.ERROR;
   }
+  if (ran.length) result.gates.checks_passed = failedChecks.length === 0;
 
   if (values.output) {
     fs.writeFileSync(values.output, `${JSON.stringify(result.evidence, null, 2)}\n`, "utf8");
@@ -673,7 +791,22 @@ function cmdEvidence(args, { stdout, stderr, env }) {
   const markdown = values.summary || values.format === "markdown" ? formatEvidenceMarkdown(result) : undefined;
   if (values.summary) writeStepSummary(markdown, env);
   stdout(values.format === "markdown" ? markdown : JSON.stringify(result, null, 2));
-  return result.gates.within_scope && result.gates.within_budget ? EXIT.OK : EXIT.FAILED;
+  return result.gates.within_scope && result.gates.within_budget && failedChecks.length === 0 ? EXIT.OK : EXIT.FAILED;
+}
+
+async function cmdOverview(args, { stdout, stderr, env, client: injectedClient }) {
+  const { values } = parseArgs({
+    args,
+    options: {
+      repo: { type: "string" },
+      format: { type: "string", default: "text" },
+    },
+  });
+  if (!checkFormat("overview", values.format, ["text", "json"], stderr)) return EXIT.ERROR;
+  const repo = resolveRepo(values.repo, { env });
+  const report = await buildOverview({ client: injectedClient ?? new GitHubClient(), repo });
+  stdout(values.format === "json" ? JSON.stringify(report, null, 2) : formatOverview(report));
+  return EXIT.OK;
 }
 
 async function cmdCompact(args, { stdout, stderr, stdin }) {
