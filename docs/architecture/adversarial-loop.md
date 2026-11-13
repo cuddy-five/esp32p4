@@ -189,8 +189,8 @@ The gates judge a pull request by the task records it commits, and a pull
 request without records is not a task. One rule removes that exit: a review
 domain in `.review-domains.json` marked `task_required: true` makes
 `gate check --discover` fail a pull request that changes a path in the domain
-and commits no records. The rule is read from the base commit. No domain is
-marked today; the `firmware` domain declares the switch as `false`.
+and commits no records. The rule is read from the base commit. The `firmware`
+domain is marked, so every change under `firmware/` merges as a task.
 
 ## Invariants
 

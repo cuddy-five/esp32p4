@@ -109,13 +109,17 @@ passes as "not applicable". That is right for ordinary edits, but it also means
 a firmware change can reach `main` with no recorded review: leaving out the
 records leaves out the gate.
 
-You can close that for an area. In `.review-domains.json`, set
-`"task_required": true` on the domain. From then on a PR that changes a path in
-that domain and commits no task records fails `task-gate`, and the check names
-the paths. The `firmware` domain carries the switch, set to `false`. Turning it
-on means every firmware PR needs a task, a reviewed plan, a code review, a
-security review, a verifier's evidence and your `/approve`; in 2026-11 one
-full independent review cost about 50 of the 1,500 monthly Copilot credits.
+That exit is closed for firmware. In `.review-domains.json` the `firmware`
+domain has `"task_required": true`, so a PR that changes a path under
+`firmware/` and commits no task records fails `task-gate`, and the check names
+the paths. Every firmware PR therefore needs a task, a reviewed plan, a code
+review, a security review, a verifier's evidence and your `/approve`. That
+includes Dependabot's Cargo updates: a new version of a dependency of the
+signing code is reviewed like any other change to it. In 2026-11 one full
+independent review cost about 50 of the 1,500 monthly Copilot credits. The
+first signing code is the last firmware change judged without the rule; it
+has one review by a separate session of the same model family and no task records. To mark another area, set the same
+switch on its domain; to stop requiring tasks for firmware, set it to `false`.
 The rule is read from the base branch, so a PR cannot switch it off for itself.
 
 ## Stopping and resuming

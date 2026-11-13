@@ -8,7 +8,10 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
-# SHA-256 only. No default features: no std, no heap, no build script.
+# SHA-256 only. No default features: no std and no heap. bitcoin_hashes has no
+# build script of its own. Its dependency bitcoin-internals does (the lock file
+# holds versions 0.6.0 and 0.7.0, each with the same one): it runs
+# `rustc --version` on the build machine and writes one generated macro file.
 bitcoin_hashes = { version = "1.2.0", default-features = false }
 
 [lints]

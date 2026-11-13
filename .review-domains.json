@@ -40,7 +40,7 @@
       "requires_root": "firmware",
       "role": "reviewer",
       "security_role": "security_auditor",
-      "task_required": false,
+      "task_required": true,
       "paths": [
         "firmware/**"
       ],

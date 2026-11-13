@@ -174,9 +174,8 @@ The overseer halts; one role keeps going and merges.
 
 - The gates run only on pull requests that commit task records. A pull
   request without records passes `task-gate` unless it changes a review domain
-  marked `task_required`, and none is marked. Until the owner marks one, a
-  change to any area, firmware included, can merge on the owner's decision
-  alone with no recorded review.
+  marked `task_required`. Only `firmware` is marked, so a change to any other
+  area can merge on the owner's decision alone with no recorded review.
 - Nothing executes the state machine; roles are started by hand, and the
   gates trust the producer names written in the records.
 - Rulesets are declared but applied only on manual dispatch; a repo that

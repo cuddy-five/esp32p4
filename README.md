@@ -37,7 +37,7 @@ the automated coordinator is not built. The `merge-gate` workflow's
 `task-gate` job checks a PR's committed task records against the merge gates,
 including the overseer's `/approve` comment; PRs without records skip it.
 A review domain marked `task_required` in `.review-domains.json` removes that
-skip for its paths; none is marked today. The `overseer-commands` workflow
+skip for its paths; the `firmware` domain is marked. The `overseer-commands` workflow
 re-runs the job when the overseer posts `/approve`, `/halt` or `/resume`.
 
 ```
@@ -74,7 +74,7 @@ blind spots do not line up. See `docs/architecture/adversarial-loop.md`.
 | Checks are observed, not claimed | `evidence --run` runs each check on files equal to the commit and records its real result | available |
 | Budgets stop work before the ceiling | `budget` on task; `budget_used` on evidence, review, result; the `within_budget` gate adds them up | gate available; each role still reports its own usage |
 | A halt or an approval changes the check at once | `overseer-commands` re-runs `task-gate` when the overseer comments | written; first live run pending |
-| A sensitive area cannot skip its reviews | `task_required` on a review domain: a PR there fails `task-gate` without task records | available; off until the owner turns it on |
+| A sensitive area cannot skip its reviews | `task_required` on a review domain: a PR there fails `task-gate` without task records | available; on for `firmware/**` |
 | Humans are told what happened in plain language | `overseer_note` on review, result, escalation | available |
 | Finished work cannot sit unseen on a branch | `control-plane overview` lists branches with unmerged work and no pull request | available |
 | Mutating anything requires an explicit flag | `--yes` on apply; `settings-sync` applies only on manual dispatch behind an environment | available |
