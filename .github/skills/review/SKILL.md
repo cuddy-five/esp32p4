@@ -18,4 +18,5 @@ Load this skill when inspecting a `plan` (`review_kind: "plan"`) or an implement
 3. **Check Acceptance & Scope**:
    - Mark every `task.acceptance_criteria` item in `review.checklist[]` (`satisfied: true|false`).
    - Record any file outside `task.scope.allowed_paths` in `review.scope_compliance.violations` and force `verdict: "request_changes"` or `"block"`.
-4. **Return Review & Validate**: Return the review content with `overseer_note` (20–4000 chars) to the coordinator for saving. The reviewer may validate an existing authorized file with `node src/cli.js validate <review.json> --kind review`; it must not save a file or claim an unrun check.
+4. **Name What You Reviewed**: Set `review_kind` on every review (`plan`, `code` or `security`); a plan review also sets `plan_id`. The gates stop on a review without them. Your `block` or `request_changes` stands until you approve the same plan or commit; `abstain` withdraws nothing.
+5. **Return Review & Validate**: Return the review content with `overseer_note` (20–4000 chars) to the coordinator for saving. The reviewer may validate an existing authorized file with `node src/cli.js validate <review.json> --kind review`; it must not save a file or claim an unrun check.

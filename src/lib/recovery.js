@@ -10,7 +10,7 @@
  * escalations, repair rounds against the limit, and duplicate deliveries.
  * Records are claims: they do not show what a worker or GitHub job is doing now.
  */
-import { collectPacket, evaluateTransition, haltInForce, implementerNames, openObjections, planReviewState, repairRounds, sortControls } from "./gates.js";
+import { collectPacket, evaluateTransition, haltInForce, headReviewState, implementerNames, planReviewState, repairRounds, REVIEW_STAGE_KINDS, sortControls } from "./gates.js";
 import { loadStateMachine } from "./orchestration.js";
 
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
@@ -82,17 +82,12 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
   }
 
   // Plan objections follow the current plan id; implementation objections follow
-  // the head. Another reviewer's approval does not clear either kind of objection.
+  // the head. An objection stands until its own reviewer approves that subject;
+  // a conflict needs another reviewer who approves it.
   const objections = [];
   const planState = planReviewState(packet);
-  for (const kind of ["plan", "code", "security", "verification"]) {
-    // Each reviewer's latest verdict at the head; a conflict needs another reviewer who approves.
-    const latestBy = new Map();
-    for (const r of packet.reviews) {
-      if (r.review_kind === kind && r.subject.sha === headSha && !implementers.has(nameOf(r)) && r.producer?.role !== "implementer") latestBy.set(nameOf(r), r);
-    }
-    const reviewers = kind === "plan" ? planState.reviewers : [...latestBy.values()];
-    const blocked = kind === "plan" ? planState.objections : openObjections(packet.reviews, kind, headSha, implementers);
+  for (const kind of ["plan", ...REVIEW_STAGE_KINDS, "verification"]) {
+    const { reviewers, objections: blocked } = kind === "plan" ? planState : headReviewState(packet.reviews, kind, headSha, implementers);
     // Two reviewers make a conflict; every further reviewer of the same subject is an adjudication.
     const adjudicated = Math.max(0, reviewers.length - 2);
     for (const r of blocked) {
@@ -139,7 +134,7 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
       else if (objects(["plan"]).length) nextRole = "planner";
     }
     if (gate === "reviews_approve" || gate === "verification_passed") {
-      const kinds = gate === "reviews_approve" ? ["code", "security"] : ["verification"];
+      const kinds = gate === "reviews_approve" ? REVIEW_STAGE_KINDS : ["verification"];
       if (objects(kinds).some((o) => o.conflict)) nextRole = "coordinator";
       else if (objects(kinds).length) nextRole = "implementer";
       else if (gate === "reviews_approve" && /^(no security review|security review)/.test(failing.get(gate))) nextRole = "security_auditor";

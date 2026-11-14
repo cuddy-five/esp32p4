@@ -86,10 +86,10 @@ gates:
     description: Cumulative budget_used across documents does not exceed task.budget.
     status: implemented
   reviews_approve:
-    description: Latest code review verdict is approve or approve_with_comments. A security review with the same verdict exists when risk is medium or above, or when an enabled review domain names the security auditor for a changed path. Reviewers are distinct from the implementer.
+    description: Latest code review verdict is approve or approve_with_comments. A security review with the same verdict exists when risk is medium or above, or when an enabled review domain names the security auditor for a changed path. Reviewers are distinct from the implementer. No independent reviewer has an unresolved code, security or architecture objection at the head commit, whether or not policy required that review; only that reviewer's approval of the same commit, or a new commit, clears one.
     status: implemented
   verification_passed:
-    description: Verifier's own evidence shows required checks green and tests passing, and a review of kind verification approves.
+    description: Verifier's own evidence shows required checks green and tests passing, the latest review of kind verification approves, and no other verifier has an unresolved objection at the head commit.
     status: implemented
   no_open_escalation:
     description: No escalation for this task has status open or acknowledged, and the overseer's latest /halt or /resume comment on its pull request is not a halt. A halt counts edited or naming another task; a resume must name the task and be unedited.

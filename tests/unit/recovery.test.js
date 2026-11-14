@@ -112,6 +112,34 @@ test("another reviewer's approval does not outvote an objection at the same comm
   assert.equal(gate(docs, "reviews_approve").pass, true);
 });
 
+test("task status agrees with the gate on objections policy did not require or that were abstained from", () => {
+  // A security auditor blocks a low-risk task: the review was optional, the objection is not.
+  const audited = [...packet(), { ...codeReview("review_sec_block_1", "auditor", "block"), review_kind: "security", producer: { kind: "agent", name: "auditor", role: "security_auditor" } }];
+  assert.match(gate(audited, "reviews_approve").reason, /unresolved objection .*security review review_sec_block_1 by "auditor" block/);
+  const r = assess(audited);
+  assert.equal(r.state, "in_review");
+  assert.equal(r.next_role, "implementer");
+  assert.match(r.next_actions[0], /implementer: repair the findings in review_sec_block_1 \(round 1 of 2\)/);
+  assert.doesNotMatch(r.next_actions.join("\n"), /human: read the reviews/);
+
+  // The objector abstains, then the first reviewer approves again: still a conflict for the coordinator.
+  const abstained = [
+    ...packet(),
+    codeReview("review_code_block_1", "reviewer-a", "block", HEAD, "2026-10-12T01:10:00Z"),
+    codeReview("review_code_abstain_1", "reviewer-a", "abstain", HEAD, "2026-10-12T01:11:00Z"),
+    codeReview("review_code_ok_again", "reviewer", "approve", HEAD, "2026-10-12T01:12:00Z"),
+  ];
+  assert.equal(gate(abstained, "reviews_approve").pass, false);
+  const c = assess(abstained);
+  assert.equal(c.next_role, "coordinator");
+  assert.deepEqual(c.objections.map((o) => [o.id, o.kind, o.conflict]), [["review_code_block_1", "code", true]]);
+
+  // An architecture review is read at the review stage like a code review.
+  const design = [...packet(), { ...codeReview("review_arch_block_1", "architect", "request_changes"), review_kind: "architecture" }];
+  assert.equal(assess(design).next_role, "implementer");
+  assert.equal(assess(design).repair.used, 1);
+});
+
 test("plan conflicts route to the coordinator in either review order and count adjudication", () => {
   for (const at of ["2026-10-12T00:05:00Z", "2026-10-12T00:15:00Z"]) {
     const docs = packet();

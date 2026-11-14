@@ -8,6 +8,12 @@
  * the CLI does only for overseer comments it read from GitHub. A changed path in
  * an enabled review domain (.review-domains.json) that names the security
  * auditor requires a security review at any risk level.
+ *
+ * No blocking review is skipped in silence. A reviewer's block or
+ * request_changes stands until the same reviewer approves the same plan or
+ * commit, whether or not policy required that kind of review; a record the
+ * gates cannot place (no review_kind, a plan review with no plan_id, a blank
+ * producer name) is an error instead of being left out.
  */
 import { ContractRegistry } from "./contracts.js";
 import { loadApprovals, loadStateMachine, requiredHumanStages } from "./orchestration.js";
@@ -16,8 +22,13 @@ import { loadReviewDomains, selectReviewDomains } from "../review-domains.js";
 
 const APPROVING = new Set(["approve", "approve_with_comments"]);
 const BLOCKING = new Set(["request_changes", "block"]);
+/**
+ * Review kinds read against the head commit at the review stage. A plan review
+ * follows its plan instead, and a verification review has its own gate.
+ */
+export const REVIEW_STAGE_KINDS = Object.freeze(["code", "security", "architecture"]);
 /** Review kinds whose blocking verdict sends the change back to the implementer. */
-const REPAIR_KINDS = new Set(["code", "security", "verification"]);
+const REPAIR_KINDS = new Set([...REVIEW_STAGE_KINDS, "verification"]);
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
 const HOUR_MS = 3600 * 1000;
 
@@ -53,7 +64,16 @@ export function collectPacket(input, { contracts = new ContractRegistry() } = {}
   const problems = [];
   docs.forEach((doc, i) => {
     const r = contracts.validate(doc);
-    if (!r.ok) problems.push(`document ${i + 1} (${doc?.contract ?? "unknown"}): ${r.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+    if (!r.ok) {
+      problems.push(`document ${i + 1} (${doc?.contract ?? "unknown"}): ${r.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+      return;
+    }
+    // The schema allows these, but a gate would then skip the record without saying so.
+    const unplaced = [];
+    if (!nameOf(doc)) unplaced.push("producer.name is blank, so separation of duties cannot be checked");
+    if (doc.contract === "review" && !doc.review_kind) unplaced.push("no review_kind, so no gate can read its verdict");
+    if (doc.contract === "review" && doc.review_kind === "plan" && !doc.plan_id) unplaced.push("a plan review must name its plan_id");
+    if (unplaced.length) problems.push(`document ${i + 1} (${doc.contract} ${doc.id}): ${unplaced.join("; ")}`);
   });
   if (problems.length) throw new Error(`invalid documents: ${problems.join(" | ")}`);
   const tasks = docs.filter((d) => d.contract === "task");
@@ -81,24 +101,35 @@ function currentPlans(plans) {
 }
 
 /**
+ * The independent reviewers of one subject, from its reviews in created order.
+ * A blocking verdict stands until the same reviewer approves that subject:
+ * abstaining, another reviewer's approval or a majority cannot withdraw it
+ * (ADR 0003). `byProducer` leaves out whoever produced the work under review.
+ * @returns {{ reviewers: object[], objections: object[] }} each reviewer's
+ *   latest review, and the blocking reviews that still stand
+ */
+function reviewersOf(reviews, byProducer) {
+  const latestBy = new Map();
+  const objections = new Map();
+  for (const r of reviews) {
+    if (byProducer(r)) continue;
+    latestBy.set(nameOf(r), r);
+    if (BLOCKING.has(r.verdict)) objections.set(nameOf(r), r);
+    else if (APPROVING.has(r.verdict)) objections.delete(nameOf(r));
+  }
+  return { reviewers: [...latestBy.values()], objections: [...objections.values()] };
+}
+
+/**
  * Independent verdicts for the one current plan. Plan reviews follow the plan
  * id, not a code SHA: a later implementation commit cannot clear a plan objection.
- * Only an approving verdict clears that reviewer's objection; abstaining or
- * another reviewer's approval cannot withdraw it.
  */
 export function planReviewState(packet) {
   const plans = currentPlans(packet.plans);
   const plan = plans.length === 1 ? plans[0] : undefined;
   const reviews = plan ? packet.reviews.filter((r) => r.review_kind === "plan" && r.plan_id === plan.id) : [];
-  const latestBy = new Map();
-  const objections = new Map();
-  for (const r of reviews) {
-    if (nameOf(r) === nameOf(plan) || r.producer?.role === "planner") continue;
-    latestBy.set(nameOf(r), r);
-    if (BLOCKING.has(r.verdict)) objections.set(nameOf(r), r);
-    else if (APPROVING.has(r.verdict)) objections.delete(nameOf(r));
-  }
-  return { plan, latest: reviews.at(-1), reviewers: [...latestBy.values()], objections: [...objections.values()] };
+  const byPlanner = (r) => nameOf(r) === nameOf(plan) || r.producer?.role === "planner";
+  return { plan, latest: reviews.at(-1), ...reviewersOf(reviews, byPlanner) };
 }
 
 /** Names that produced the change: implementer handoffs and implementer-role producers. */
@@ -112,18 +143,18 @@ export function implementerNames(packet) {
 }
 
 /**
- * Reviewers whose own latest review of `kind` at `sha` blocks. A blocking
- * verdict is cleared only by the same reviewer's later review or by a new
- * commit; another reviewer's approval does not outvote it (ADR 0003).
+ * Independent verdicts of `kind` on the commit `sha`. A new commit is a new
+ * subject, so it starts with no objections; reviews of an older commit are
+ * stale, not standing.
  */
+export function headReviewState(reviews, kind, sha, implementers) {
+  const atSha = reviews.filter((r) => r.review_kind === kind && r.subject.sha === sha);
+  return reviewersOf(atSha, (r) => implementers.has(nameOf(r)) || r.producer?.role === "implementer");
+}
+
+/** The blocking reviews of `kind` at `sha` that still stand (see reviewersOf). */
 export function openObjections(reviews, kind, sha, implementers) {
-  const latestBy = new Map();
-  for (const r of reviews) {
-    if (r.review_kind !== kind || r.subject.sha !== sha) continue;
-    if (implementers.has(nameOf(r)) || r.producer?.role === "implementer") continue;
-    latestBy.set(nameOf(r), r);
-  }
-  return [...latestBy.values()].filter((r) => BLOCKING.has(r.verdict));
+  return headReviewState(reviews, kind, sha, implementers).objections;
 }
 
 /**
@@ -322,11 +353,20 @@ const EVALUATORS = {
     if (ctx.policy.by_risk?.[level]?.security_review === "required") because.push(`${level} risk`);
     const domains = securityDomains(ctx);
     if (domains.length) because.push(`review domain ${domains.join(", ")}`);
-    if (!because.length) return code;
-    const sec = latestReview(ctx, "security", { notBy: ctx.implementers, label: "security" });
-    return sec.pass
-      ? { pass: true, reason: `${code.reason}; ${sec.reason}` }
-      : { pass: false, reason: `${sec.reason} (required by ${because.join(" and ")})` };
+    let reason = code.reason;
+    if (because.length) {
+      const sec = latestReview(ctx, "security", { notBy: ctx.implementers, label: "security" });
+      if (!sec.pass) return { pass: false, reason: `${sec.reason} (required by ${because.join(" and ")})` };
+      reason = `${code.reason}; ${sec.reason}`;
+    }
+    // A review that policy did not require still counts once it is written:
+    // a security auditor's block on a low-risk task is not optional to answer.
+    const standing = REVIEW_STAGE_KINDS.flatMap((kind) =>
+      openObjections(ctx.packet.reviews, kind, ctx.headSha, ctx.implementers).map((r) => `${kind} review ${r.id} by "${r.producer.name}" ${r.verdict}`));
+    if (standing.length) {
+      return { pass: false, reason: `unresolved objection at ${short(ctx.headSha)}: ${standing.join(", ")}; only that reviewer's approval of this commit, or a new commit, clears it` };
+    }
+    return { pass: true, reason };
   },
 
   verification_passed: (ctx) => {
