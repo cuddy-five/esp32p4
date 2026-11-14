@@ -97,9 +97,9 @@ reasonable in isolation.
 An agent edits `state-machine.yaml`, `approvals.yaml`, workflows, or
 rulesets to weaken them.
 
-- `.github/control-plane/**`, `.github/workflows/**`, `.github/actions/**`
-  and protected instruction/ownership paths are `always_human` at plan and
-  merge stages. `available` (evaluation), `declared` (manual enforcement)
+- `.github/control-plane/**`, `.github/workflows/**`, `.github/actions/**`,
+  the check scripts in `scripts/gates/**` and protected instruction/ownership
+  paths are `always_human` at plan and merge stages. `available` (evaluation), `declared` (manual enforcement)
 - `policy check` fails CI if the files disagree with contracts or lose
   required invariants (monotonic approvals, human-only approval, terminal
   states, reachability). `available`

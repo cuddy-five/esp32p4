@@ -48,9 +48,9 @@ by_risk:
 # repository-relative and evaluated against evidence.diff.paths.
 always_human:
   - id: control_plane_self
-    paths: [".github/control-plane/**", ".github/workflows/**", ".github/actions/**", ".github/hooks/**", "scripts/hooks/**", ".review-domains.json", ".gitattributes"]
+    paths: [".github/control-plane/**", ".github/workflows/**", ".github/actions/**", ".github/hooks/**", "scripts/hooks/**", "scripts/gates/**", ".review-domains.json", ".gitattributes"]
     stages: [plan, merge]
-    reason: Changes to the guardrails, agent hooks, review coverage or diff visibility are the highest-leverage attack surface.
+    reason: Changes to the guardrails, the check scripts CI runs, agent hooks, review coverage or diff visibility are the highest-leverage attack surface.
   - id: instructions_and_ownership
     paths: ["AGENTS.md", "**/AGENTS.md", "CLAUDE.md", "**/CLAUDE.md", "PROJECT.md", "GLOSSARY.md", ".github/copilot-instructions.md", ".github/instructions/**", ".github/agents/**", ".github/skills/**", ".github/prompts/**", ".github/CODEOWNERS", ".agents.registry.json", ".skills.registry.json", ".workflows.registry.json", "docs/decisions/**", "docs/runbooks/agent-team.md", "docs/runbooks/overseer.md", "docs/templates/project-brief.md"]
     stages: [plan, merge]
