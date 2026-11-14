@@ -1,8 +1,11 @@
 # Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5
 
-The candidate board named in `PROJECT.md` and the historical specification.
-**The owner has not confirmed it as the final board.** Check the revision you
-actually hold.
+The owner's board: bought before 2026-10-26 and named again as the target on
+2026-11-13. Check the physical unit's PCB revision and chip revision before
+applying these sources. The recorded target **v3.2 is the ESP32-P4 chip
+revision**, not a confirmed PCB revision. The owner states that the unit
+carries the installed 5 MP OV5647 camera. Nobody has checked that on the
+device, and whether a `no_std` Rust stack can drive it is an open question.
 
 Retrieved 2026-11-03.
 
@@ -50,5 +53,6 @@ Retrieved 2026-11-03.
 | **The C6 has no separately switched supply.** Its `VDD3V3` comes from `ESP_3V3` through IND1, a 2 nH high-frequency inductor. `ESP_3V3` is the AXP2101's DCDC1 output, and it also feeds the P4's I/O supply. Cutting the C6's power through the AXP2101 would also cut the P4. | Verified (visual) | (2): AXP2101 `LX1` (pin 22) → L1 `1uH/3.5A` → net `3V3`, with `FB1` (pin 21) feedback; a wire ties net labels `3V3` and `ESP_3V3`; `ESP_3V3` → IND1 `0201 2nH` → `VDD3V3` at the C6; `ESP_3V3` → P4 pin 10 `VDDPST_1`. |
 | **How to keep the ESP32-C6 radio off: remove the C6, or its antenna feed** | **Owner decision (2026-11-03); not done yet** | GPIO54 control is software-only, the pull-up enables the C6 whenever the P4 is not driving it, and its supply cannot be cut separately (rows above). Removing the chip is stronger than removing the antenna feed, which leaves the C6 running. Rework and checks: [#21](https://github.com/cuddy-five/esp32p4/issues/21). |
 | The ESP32-C6's UART0 (`C6_U0TXD`, `C6_U0RXD`) and `C6_IO9` (its boot-mode strapping pin) reach a pin header beside P4 GPIO31-33 | Inferred (schematic labels); not checked visually | (2): those labels sit in the header's pin column, numbered 25-30. Anyone with header access could reflash the C6. |
-| Which camera module the device uses | **Unverified** | Not chosen. |
+| Which camera module the device uses | **Owner statement (2026-10-26); not checked on the device** | The 5 MP OV5647, installed on the purchased unit. Read the module marking and a boot log before relying on it. |
+| Whether a `no_std` Rust stack can drive the camera over MIPI-CSI | **Unverified** | A session on 2026-10-26 read esp-hal's support table as marking ESP32-P4 MIPI-CSI unsupported. No commit was pinned; read the table again before planning camera work. |
 | Full GPIO map, power-rail map and P4 debug/UART exposure | **Unverified** | Not traced. Render (2) with `pdftoppm -r 400` and follow the nets. |

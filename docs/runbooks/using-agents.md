@@ -7,6 +7,12 @@ your client.
 
 ## Choose a role
 
+For wallet tasks, start with [wallet development](wallet-development.md) and
+the offline source selector described there. Before trusting a different
+model with wallet work, repeat the per-agent live check in
+[agent tools](agent-tools.md#live-check-record) on one bounded task. These are
+task aids; no paid model run or hardware action starts automatically.
+
 There are seven working agents and one helper that prepares the team:
 
 | Agent | Ask it to… |

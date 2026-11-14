@@ -19,6 +19,13 @@ jobs remain governed by explicit owner instruction. See the runbook notes.
 
 ## Fundamental work agreement
 
+For this repository's wallet work, start with [PROJECT.md](PROJECT.md) and
+[wallet development](docs/runbooks/wallet-development.md). Use
+`node scripts/wallet-context.js <topic>` to locate the task's sources and
+checks (`--help` lists topics). Load only that task's context. Do not treat
+the historical specification in `docs/plans/` as an implementation authority.
+Use the populated project brief here; copy the template only for new consumers.
+
 For current work, keep one short plain-language agreement in the conversation:
 requested outcome, allowed files or area, acceptance checks, and who owns the
 next step. Reuse the owner's request when it already supplies these details.
@@ -37,7 +44,9 @@ approval routing and extra contract paperwork remain deferred. This current
 agreement takes precedence over formal-contract requirements below and in
 profiles, prompts, instructions and templates. The non-negotiable principles
 still apply; their JSON fields and automated approval stages apply only when
-the owner explicitly requests the formal process.
+the owner explicitly requests the formal process. A review domain with
+`task_required: true` on the PR base is also an explicit records requirement;
+check it before starting a firmware PR. Do not bypass it using manual mode.
 
 ## Read-only tasks and truthful reporting
 
