@@ -45,16 +45,16 @@ resuming it; a local note cannot reveal a later halt or changed commit.
 
 Refresh this snapshot before choosing a dependent task.
 
-- Merged baseline `903f497` contains the Node control plane and an empty
-  `firmware/wallet-core` library. The pinned firmware gate checks formatting,
-  lints, host tests and a RISC-V library build. There is no bootable wallet image.
-- [PR #36](https://github.com/cuddy-five/esp32p4/pull/36), head
-  `53c61ec8813ab6d4666b48d37338861d1330a46a`, adds transaction parsing and the
-  unified signature hash. It holds no key and signs nothing. All eight GitHub
-  checks passed at this head; cross-family review and owner merge remain pending.
-- That PR also enables firmware `task_required`. It is **false in the merged
-  baseline**. The rule is read from the PR base, so this change does not impose
-  task records on PR #36 itself. Re-read `.review-domains.json` after a merge.
+- `firmware/wallet-core` holds a transaction reader (`tx`) and the fork's
+  unified signature hash (`sighash`). It reproduces all 166 vectors of the
+  pinned Bitcoin Knots release, holds no key and signs nothing. It has run only
+  on a development computer. Its one dependency is `bitcoin_hashes` (SHA-256).
+  [PR #36](https://github.com/cuddy-five/esp32p4/pull/36) records its reviews.
+- The pinned firmware gate checks formatting, lints, host tests and a RISC-V
+  library build. There is no bootable wallet image.
+- The `firmware` review domain is `task_required`: a pull request that changes
+  `firmware/` and commits no task records fails `task-gate`. Use the
+  [wallet task worksheet](docs/templates/wallet-task.md) to prepare them.
 - `evidence --base --run`, `gate check`, `task status` and `overview` are
   available. They collect or evaluate facts; they do not start agents. There is
   no automatic dispatcher. The declared rulesets were live with no drift on

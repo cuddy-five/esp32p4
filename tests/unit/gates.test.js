@@ -456,7 +456,8 @@ test("discover: a change in a task_required domain cannot merge without task rec
   assert.equal(res.code, 0, res.text);
   assert.match(res.text, /^SKIP no task records/);
   res = await inRepo(t, r.dir, args);
-  assert.equal(res.code, 0, "the committed .review-domains.json leaves the rule off");
+  assert.equal(res.code, 2, "the committed .review-domains.json marks firmware");
+  assert.match(res.text, /review domain firmware: firmware\/core\/src\/a\.rs/);
 
   // On: skipping the paperwork no longer skips the reviews.
   res = await inRepo(t, r.dir, args, undefined, { reviewDomains: domains(true) });

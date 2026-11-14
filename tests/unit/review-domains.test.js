@@ -79,15 +79,17 @@ test('selectReviewDomains normalizes leading ./ paths safely', () => {
   assert.deepEqual(out.uncovered, []);
 });
 
-test('task_required names the domains whose changes must be tasks, and is off as declared', () => {
+test('task_required names the domains whose changes must be tasks, and firmware is marked', () => {
   const doc = domains();
-  // The owner has not turned the rule on; the switch is declared so the decision is visible.
-  assert.equal(doc.domains.find((domain) => domain.id === 'firmware').task_required, false);
+  // Firmware merges only as a task (owner decision delegated 2026-11-13); the control plane does not.
+  assert.equal(doc.domains.find((domain) => domain.id === 'firmware').task_required, true);
+  assert.equal(doc.domains.find((domain) => domain.id === 'control-plane').task_required, undefined);
   const changed = ['firmware/wallet-core/src/lib.rs', 'firmware/Cargo.lock', 'src/cli.js'];
-  assert.deepEqual(domainsRequiringTask(changed, doc), []);
+  const off = structuredClone(doc);
+  off.domains.find((domain) => domain.id === 'firmware').task_required = false;
+  assert.deepEqual(domainsRequiringTask(changed, off), []);
 
   const on = structuredClone(doc);
-  on.domains.find((domain) => domain.id === 'firmware').task_required = true;
   assert.deepEqual(domainsRequiringTask(changed, on), [
     { domain: 'firmware', paths: ['firmware/wallet-core/src/lib.rs', 'firmware/Cargo.lock'] },
   ]);

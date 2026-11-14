@@ -17,8 +17,9 @@ model's answer or a passing build into proof that a wallet is safe.
    in the issue or conversation; a separate document is optional.
 5. Follow [the team runbook](agent-team.md) for review and handoff. Check
    `.review-domains.json` on the PR's base branch: when `firmware.task_required`
-   is true, firmware PRs need the existing validated task records. This guide
-   does not waive that gate or require extra forms for ordinary manual work.
+   is true, as it is for this repository, firmware PRs need the existing
+   validated task records. This guide does not waive that gate or require
+   extra forms for ordinary manual work.
 
 Get a bounded source and check list from the repository root:
 
@@ -85,9 +86,8 @@ RDTS handling also remains an owner decision recorded in issue #21.
 
 This is a dependency order, not approval to implement every stage:
 
-1. Land the transaction reader and unified digest. `PROJECT.md` names its pull
-   request and what it still needs. Build later work on the merged result; do
-   not quietly copy an unmerged implementation.
+1. Start from the transaction reader and unified digest in `wallet-core`.
+   Build on them; do not write a second parser or digest.
 2. Specify a narrow signing policy and its rejection table. Resolve policy
    choices before implementing the signing boundary.
 3. Build bounded parsing and policy checks in the hardware-independent core;

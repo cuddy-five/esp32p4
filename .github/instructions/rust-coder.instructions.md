@@ -50,7 +50,8 @@ input, not authoritative requirements for this board.
 - Preserve the workspace lints in `firmware/Cargo.toml`: `unsafe` is forbidden;
   `unwrap`, `expect`, indexing, `panic!` and unchecked arithmetic are denied.
   Use `.get`, checked arithmetic and typed errors for hostile input. Do not
-  weaken lints or add exceptions without the owner's decision. Any later
+  weaken lints or add exceptions in library code without the owner's decision;
+  a test file may allow them, as `tests/unified_sighash_vectors.rs` does. Any later
   hardware layer requiring `unsafe` needs its own reviewed boundary and SAFETY
   invariants; a comment alone does not satisfy the current policy.
 - Never persist seeds, private keys or signing history. Keep secrets in internal
