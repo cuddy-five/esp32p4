@@ -80,6 +80,27 @@ function currentPlans(plans) {
   return plans.filter((p) => !superseded.has(p.id) && !["rejected", "superseded"].includes(p.status));
 }
 
+/**
+ * Independent verdicts for the one current plan. Plan reviews follow the plan
+ * id, not a code SHA: a later implementation commit cannot clear a plan objection.
+ * Only an approving verdict clears that reviewer's objection; abstaining or
+ * another reviewer's approval cannot withdraw it.
+ */
+export function planReviewState(packet) {
+  const plans = currentPlans(packet.plans);
+  const plan = plans.length === 1 ? plans[0] : undefined;
+  const reviews = plan ? packet.reviews.filter((r) => r.review_kind === "plan" && r.plan_id === plan.id) : [];
+  const latestBy = new Map();
+  const objections = new Map();
+  for (const r of reviews) {
+    if (nameOf(r) === nameOf(plan) || r.producer?.role === "planner") continue;
+    latestBy.set(nameOf(r), r);
+    if (BLOCKING.has(r.verdict)) objections.set(nameOf(r), r);
+    else if (APPROVING.has(r.verdict)) objections.delete(nameOf(r));
+  }
+  return { plan, latest: reviews.at(-1), reviewers: [...latestBy.values()], objections: [...objections.values()] };
+}
+
 /** Names that produced the change: implementer handoffs and implementer-role producers. */
 export function implementerNames(packet) {
   const names = new Set();
@@ -210,13 +231,16 @@ const EVALUATORS = {
 
   plan_reviewed: (ctx) => {
     if (!ctx.plan) return { pass: false, reason: "no current plan to review" };
-    const reviews = ctx.packet.reviews.filter((r) => r.review_kind === "plan" && r.plan_id === ctx.plan.id);
-    if (!reviews.length) return { pass: false, reason: `no plan review for ${ctx.plan.id}` };
-    const latest = reviews.at(-1);
+    const { latest, objections } = planReviewState(ctx.packet);
+    if (!latest) return { pass: false, reason: `no plan review for ${ctx.plan.id}` };
     if (nameOf(latest) === nameOf(ctx.plan) || latest.producer?.role === "planner") {
       return { pass: false, reason: `plan review is self-review: "${latest.producer.name}" wrote the plan` };
     }
     if (!APPROVING.has(latest.verdict)) return { pass: false, reason: `latest plan review verdict is ${latest.verdict}` };
+    if (objections.length) {
+      const who = objections.map((r) => `"${r.producer.name}" (${r.id}) ${r.verdict}`).join(", ");
+      return { pass: false, reason: `conflicting plan reviews for ${ctx.plan.id}: ${who}, "${latest.producer.name}" approves; adjudicate, then escalate conflicting_reviews` };
+    }
     return { pass: true, reason: `plan review ${latest.id} by ${latest.producer.name}` };
   },
 

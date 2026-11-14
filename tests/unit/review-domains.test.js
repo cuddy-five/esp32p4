@@ -10,6 +10,14 @@ import {
 
 const domains = () => loadReviewDomains();
 
+test('agent helpers and gate scripts use the control-plane checklist without requiring task records', () => {
+  const paths = ['scripts/wallet-context.js', 'scripts/gates/firmware-check.sh'];
+  const selected = selectReviewDomains(paths, domains());
+  assert.deepStrictEqual(selected.uncovered, []);
+  assert.deepStrictEqual(selected.covered.map((d) => d.domain), ['control-plane']);
+  assert.deepStrictEqual(domainsRequiringTask(paths, domains()), []);
+});
+
 test('the control-plane and firmware checklists are on, and firmware/ exists', () => {
   const doc = domains();
   const control = doc.domains.find((domain) => domain.id === 'control-plane');

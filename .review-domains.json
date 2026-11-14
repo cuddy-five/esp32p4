@@ -8,6 +8,7 @@
       "role": "reviewer",
       "paths": [
         "src/**",
+        "scripts/**",
         "tests/**",
         "docs/**",
         ".github/**",

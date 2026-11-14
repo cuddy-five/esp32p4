@@ -62,6 +62,14 @@ Both planning routes require a valid, reviewed plan and no open escalation:
 `approval_required` routes to the human; `approval_not_required` routes to
 implementation. These are declared gates, not an executing coordinator.
 
+One reviewer's approval cannot erase another reviewer's objection to that
+plan. Run `task status` on the records to identify the next role: an unopposed
+rejection returns to the planner; conflicting reviews go to the coordinator
+for the bounded adjudication process. Keep the objection until its reviewer
+approves or a replacement plan receives its own review. Abstaining does not
+clear an objection. A later code
+commit does not resolve a plan objection.
+
 Use existing authorization only when it covers this task, current plan and
 required stage and remains valid under policy. Check the original human
 record, an overseer's `/approve` PR comment, not a copied approval annotation. Human approval expires after 72

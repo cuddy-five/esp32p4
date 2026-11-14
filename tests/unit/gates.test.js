@@ -113,6 +113,48 @@ test("self-review fails for plans, code and verification", () => {
   assert.match(gate(run(verifySelf), "verification_passed").reason, /produced by implementer/);
 });
 
+test("a plan objection survives another reviewer's approval and a later code commit", () => {
+  for (const verdict of ["block", "request_changes"]) {
+    const docs = packet();
+    const objection = docs.find((d) => d.review_kind === "plan");
+    objection.verdict = verdict;
+    docs.push({
+      ...structuredClone(objection), id: "review_plan_other", created_at: "2026-10-12T00:20:00Z",
+      producer: { kind: "agent", name: "other-reviewer", role: "reviewer" },
+      verdict: "approve", subject: { sha: NEW_HEAD },
+    });
+    for (const transition of [{}, { from: "planning", to: "in_progress" }, { from: "planning", to: "awaiting_approval" }]) {
+      const report = run(docs, { ...transition, headSha: NEW_HEAD });
+      assert.equal(gate(report, "plan_reviewed").pass, false, `${verdict}: approval must not outvote an objection`);
+      assert.match(gate(report, "plan_reviewed").reason, /conflicting plan reviews.*plan-reviewer/);
+    }
+    // Abstaining is not a withdrawal of the earlier objection.
+    docs.push({ ...structuredClone(objection), id: "review_plan_abstain", created_at: "2026-10-12T00:15:00Z", verdict: "abstain" });
+    assert.equal(gate(run(docs), "plan_reviewed").pass, false);
+    // The objector can clear its own objection without a third reviewer outvoting it.
+    docs.push({ ...structuredClone(objection), id: "review_plan_resolved", created_at: "2026-10-12T00:30:00Z", verdict: "approve_with_comments" });
+    assert.equal(gate(run(docs), "plan_reviewed").pass, true);
+  }
+});
+
+test("plan objections apply only to the current plan and exclude the planner", () => {
+  const docs = packet();
+  const plan = docs.find((d) => d.contract === "plan");
+  const review = docs.find((d) => d.review_kind === "plan");
+  docs.push({ ...structuredClone(review), id: "review_old_plan_block", created_at: "2026-10-12T00:20:00Z", verdict: "block" });
+  const replacement = { ...structuredClone(plan), id: "plan_replacement", supersedes: plan.id, created_at: "2026-10-12T00:25:00Z" };
+  docs.push(replacement, { ...structuredClone(review), id: "review_new_plan", plan_id: replacement.id, created_at: "2026-10-12T00:30:00Z" });
+  assert.equal(gate(run(docs), "plan_reviewed").pass, true, "a new plan needs its own review");
+  docs.pop();
+  assert.equal(gate(run(docs), "plan_reviewed").pass, false, "old plan approval cannot approve a replacement");
+
+  for (const producer of [{ kind: "agent", name: "planner", role: "reviewer" }, { kind: "agent", name: "other-name", role: "planner" }]) {
+    const self = packet();
+    self.push({ ...structuredClone(review), id: "review_self_objection", created_at: "2026-10-12T00:05:00Z", producer, verdict: "block" });
+    assert.equal(gate(run(self), "plan_reviewed").pass, true, "a planner cannot supply an independent objection");
+  }
+});
+
 test("out-of-scope work fails whether paths come from git or evidence", () => {
   const fromGit = run(packet(), { changedPaths: ["src/cli.js", ".github/workflows/ci.yml"] });
   assert.equal(fromGit.ok, false);

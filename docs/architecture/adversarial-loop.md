@@ -138,9 +138,14 @@ Reasons that must escalate rather than be worked around: budget exceeded,
 policy violation, ambiguous requirements, repeated failure, security
 concern, human approval required, scope expansion, external dependency,
 conflicting reviews. A third repair round is refused (`repeated_failure`).
-An objection at a commit is cleared only by its own reviewer or a new
-commit; when another reviewer approves the same commit, one independent
-adjudication runs, then `conflicting_reviews` goes to the human. A record
+An implementation objection at a commit is cleared only by its own reviewer
+or a new commit. A plan objection follows the current plan id: only its own
+reviewer's later approval or a replacement plan with its own independent
+review clears it; abstaining or a new code commit does not. When reviewers disagree on the
+same subject, one independent adjudication runs, then `conflicting_reviews`
+goes to the human. `task status` routes that conflict to the coordinator;
+an unopposed plan rejection returns to the planner. Plan reviews do not count
+as implementation repair rounds. A record
 delivered twice counts once; two different records under one id stop the gate.
 
 ## Where the human sits
@@ -171,7 +176,7 @@ or rollback exists yet.
 | Gate | Holds when | Implemented by |
 |---|---|---|
 | `task_valid`, `plan_valid` | Document validates; exactly one current plan | `gate check`; `control-plane validate` for one file |
-| `plan_reviewed` | A plan review from a non-planner approves | `gate check` |
+| `plan_reviewed` | Latest review of the current plan approves, is not by the planner, and no independent reviewer has an unresolved objection to that plan | `gate check` |
 | `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | `gate check`; `policy stages` shows the stages alone |
 | `approval_granted` | An overseer's unedited `/approve` PR comment covers this task, plan, stage and, at merge, the head commit | `gate check --pr` |
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; no changed path outside the task scope; `budget_used` ≤ `task.budget` | `gate check`; `evidence --base --run` produces the evidence |

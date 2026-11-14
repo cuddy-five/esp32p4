@@ -65,7 +65,7 @@ gates:
     description: Plan document validates against plan.schema.json. Validation checks shape only; the coordinator must separately check task_id and trace links.
     status: implemented
   plan_reviewed:
-    description: A review with review_kind=plan and verdict approve or approve_with_comments exists from a reviewer that is not the planner.
+    description: The latest review of the current plan approves, is not by the planner, and no independent reviewer has an unresolved objection to that plan. Only that reviewer's approval clears an objection; abstaining does not. Plan reviews follow the plan id, not a later code commit.
     status: implemented
   approval_not_required:
     description: policies/approvals.yaml does not require a human at this point for the task's risk level and touched paths.
@@ -99,9 +99,9 @@ gates:
     status: implemented
 
 # ADR 0003 operating limits. retry_budget_remaining reads repair_rounds; a
-# review conflict at one commit gets adjudication_attempts independent reviews,
+# review conflict at one commit (or plan id) gets adjudication_attempts independent reviews,
 # then a conflicting_reviews escalation to the human. `task status` counts every
-# reviewer of that commit beyond the two in conflict as one adjudication.
+# reviewer of that subject beyond the two in conflict as one adjudication.
 limits:
   repair_rounds: 2
   adjudication_attempts: 1
