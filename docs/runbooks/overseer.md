@@ -118,7 +118,8 @@ includes Dependabot's Cargo updates: a new version of a dependency of the
 signing code is reviewed like any other change to it. In 2026-11 one full
 independent review cost about 50 of the 1,500 monthly Copilot credits. The
 first signing code is the last firmware change judged without the rule; it
-has one review by a separate session of the same model family and no task records. To mark another area, set the same
+had two reviews, one of them by another model family, recorded on pull request
+#36, and no task records. To mark another area, set the same
 switch on its domain; to stop requiring tasks for firmware, set it to `false`.
 The rule is read from the base branch, so a PR cannot switch it off for itself.
 
@@ -132,7 +133,7 @@ edited (from the time of the edit) or naming another task; a resume must start
 its line, name the task and be a new, unedited comment. `task status --pr` lists every halt or resume that did not
 count and why. The `overseer-commands` workflow re-runs `task-gate` when you post, edit or delete one of these
 comments, so a halt turns the check red and blocks the merge button; if the check does not change, re-run `task-gate`
-in the Actions tab. That workflow has not yet run on GitHub; trust it after you have seen it work once. The comment stops no
+in the Actions tab. It first ran on 2026-11-14: a comment without a command word was skipped, and a comment containing one re-ran `task-gate` within a minute. The comment stops no
 process and undoes nothing: stop each thing that runs, then confirm it stopped.
 
 | What runs | Stop it | Confirm it stopped |

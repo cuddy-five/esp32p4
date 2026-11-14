@@ -87,7 +87,7 @@ blind spots do not line up. See `docs/architecture/adversarial-loop.md`.
 | Scope is declared on the task and verified on the diff | `task.scope.allowed_paths`; `evidence --base` and `gate check --base` read the changed paths from git; the `within_scope` gate | available |
 | Checks are observed, not claimed | `evidence --run` runs each check on files equal to the commit and records its real result | available |
 | Budgets stop work before the ceiling | `budget` on task; `budget_used` on evidence, review, result; the `within_budget` gate adds them up | gate available; each role still reports its own usage |
-| A halt or an approval changes the check at once | `overseer-commands` re-runs `task-gate` when the overseer comments | written; first live run pending |
+| A halt or an approval changes the check at once | `overseer-commands` re-runs `task-gate` when the overseer comments | available; first seen working on 2026-11-14 |
 | A sensitive area cannot skip its reviews | `task_required` on a review domain: a PR there fails `task-gate` without task records | available; on for `firmware/**` |
 | Humans are told what happened in plain language | `overseer_note` on review, result, escalation | available |
 | Finished work cannot sit unseen on a branch | `control-plane overview` lists branches with unmerged work and no pull request | available |
