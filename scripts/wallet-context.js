@@ -17,7 +17,8 @@ const SOURCES = Object.freeze({
   toolchain: ["firmware/rust-toolchain.toml", "compiler, components and cross-build target"],
   fork: [`${REFERENCES}fork-rules.md`, "pinned fork rules, vector provenance and uncovered cases"],
   standards: [`${REFERENCES}bitcoin-standards.md`, "primary BIP/RFC sources and vectors"],
-  chip: [`${REFERENCES}chip-esp32-p4.md`, "silicon revision, errata, entropy and memory access"],
+  scope: ["docs/decisions/0004-first-signing-scope.md", "proposed first signing scope and refusals; binds nothing until its status line says accepted"],
+  chip: [`${REFERENCES}chip-esp32-p4.md`, "silicon revision, errata, Rust HAL driver support, entropy and memory access"],
   board: [`${REFERENCES}board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md`, "board wiring, radio isolation and unknown hardware facts"],
   oracle: [".github/skills/device-references/scripts/unified_sighash_check.py", "independent hash checker; read its assumptions before use"],
   evidence: ["docs/runbooks/evidence-reporting.md", "record actual checks against the reviewed revision"],
@@ -25,7 +26,7 @@ const SOURCES = Object.freeze({
 
 const ROUTES = Object.freeze({
   signing: {
-    sources: ["fork", "standards", "oracle"],
+    sources: ["fork", "standards", "scope", "oracle"],
     focus: "Separate byte parsing, signature hashing and signing policy. A digest is not a signature or permission to sign.",
     stop: "Stop if allowed hash modes, amount/fee bounds, supported scripts or trusted spent-output data are unspecified. Compare with pinned independent vectors; do not generate the expected answer with the code under test.",
   },
@@ -40,7 +41,7 @@ const ROUTES = Object.freeze({
     stop: "Stop on unverified pins, unproven camera driver support, power rails or revision compatibility. Require device measurements for board claims; a cross-build is not a boot test. Hardware rework, flashing and eFuse changes need their own owner authorization.",
   },
   interface: {
-    sources: ["board", "standards", "fork"],
+    sources: ["board", "standards", "fork", "scope"],
     focus: "Bound hostile input and bind displayed destination, amount, fee and signing mode to the exact transaction the user confirms. Test cancel, timeout and changed input.",
     stop: "Stop if the transport/QR format, parser limits or confirmation policy is undecided, or camera driver support is unproven. Never replace missing interoperability or device tests with a simulated success claim.",
   },

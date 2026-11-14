@@ -94,6 +94,8 @@ sound: the document notes that all its implementations share one author.
    (`bip-0174.mediawiki:435` in `bitcoin/bips` at `ada3419`), so the device
    refuses a PSBT input whose sighash type lacks the bit. This is stricter
    than Knots, which accepts a declared `ALL` and adds the bit (table above).
+   What the device does with an input that declares no type is proposed in
+   [ADR 0004](../../../../docs/decisions/0004-first-signing-scope.md).
 2. **RDTS limits: deferred (2026-11-03)** to
    [#21](https://github.com/cuddy-five/esp32p4/issues/21). Review BIP-110 at a
    pinned commit before deciding.

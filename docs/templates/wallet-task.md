@@ -71,6 +71,8 @@ seeds. **Pending choices:** supported scripts and PSBT versions, permitted
 unified hash modes, supported networks, transaction/resource limits, amount
 and fee policy, RDTS handling, and how the device proves change ownership.
 Ask the owner about unresolved product choices; do not invent defaults.
+[ADR 0004](../decisions/0004-first-signing-scope.md) proposes most of them;
+they stay pending until its status line says accepted.
 
 | Condition | Required decision or expected behavior | Proposed proof |
 | --- | --- | --- |
