@@ -8,11 +8,15 @@ not a paperwork requirement for ordinary edits and commits now.
 
 For task intake, handoff, or resumption, follow the
 [manual team runbook](../docs/runbooks/agent-team.md). For project constraints
-and owner choices, use the [project brief](../docs/templates/project-brief.md).
+and owner choices, read [PROJECT.md](../PROJECT.md). For wallet work, use
+[wallet development](../docs/runbooks/wallet-development.md) and
+`node scripts/wallet-context.js <topic>` (`--help` lists topics). Load the
+relevant source files, not the entire historical research catalogue.
 
 Current work uses the fundamental work agreement in AGENTS.md: outcome, scope,
 checks, handoff/results and owner authority in plain language. Existing JSON
-contracts are used only when explicitly requested.
+contracts are used when explicitly requested or required by the PR base's
+`task_required` review-domain setting. Manual mode cannot bypass that check.
 
 Future automated-team short version:
 

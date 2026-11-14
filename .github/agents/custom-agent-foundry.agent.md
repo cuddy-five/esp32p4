@@ -20,7 +20,7 @@ include-custom-instructions: true
 
 # Custom Agent Foundry — Control-Plane & ESP32-P4 Specialist Designer
 
-**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. The formal contract workflow below describes future use only, after the owner requests it. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
+**Current mode:** Work directly on the owner's request in small steps. Use the fundamental work agreement in AGENTS.md: outcome, scope, checks, handoff/results and owner authority in plain language. Do not require JSON contracts for ordinary work. Repository protections are required; verify live settings separately. Automatic worker dispatch and approval routing remain deferred; do not enable them. Use the formal record procedure below when the owner requests it or the applicable review-domain policy requires records; that does not enable automatic dispatch. Editor handoff buttons are optional; do not assume they work in the CLI. Follow AGENTS.md and keep secrets private.
 
 **Skills:** `skill-creator` is preloaded. Load these with the skill tool when the task fits: `planning` (a multi-file agent package) and `review` (checking a package against the repository rules). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
@@ -112,7 +112,7 @@ name: role-name # Unique identifier (kebab-case matching filename)
 description: 'Brief, clear description shown in chat input and used for runtime selection (required)'
 argument-hint: 'Guidance text for users on required contract paths or issue numbers (optional)'
 model: gpt-5.6-luna # One model ID this account can use; an unavailable one silently becomes the session model
-modelPolicy: required # Review roles only: Copilot refuses to run the agent on another model. See docs/runbooks/agent-tools.md#models
+modelPolicy: required # Review roles: declaration only; direct CLI launches also need explicit --model. See docs/runbooks/agent-tools.md#models
 infer: true # Set false for meta-agents or destructive tools requiring explicit invocation
 tools: ['read', 'search', 'github/*'] # Choose tools supported by the client
 skills: [skill-name] # Preloaded in full on every run; at most three. Name optional skills in the body.
