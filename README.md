@@ -1,6 +1,19 @@
-# Control Plane
+# ESP32-P4 wallet engineering control plane
 
-A template for running an **adversarial agentic team loop** on any GitHub
+This repository helps agents build a stateless, air-gapped Bitcoin Blake2b
+hardware wallet for the Waveshare ESP32-P4 Touch LCD 3.5. The owner oversees
+the work and retains commit and merge decisions. Start with the
+[project requirements and current state](PROJECT.md) and the
+[wallet development guide](docs/runbooks/wallet-development.md).
+
+For a focused task, run `node scripts/wallet-context.js signing`. `node` runs
+the script and `signing` selects its source/check list; it runs no checks and
+grants no approval. Use `hardware` for board work or `--help` for all five topics.
+The [task worksheet](docs/templates/wallet-task.md) gives agents a small,
+concrete assignment. `PROJECT.md` holds the dated snapshot: what is merged,
+what is still in a pull request, and the decisions that remain.
+
+The reusable foundation is a template for an **adversarial agentic team loop** on any GitHub
 repository, with a human as overseer rather than programmer.
 
 The premise: the software you want to build is beyond what you can write by
@@ -21,7 +34,8 @@ the task and bug forms, plan contracts, PR template, checks, and owner review.
 Agents can prepare the issues and plans; the owner can also write them.
 Use the [manual team guide](docs/runbooks/agent-team.md) to assign roles and
 resume tasks. Copy the [project brief](docs/templates/project-brief.md) to
-`PROJECT.md` to record requirements and owner choices.
+`PROJECT.md` to record requirements and owner choices in a new consumer;
+this repository's brief is already populated.
 New to the agents? Start with
 [Using this repository's agents](docs/runbooks/using-agents.md).
 

@@ -3,75 +3,94 @@ description: 'no_std Rust firmware conventions for the Waveshare ESP32-P4 air-ga
 applyTo: 'firmware/**/*.rs'
 ---
 
-# Rust Firmware Conventions: ESP32-P4 Stateless Blake2b Bitcoin Hardware Wallet
+# Rust firmware conventions
 
-**Current status:** Hardware details below are research candidates, not verified board facts or approved requirements. Check the exact board revision, peripherals, protocol and trusted sources before relying on them. Checked facts and the owner's decisions on isolation and signing are in the `device-references` skill. Do not assume disabling radios in software proves physical isolation. Wallet firmware implementation remains later work. Follow the current manual mode in AGENTS.md for ordinary requests.
+Follow [AGENTS.md](../../AGENTS.md), the current task and the
+[wallet development guide](../../docs/runbooks/wallet-development.md).
+`firmware/wallet-core` is the existing hardware-independent `no_std` library;
+inspect its current source before planning work. A bootable hardware crate and
+peripheral drivers are not established by the library's cross-build.
 
-Follow idiomatic `#![no_std]` embedded Rust practices, strict cryptographic hygiene, and hardware-specific constraints for an air-gapped, stateless Bitcoin hardware wallet (modeled after `privkeyio` Shrike / SeedSigner architecture) targeting the **Blake2b PoW Bitcoin hardfork**.
+## Sources and target
 
-## 1. Target Hardware & Peripheral Architecture
+The owner selected the Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5; the recorded
+silicon target is ESP32-P4 revision v3.2. Chip revision is distinct from PCB
+revision. Confirm the actual unit before applying revision-specific errata or
+pin mappings. Use the relevant sheet in the
+[device-references skill](../skills/device-references/SKILL.md), preserving its
+verified, inferred and unverified distinctions.
 
-Research input names the **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5** and target `riscv32imafc-unknown-none-elf` as candidates. Verify the exact board revision and toolchain before treating them as requirements.
+The board sheet records vendor evidence for ST7796 display, FT6336 touch and
+AXP2101 power management. The owner states the unit has the 5 MP OV5647 camera
+installed; that is not checked on the device, and MIPI-CSI support in a `no_std`
+stack is unproven. Trace actual wiring and confirm library support before driver work.
+Historical plans, NotebookLM summaries and general ESP32 examples are research
+input, not authoritative requirements for this board.
 
-- **Memory:** Verify actual memory types and sizes. Plan secret placement and zeroization using the verified memory map; do not persist private keys or seeds in a stateless wallet.
-- **Peripherals:** ST7796 display, FT6336 touch, OV5647 camera and AXP2101 power management are unverified candidates from research. Confirm the actual components, interfaces and wiring before writing drivers.
-- **Hardware security:** Verify the device's entropy source and security peripherals before choosing how to use them. Do not assume camera noise improves entropy without evidence.
+## Fork and authorization boundaries
 
-## 2. Strict Air-Gap & Radio Quarantine Rules
+- Sign only with the fork's unified sighash, using its pinned rules and test
+  vectors. BLAKE2b proof of work is separate from the signature hash; do not
+  replace standard hashes or add header verification without task scope.
+- Keep transaction decoding, policy acceptance, user confirmation and signing
+  separate. A parsed transaction or computed digest is not permission to sign.
+- The signing policy must restrict accepted hash types, amounts, outputs, fees
+  and derivation paths according to reviewed requirements. Do not silently
+  choose limits or supported script types. Displayed transaction details must
+  correspond to the exact bytes authorized and signed.
+- Evaluate dependencies, features, licenses and build scripts against the
+  fork rules and `no_std` target. Do not assume a Bitcoin library implements
+  this fork, or write cryptographic primitives from scratch.
 
-- The owner chose physical isolation (2026-11-03): remove the board's ESP32-C6, or its antenna feed. The research proposed GPIO/PMIC shutdown, but on this board the C6's enable pin has a pull-up and its supply is shared with the P4, so that cannot isolate it (`device-references`, board sheet).
-- Firmware must not depend on the C6 or its SDIO link. Omitting drivers or powering a component down in software does not by itself prove physical isolation.
-- Verify and decide which external data ports and optical interfaces are appropriate before prescribing a production configuration.
+## Memory and input safety
 
-## 3. Bitcoin, BIP-32, and Blake2b Fork Rules
+- Runtime crates use `#![no_std]`; firmware binaries also use `#![no_main]`.
+  Host tests may use `std`. Prefer borrowed slices and explicit buffer/count
+  limits. Dynamic allocation needs a justified bound and failure behavior.
+- Preserve the workspace lints in `firmware/Cargo.toml`: `unsafe` is forbidden;
+  `unwrap`, `expect`, indexing, `panic!` and unchecked arithmetic are denied.
+  Use `.get`, checked arithmetic and typed errors for hostile input. Do not
+  weaken lints or add exceptions in library code without the owner's decision;
+  a test file may allow them, as `tests/unified_sighash_vectors.rs` does. Any later
+  hardware layer requiring `unsafe` needs its own reviewed boundary and SAFETY
+  invariants; a comment alone does not satisfy the current policy.
+- Never persist seeds, private keys or signing history. Keep secrets in internal
+  SRAM and verify placement and access paths against the linked image, linker
+  map and chip references. Source declarations alone do not prove placement.
+- Use reviewed zeroization for entropy, mnemonics, passphrases and private keys
+  on success, cancellation, timeout and failure. `ZeroizeOnDrop` or
+  `Zeroizing<T>` does not prove cleanup after abort, reset or power loss; test
+  the relevant lifecycle and memory behavior separately.
+- Secret types must not implement `Copy`, `Clone`, `PartialEq`, `Eq`, `Hash` or
+  leaking `Debug`. Redact diagnostic formatting and use public test fixtures.
+  Use reviewed constant-time operations for secret-dependent arithmetic and
+  comparisons; ordinary equality is not acceptable for secret values.
+- Do not infer secp256k1 support from the hardware ECDSA capability. Verify the
+  entropy-source enablement and conditioning design before seed generation;
+  camera noise is neither required nor evidence of entropy quality.
 
-- **Core Bitcoin Stack**: Evaluate `rust-bitcoin`, `secp256k1`, BIP-32 and other candidate libraries against the verified fork specification, `no_std` support and the owner's choices. No library has been ruled out solely by this research note.
-- **Blake2b PoW Consensus Overrides**:
-  - This wallet targets the **Blake2b Proof-of-Work hardfork** of Bitcoin.
-  - Verify the fork's exact proof-of-work and signing specifications before choosing algorithms or library parameters.
-  - Sign only with the fork's unified sighash (owner decision, 2026-11-03; see `device-references`).
-  - Evaluate the `blake2` crate against independently sourced fork test vectors; do not assume it matches the fork without verification.
-  - Clearly separate standard SHA256/hash160 operations (used in scripts, taproot tree hashes, and legacy txids unless overridden by fork spec) from `Blake2bBlockHash` PoW verification using distinct newtypes.
+## Physical boundaries
 
-## 4. `#![no_std]` Patterns to Follow
+Firmware must not depend on the ESP32-C6 or its SDIO link. The owner chose C6
+removal or antenna-feed removal; removing the antenna feed leaves the C6
+running and is not equivalent to removing it. Physical rework and its checks
+remain unverified. Software shutdown and omitted radio drivers do not prove
+isolation. External data ports, debug access, optical transport and provisioning
+need explicit task requirements; do not enable interfaces as an incidental
+implementation convenience.
 
-- Start every crate and binary with `#![no_std]` (and `#![no_main]` for firmware binaries).
-- **Concurrency & Async**: Evaluate `embassy-executor`, `esp-hal` and their synchronization options against the verified hardware and selected toolchain. Avoid `std::sync` in `no_std` firmware.
-- **Memory & Collections**:
-  - Prefer fixed-capacity stack collections from `heapless` (`heapless::Vec<T, N>`, `heapless::String<N>`) with explicit compile-time bounds.
-  - Prefer zero-copy parsing (`&[u8]`, `&str`) over owned allocations when decoding PSBTs and QR payloads.
-- **Serialization**: Evaluate `serde`, `minicbor` or `postcard` for `no_std` encoding against the selected protocol and dependency constraints.
-- **Architecture Separation**:
-  - A separate `wallet-core` library and `wallet-fw` hardware crate are a possible future design. Evaluate that split when the owner chooses the wallet architecture; do not assume those crates or particular drivers already exist.
+## Checks and result
 
-## 5. Cryptographic Hygiene & Memory Safety
+Run `bash scripts/gates/firmware-check.sh` from the repository root in the
+approved development environment, after confirming its pinned toolchain is
+installed. `bash` runs the named script without flags. The script runs
+formatting, Clippy with warnings as errors, host tests and a release cross-build
+for `riscv32imafc-unknown-none-elf` using `firmware/rust-toolchain.toml`.
+Do not install tools implicitly to obtain a passing result.
 
-- **Zeroization on Drop**:
-  - All structs holding sensitive material (entropy bytes, mnemonic words, passphrase, BIP-32 `Xpriv`, raw secp256k1 secret keys) MUST derive or implement `zeroize::Zeroize` and `zeroize::ZeroizeOnDrop`.
-  - Clear the signing context and wipe SRAM key buffers immediately after rendering the signed PSBT QR code or on any UI timeout/cancel event.
-- **Forbidden Traits on Secret Types**:
-  - **NEVER** derive or implement `Copy`, `Clone`, `PartialEq`, `Eq`, `Hash`, or standard `Debug` on secret-holding types.
-  - Implement custom `core::fmt::Debug` on secret types that outputs only `f.write_str("SecretKey([REDACTED])")`.
-  - Use `subtle::ConstantTimeEq` for all cryptographic digest, MAC, checksum, and signature comparisons.
-- **No Panics on Untrusted Input**:
-  - Camera QR payloads and PSBTs are hostile, untrusted inputs.
-  - **NEVER** use `unwrap()`, `expect()`, or unchecked slice indexing (`buf[i]`) when parsing QR frames, CBOR, PSBTs, or transactions. Always use `.get(i)`, checked arithmetic (`checked_add`, `checked_mul`), and propagate errors via `Result<T, E>` and `?`.
-
-## 6. Error Handling & Code Style
-
-- Define domain-specific error enums implementing `core::error::Error` and `core::fmt::Display` (do not use `anyhow` or `std`-dependent `thiserror`).
-- Ensure every `unsafe` block (e.g., ESP32-P4 DMA descriptors, MIPI-CSI ring buffers, or hardware register writes) is preceded by a `// SAFETY:` comment proving alignment, lifetime validity, and exclusive access.
-- Keep lines under 100 characters, format with `rustfmt`, and enforce `#![deny(warnings)]`, `#![deny(clippy::unwrap_used)]`, `#![deny(clippy::expect_used)]`, and `#![deny(clippy::indexing_slicing)]` in library and parser code.
-
-## 7. Quality & Security Checklist
-
-Run `bash scripts/gates/firmware-check.sh` from the repository root and report its actual output. It is the same script CI's `firmware` job runs: `cargo fmt --check`, `cargo clippy` with warnings as errors, `cargo test`, and a release build for `riscv32imafc-unknown-none-elf`, on the compiler pinned in `firmware/rust-toolchain.toml`. The workspace lints in `firmware/Cargo.toml` already deny `unwrap`, `expect`, indexing, `panic!`, unchecked arithmetic and `unsafe`; do not weaken them or add `#[allow]` in library code without the owner's decision (test files may allow them). A pass is host and cross-build evidence only, never device evidence.
-
-Before completing or reviewing any Rust code, verify:
-
-- [ ] **`#![no_std]` Compliance**: No unintended `std` dependencies; check the verified target when available.
-- [ ] **Air-Gap Integrity**: Check the owner's chosen isolation method against the verified hardware; report gaps and unrun device checks.
-- [ ] **Stateless Invariant**: No persistent writes of seeds, keys, or signing history to the verified storage devices.
-- [ ] **SRAM Isolation & Zeroization**: Secrets reside only in internal SRAM, implement `ZeroizeOnDrop`, and never implement `Copy`, `Clone`, or leaky `Debug`.
-- [ ] **Fork Accuracy**: Verify signing and hashing against the actual fork specification and independent test vectors. Record unavailable vectors rather than assuming a library is correct.
-- [ ] **Panic-Free Parsing**: Zero `unwrap()`, `expect()`, or direct slice indexing `[i]` on camera/QR/PSBT inputs; all arithmetic on amounts/fees uses `checked_*`.
+Add focused tests for the changed boundary, including malformed/truncated input,
+limits and overflow where relevant. Use independently sourced known-answer
+vectors for protocol code; expected values generated only by the implementation
+under test are insufficient. Report exact source revisions, actual commands,
+failures and unrun checks. A gate pass proves host checks and cross-compilation,
+not boot, touch/camera operation, entropy quality, isolation or safe signing.

@@ -27,6 +27,11 @@ Repository protections are required; verify live settings separately; automatic 
 
 **Skills:** `planning`, `acquire-codebase-knowledge` and `investigate-first` are preloaded. Load these with the skill tool when the task fits: `codebase-design` (interfaces, seams and module depth), `context-engineering` (changes that span several files or modules) and `domain-modeling` (terms and decision records). Every agent sees every enabled skill; skills meant for other roles are not yours to load unless the owner asks.
 
+**Wallet tasks:** Follow the [wallet development guide](../../docs/runbooks/wallet-development.md)
+for the current source map, task boundaries and checks. Keep unknown hardware
+facts and unrun device checks explicit; use formal records when the applicable
+review-domain policy requires them.
+
 **Code navigation:** use `lsp` (rust-analyzer, from `.github/lsp.json`) only to read: definitions, references, symbols, hover and call hierarchy. Never call its `rename` operation; it edits files.
 
 **NotebookLM** (read-only; the server exposes only read tools): use it for background from the owner's notebooks, `ESP32 P4 Repo`, `Agentic Engineering` and `GitHub Agentic Certification`. Do not read other notebooks; the server cannot enforce that, so this rule does. A notebook answer is a secondary source: cite it as unverified and never use it as evidence for `device-references`. For long questions, start with `notebook_query_start` and poll `notebook_query_status` every 10-20 seconds.

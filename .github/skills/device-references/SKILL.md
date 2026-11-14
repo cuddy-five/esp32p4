@@ -1,6 +1,6 @@
 ---
 name: device-references
-description: 'Shared, sourced facts for the ESP32-P4 hardware wallet: the chip, the board, the Bitcoin standards and the intended fork, each marked verified or unverified with its source and date. Use before relying on a hardware, protocol or signing claim in device code, a review or an audit. Not a specification; production firmware is not current work.'
+description: 'Shared, sourced facts for the ESP32-P4 hardware wallet: the chip, the board, the Bitcoin standards and the intended fork, each marked verified or unverified with its source and date. Use before relying on a hardware, protocol or signing claim in device code, a review or an audit. Source evidence, not implementation approval.'
 ---
 
 # Device references
@@ -8,10 +8,14 @@ description: 'Shared, sourced facts for the ESP32-P4 hardware wallet: the chip, 
 One shared set of checked facts for the wallet engineer (`rust-coder`), the
 reviewer and the security auditor. Read only the file you need:
 
+Use [wallet development](../../../docs/runbooks/wallet-development.md) to select
+the relevant sources, task limits and acceptance checks. `PROJECT.md` records
+current owner choices; source claims below retain their own dates and pins.
+
 | File | Covers |
 | --- | --- |
 | [references/chip-esp32-p4.md](references/chip-esp32-p4.md) | ESP32-P4: target revision v3.2 and its errata, cores, memory map and access paths, power domains, radio, crypto peripherals, secure boot, flash encryption |
-| [references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md](references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md) | The candidate board, its components and the radio-isolation decision |
+| [references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md](references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md) | The selected board model, its components, unconfirmed physical revision and the radio-isolation decision |
 | [references/bitcoin-standards.md](references/bitcoin-standards.md) | BIPs and RFCs for keys, addresses, transactions, PSBT and hashing, with their test vectors |
 | [references/fork-rules.md](references/fork-rules.md) | The BLAKE2b fork (Bitcoin Knots) and its unified sighash: rules reviewed and reproduced from the specification; unified-only signing decided, RDTS deferred |
 | [scripts/unified_sighash_check.py](scripts/unified_sighash_check.py) | An independent unified-sighash implementation, written from the specification, that checks the Knots test vectors |
