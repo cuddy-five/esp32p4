@@ -22,9 +22,10 @@ verified, inferred and unverified distinctions.
 
 The board sheet records vendor evidence for ST7796 display, FT6336 touch and
 AXP2101 power management. The owner states the unit has the 5 MP OV5647 camera
-installed; that is not checked on the device, and esp-hal has no camera,
-MIPI-CSI or ISP driver for this chip (chip sheet, 2026-11-14). Trace actual
-wiring and confirm library support before driver work.
+installed; that is not checked on the device. esp-hal has released no camera,
+MIPI-CSI or ISP driver for this chip, so the camera needs a driver written for
+this project (chip sheet, camera section). Trace actual wiring and confirm
+library support before driver work.
 Historical plans, NotebookLM summaries and general ESP32 examples are research
 input, not authoritative requirements for this board.
 

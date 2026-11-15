@@ -65,6 +65,22 @@ Retrieved 2026-11-03.
     https://documentation.espressif.com/esp32-p4-chip-revision-v3.x_user_guide_en.html
     (downloaded 2026-11-14, SHA-256
     `0815f7568d37aef488ccdcbbad57bdcf8ae737f2b780a57c8bfff8935d974ee0`).
+15. **ESP-IDF's MIPI-CSI camera receiver driver**, at the same commit as (1),
+    Apache-2.0, read 2026-11-15:
+    [`components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c`](https://github.com/espressif/esp-idf/blob/0e6b480f858c69862ffb6001d96e9eef74599a6e/components/esp_driver_cam/csi/src/esp_cam_ctlr_csi.c)
+    (729 lines, SHA-256
+    `cf4795c275c3c95ce3ab2691e03eec96edd698533744cf0cdb86cfbc56d66a44`),
+    `components/esp_hal_cam/mipi_csi_hal.c` (75 lines, SHA-256
+    `0f3d0d7e2071e5b45525ccaa2da65687defc06662b0992ce675ba606d2d8193d`) and the
+    four `mipi_csi_*_ll.h` headers in `components/esp_hal_cam/esp32p4/include/hal/`.
+16. **The Rust register crate `esp32p4`**, esp-rs/esp-pacs at `08790a64`
+    (`main`, 2026-11-12): the module list of
+    [`esp32p4/src`](https://github.com/esp-rs/esp-pacs/tree/08790a640a15782fb98c434870bce60cbe65a548/esp32p4/src),
+    read 2026-11-15.
+17. **esp-hal pull request 6739**, "Add ESP32-P4 MIPI-CSI camera support":
+    https://github.com/esp-rs/esp-hal/pull/6739, head `27c3233e`, opened
+    2026-11-10. Open, with no maintainer review, when read on 2026-11-15. Its
+    description is its author's claim; this project has run none of it.
 
 ## Target silicon: revision v3.2
 
@@ -99,8 +115,27 @@ project's own claim; nobody has run it on the owner's board.
 | Marked **supported**: GPIO, UART, SPI master, I2C master. In 1.2.0 these are stable API, with `rng`, `efuse`, `clock` and `time`. | Verified (as declared) | (11) `support_status`; (12) module list |
 | Marked **partial**, and unstable API in 1.2.0: SD/MMC host, PSRAM, flash, DMA, timers, USB, MIPI-DSI, sleep, and the SHA, AES, ECC and RSA accelerators | Verified (as declared) | (11); (12). SD/MMC lacks 1.8 V signalling and delay tuning (esp-hal issue 6774, read 2026-11-14). |
 | The RNG driver is partial: its read throttling is not tuned for the P4 and nothing tests the quality of its output. It reads the `LP_TRNG` block. | Verified (as declared) | (11) `[device.rng]`, `{ name = "RNG", pac = "LP_TRNG" }`; esp-hal issue 5979, read 2026-11-14 |
-| **There is no camera driver.** `camera`, `mipi_csi` and `isp` are `not_supported`, so a `no_std` esp-hal firmware cannot read the board's camera. `hmac`, `ds`, `ecdsa` and `key_manager` are not supported either. | Verified | (11); (12) lists no camera, CSI or ISP module |
+| **esp-hal has released no camera driver.** `camera`, `mipi_csi` and `isp` are `not_supported`, so reading the board's camera needs a driver written for this project ([what it can build on](#camera-input-what-a-driver-can-build-on)). `hmac`, `ds`, `ecdsa` and `key_manager` are not supported either. | Verified | (11); (12) lists no camera, CSI or ISP module |
 | esp-hal turns PMP protection on by default (`ESP_HAL_CONFIG_ENABLE_PMP`, an unstable option) | Verified (as declared) | (12). Which regions it protects is **not reviewed**. |
+
+## Camera input: what a driver can build on
+
+The owner's plan is a `no_std` camera driver written for this project (owner,
+2026-10-26, restated 2026-11-15). These rows say what exists to build it from.
+None of it has run on the owner's board, and a host test cannot prove any of it.
+
+| Fact | Status | Evidence |
+| --- | --- | --- |
+| The path a frame takes: camera sensor, the chip's MIPI D-PHY, the CSI host, the CSI bridge, then a DMA channel that writes the frame into memory | Verified | (15) `esp_cam_ctlr_csi.c:205-256`: host and bridge setup, then a DMA channel with source role `DW_GDMA_ROLE_PERIPH_CSI` |
+| Espressif's C receiver driver is small and may be ported: 729 lines, plus 75 lines of setup and four register-access headers. Apache-2.0. It also needs the DMA driver (`components/esp_driver_dma/src/dw_gdma.c`). | Verified | (15), SPDX headers |
+| **The image processor (ISP) can be skipped.** When the input and output formats are equal, the driver puts the bridge in bypass and the sensor's raw 8-bit frame reaches memory unchanged. | Verified | (15) `esp_cam_ctlr_csi.c:706-708` |
+| A raw 8-bit frame is enough to read a QR code, which needs brightness only | Inferred | Not tested. The sensor's colour filter pattern must be averaged out first. |
+| The Rust register crate defines the blocks a driver writes to: `mipi_csi_host`, `mipi_csi_bridge`, `isp`, `pmu`, and the DMA blocks `dma`, `ahb_dma` and `axi_dma` | Verified (names only) | (16). Which DMA block serves the camera, and whether the registers match (7), is **not checked**. |
+| **A `no_std` Rust driver for this interface exists as an open pull request to esp-hal.** It receives raw 8-bit frames from a 1- or 2-lane camera into a DMA buffer (about 2,250 lines in `esp-hal/src/mipi_csi/`, plus D-PHY power and DMA modules). | Verified (that it exists) | (17) |
+| Its author reports 100-frame streams at 29.9 frames a second on chip revision **v3.2** (ESP32-P4 Function EV Board v1.5.2), with an SC2336 sensor at 1024×600. Other sensors, the OV5647 among them, are not tested. | Verified (as declared) | (17) "Testing" |
+| The author found DMA writes into PSRAM at 250 MHz unreliable until PSRAM timing was tuned at startup, and says the camera and the MIPI display share a DMA controller and a D-PHY power supply | Verified (as declared) | (17) description. Plan for frame buffers in PSRAM to need this. |
+| A DMA channel can write wherever the permission unit allows, so frame buffers and secrets need separate, checked memory regions | Inferred | The DMA row under [Memory, access and power](#memory-access-and-power) |
+| Whether the pull request is merged, and into which release | **Unverified** | Read (17) again before depending on it. Unreviewed code is not a wallet dependency until this project has reviewed the pinned commit. |
 
 ## Facts
 

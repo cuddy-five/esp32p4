@@ -5,8 +5,9 @@ The owner's board: bought before 2026-10-26 and named again as the target on
 applying these sources. The recorded target **v3.2 is the ESP32-P4 chip
 revision**, not a confirmed PCB revision. The owner states that the unit
 carries the installed 5 MP OV5647 camera. Nobody has checked that on the
-device. No `no_std` Rust driver for the camera interface exists yet (see the
-facts below), so firmware cannot use the camera today.
+device. esp-hal has released no driver for the camera interface, so the
+owner's plan is a `no_std` driver written for this project (see the facts
+below). Until it exists and runs on the board, firmware cannot use the camera.
 
 Retrieved 2026-11-03.
 
@@ -38,6 +39,12 @@ Retrieved 2026-11-03.
    (SHA-256: header `e2e80d2ea7a12768186a50ccbed8ccd4f2bcc7ec687d68030e73366fc1cd8a16`,
    `display.h` `342956b064ac5f176f0c584721dc80bf64d557334b0e664876e16e1960fd7905`,
    source `f2a69a92e3fa305d84336bd25837f2b2c060f8df62280797cc52bc94f3ae98c3`).
+4. **Espressif's OV5647 sensor driver**, `esp_cam_sensor/sensors/ov5647/` in
+   https://github.com/espressif/esp-video-components at
+   `48c1892af113407f118b588a1d2999ab0474bad8` (`master`, 2026-11-13),
+   Apache-2.0, read 2026-11-15 (`ov5647.c`, 837 lines, SHA-256
+   `db9e9eb366c653e52eb642c0a2079193d5033b61e310012eab4e17e0c1a5b97c`). C code
+   for ESP-IDF: a source of register tables to port, not a Rust driver.
 
 ## Facts
 
@@ -59,7 +66,10 @@ Retrieved 2026-11-03.
 | **How to keep the ESP32-C6 radio off: remove the C6, or its antenna feed** | **Owner decision (2026-11-03); not done yet** | GPIO54 control is software-only, the pull-up enables the C6 whenever the P4 is not driving it, and its supply cannot be cut separately (rows above). Removing the chip is stronger than removing the antenna feed, which leaves the C6 running. Rework and checks: [#21](https://github.com/cuddy-five/esp32p4/issues/21). |
 | The ESP32-C6's UART0 (`C6_U0TXD`, `C6_U0RXD`) and `C6_IO9` (its boot-mode strapping pin) reach a pin header beside P4 GPIO31-33 | Inferred (schematic labels); not checked visually | (2): those labels sit in the header's pin column, numbered 25-30. Anyone with header access could reflash the C6. |
 | Which camera module the device uses | **Owner statement (2026-10-26); not checked on the device** | The 5 MP OV5647, installed on the purchased unit. Read the module marking and a boot log before relying on it. |
-| **No `no_std` Rust driver can read the camera.** esp-hal marks `camera`, `mipi_csi` and `isp` as not supported on the ESP32-P4. | Verified | [Chip file](chip-esp32-p4.md#rust-no_std-support-esp-hal), source (11), esp-hal `c72d6805` (2026-11-13). Read that file again before planning camera work. |
+| **esp-hal has released no camera driver.** It marks `camera`, `mipi_csi` and `isp` as not supported on the ESP32-P4. The owner's plan is a `no_std` driver written for this project. | Verified for esp-hal; owner decision (2026-10-26, restated 2026-11-15) for the plan | [Chip file](chip-esp32-p4.md#camera-input-what-a-driver-can-build-on): what the driver can build on, and esp-hal `c72d6805` (2026-11-13). Read it again before planning camera work. |
+| The OV5647 as Espressif's driver sets it up: control over I2C at address `0x36`, chip ID `0x5647`; raw 8-bit modes of 800×640, 800×800 and 800×1280 at 50 frames a second on 2 lanes, from a 24 MHz input clock; colour filter order GBRG | Verified (as declared) | (4) `include/ov5647.h:14-15`; `ov5647.c:41`, `107-162`. Not run on the owner's module. |
+| Camera wiring on this board: the I2C pins the sensor answers on, its reset and power-down lines, where its clock comes from, and which rail powers the chip's MIPI D-PHY | **Unverified** | The vendor package (3) has no camera code. Trace (2), then read the sensor's chip ID on the device. |
+| Whether the module's fixed lens resolves a QR code at reading distance | **Unverified** | Needs frames from the device |
 | Display wiring as the vendor's code sets it: ST7796 on `SPI2`, SPI mode 3, 80 MHz; MOSI GPIO20, clock GPIO21, chip select GPIO23, data/command GPIO26, reset GPIO27, backlight GPIO28, no MISO. 320×480, 16-bit RGB565 sent big-endian, BGR order, colours inverted, X mirrored. | Verified (as declared) | (3) header lines 49-55 and 250; `display.h` lines 11-20; source lines 431-463. Not traced on the schematic and not measured. |
 | Touch wiring as the vendor's code sets it: I2C SCL GPIO8, SDA GPIO7; touch reset GPIO29, interrupt GPIO50; the vendor uses its `ft5x06` driver for the FT6336 | Verified (as declared) | (3) header lines 38-39, 56-57; source lines 513-516. Not traced or measured. |
 | microSD wiring as the vendor's code sets it: SD/MMC slot 0, 4-bit; clock GPIO43, command GPIO44, data GPIO39-42. **The card is powered through the chip's on-chip LDO channel 4**, which a driver must switch on first. | Verified (as declared) | (3) header lines 60-65; source lines 140-159 (`ldo_chan_id = 4`). Not traced or measured. |
