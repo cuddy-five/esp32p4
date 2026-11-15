@@ -62,18 +62,24 @@ Refresh this snapshot before choosing a dependent task.
 
 ## Decisions still needed before dependent implementation
 
+- **First: [ADR 0004](docs/decisions/0004-first-signing-scope.md).** It
+  proposes what the first signer accepts and refuses: script type, key path,
+  PSBT version, hash type, change check, and size, amount and fee limits. It is
+  a proposal until its status line says accepted, and signing work waits for
+  that. The parser and digest helper deliberately do not supply this policy.
+- Choose how a PSBT reaches the device. No `no_std` Rust driver can read the
+  camera (esp-hal, checked 2026-11-14), so optical input cannot be planned on
+  it today. ADR 0004 lists the choices.
 - Confirm on the device: chip and PCB revision, the installed camera, the pin
-  map and the radio rework. Establish whether a `no_std` Rust stack can drive
-  the camera over MIPI-CSI before planning optical input around it.
-- Choose supported input/script types, sighash modes, amount/fee limits,
-  transaction size limits and the treatment of no-output transactions. The
-  parser and digest helper deliberately do not supply the signing policy.
-- Choose PSBT/QR formats, coordinator interoperability, transaction review UI,
-  change-output verification and what the user must approve on screen.
+  map and the radio rework.
+- Choose the transaction review UI and what the user must approve on screen.
 - Resolve RDTS applicability from pinned rules; choose entropy conditioning,
   secret-memory placement and cleanup evidence. Camera noise is not assumed safe.
-- Select and prove the HAL/driver/boot path for the actual silicon. Secure boot,
-  eFuses, flashing and physical rework require a separate owner-reviewed plan.
+- Select and prove the HAL/driver/boot path for the actual silicon. esp-hal
+  supports this chip from revision v3.0 (see the
+  [chip reference](.github/skills/device-references/references/chip-esp32-p4.md));
+  nothing has run on the board. Secure boot, eFuses, flashing and physical
+  rework require a separate owner-reviewed plan.
 
 See [issue #21](https://github.com/cuddy-five/esp32p4/issues/21) for the existing
 firmware decisions. Do not fill these gaps from model memory or historical

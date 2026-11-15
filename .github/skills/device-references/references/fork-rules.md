@@ -54,6 +54,8 @@ sound: the document notes that all its implementations share one author.
 | Bare/P2SH/segwit v0 keep the legacy reading of the byte: any low-five-bits value other than `NONE`/`SINGLE` signs all outputs. Taproot accepts only `ALL`, `NONE`, `SINGLE` (with or without `ANYONECANPAY`) plus the bit; `SIGHASH_DEFAULT` cannot opt in, so opted-in taproot signatures are 65 bytes. | Verified | `doc/unified-sighash.md:112-131, 308-312`; `interpreter.cpp:1660-1664` |
 | For script type 0, the legacy removal of the signature from the scriptCode (`FindAndDelete`) still runs before hashing. Type 1 does not do it. | Verified | `doc/unified-sighash.md:229-235`; `interpreter.cpp:343-347` |
 | Message signing (BIP137-style) stays legacy. | Verified | `doc/unified-sighash.md:486-488` |
+| Knots reads and writes PSBT version 0 only (BIP174). | Verified | `src/psbt.h:73` (`PSBT_HIGHEST_VERSION = 0`, blob `2a35890e`); read 2026-11-14 |
+| Knots' signer adds the bit to the type it signs with, so an input that declares `ALL`, or declares nothing, is signed `ALL\|UNIFIED` (`0x21`). It then rewrites the input's declared type to the type it used. | Verified | `src/script/sign.cpp:56-70` (blob `c84104fd`); `src/psbt.cpp:445-458` (blob `34d70783`); `doc/unified-sighash.md:498-500`; read 2026-11-14 |
 | Mainnet addresses and keys are unchanged: bech32 HRP `bc`, P2PKH prefix `0x00`, xpub `0x0488B21E`. | Verified | `src/kernel/chainparams.cpp:197-203` |
 | **BLAKE2b is used only to hash v2 block headers for proof of work.** Transactions, scripts, sighashes and addresses do not use it, so a signer that does not check headers needs no BLAKE2b. | Verified | `blake2b_nokey` is called only in `src/primitives/block.cpp:73,96`; no use in `src/script`, `src/primitives/transaction.cpp`, PSBT or address code |
 | BLAKE2b proof of work activates at height 961640 with `Blake2bTargetShift` 22. | Verified | `src/kernel/chainparams.cpp:129-135`; `src/pow.cpp:19-26` |
@@ -90,7 +92,10 @@ sound: the document notes that all its implementations share one author.
    BIP143 or BIP341 sighash message and has no setting to. BIP174 says a signer
    "must fail" on a requested sighash type it finds unacceptable
    (`bip-0174.mediawiki:435` in `bitcoin/bips` at `ada3419`), so the device
-   refuses a PSBT input whose sighash type lacks the bit.
+   refuses a PSBT input whose sighash type lacks the bit. This is stricter
+   than Knots, which accepts a declared `ALL` and adds the bit (table above).
+   What the device does with an input that declares no type is proposed in
+   [ADR 0004](../../../../docs/decisions/0004-first-signing-scope.md).
 2. **RDTS limits: deferred (2026-11-03)** to
    [#21](https://github.com/cuddy-five/esp32p4/issues/21). Review BIP-110 at a
    pinned commit before deciding.

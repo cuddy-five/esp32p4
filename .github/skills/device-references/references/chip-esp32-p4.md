@@ -46,6 +46,25 @@ Retrieved 2026-11-03.
    and the pages for ECDSA_DS-836 and ROM-816. Re-read before relying on them.
 10. **ESP-IDF revision settings**, at the same commit as (1):
     `components/esp_hw_support/port/esp32p4/Kconfig.hw_support` and `COMPATIBILITY.md`.
+11. **esp-hal's device description for the ESP32-P4**,
+    [`esp-metadata/devices/esp32p4/soc.toml`](https://github.com/esp-rs/esp-hal/blob/c72d6805fce0764bbe97d1e97a47896c6d4744bf/esp-metadata/devices/esp32p4/soc.toml)
+    at esp-rs/esp-hal `c72d6805` (`main`, 2026-11-13; read 2026-11-14, SHA-256
+    `d561d01be9c3562ee23c31b04cd61cb79a12d30c6a70c791ab2306f8bafadc21`). The
+    project generates its driver support table from this file.
+12. **esp-hal 1.2.0 documentation built for the ESP32-P4**:
+    https://docs.espressif.com/projects/rust/esp-hal/1.2.0/esp32p4/esp_hal/index.html
+    (downloaded 2026-11-14, SHA-256
+    `a29667b4ed75407f8d9c0e75d62ef0de9d69a2d5bcbe5e20acea3932c8807fc2`). The same
+    page for 1.2.1 and 1.2.2 returned HTTP 404.
+13. **Espressif advisory AR2026-004**, "Compatibility Advisory for ESP32-P4 Chip
+    Revision v3.2", V1.0, 2026-05-15:
+    https://documentation.espressif.com/AR2026-004_Compatibility_Advisory_for_ESP32-P4_Chip_Revision_v3.2_EN.html
+    (downloaded 2026-11-14, SHA-256
+    `163ab3069d06f37059f758e1bf35e3bb151f1e602d3f49b8c07645136d9cf6d8`).
+14. **ESP32-P4 Chip Revision v3.x User Guide v1.1** (2026-08):
+    https://documentation.espressif.com/esp32-p4-chip-revision-v3.x_user_guide_en.html
+    (downloaded 2026-11-14, SHA-256
+    `0815f7568d37aef488ccdcbbad57bdcf8ae737f2b780a57c8bfff8935d974ee0`).
 
 ## Target silicon: revision v3.2
 
@@ -61,6 +80,27 @@ the revision of the chip you actually hold before relying on this section.
 | ROM-816 (v3.2 only): the `rom_download_xpd_on` eFuse, new in v3.2, can hang the chip. Program it only if Secure Download Mode is required, and power-cycle fully before a USB download after programming it. | Verified | (9) ROM-816 page |
 | v3.2 is not affected by APM-560 or DMA-767, the permission-unit errata of v3.0 and earlier, so the APM advice below applies | Verified for the errata table; Inferred for the advice | (9) errata summary, v3.2 column |
 | Register maps for v3: ESP-IDF's `hw_ver3` headers and the version-3 SVD | Verified (location) | (7), (8) |
+| The v3.x sub-revisions share one hardware design. A v1.x chip and a v3.x chip cannot run the same firmware image. | Verified | (13) "The hardware of different sub-revisions within ESP32-P4 v3.x is fully compatible"; (14) §2.1.2 |
+| A v3.x chip needs a v3.x board: pin 54 changed from not connected to `VDD_HP_1`, and the DCDC circuit gained parts | Verified | (14) §2.1.1. Whether the owner's board is that design is not checked. |
+| The v3.2 ROM powers the flash on by itself for a download. esptool needs v5.3.dev3 or v4.12.dev2, or later. | Verified | (13) §1. Whether `espflash` can flash a v3.2 chip is **unverified**. |
+| v3.2 fixes a ROM fault in the RTC watchdog setup: on v3.1 and earlier the timeout is twice the configured value. Firmware that always compensates waits half as long on v3.2 and can reset during boot. | Verified | (13) §2. Check how the chosen HAL sets the LP watchdog. |
+| v3.x has 32 PMP entries, 8 address ranges in the peripheral APM (was 2), and a separate RNG module with its own permission bit | Verified (as declared) | (14) §1.1, §1.11, §1.18 |
+
+## Rust `no_std` support (esp-hal)
+
+What Espressif's Rust HAL offers for this chip. A driver marked supported is the
+project's own claim; nobody has run it on the owner's board.
+
+| Fact | Status | Evidence |
+| --- | --- | --- |
+| The Rust target for the HP cores is `riscv32imafc-unknown-none-elf`, the target `firmware/rust-toolchain.toml` installs | Verified | (11) `[device] target` |
+| esp-hal supports the P4 at chip revision v3.0 and later only. It refuses to run on a lower revision by default. | Verified | (11) `support_note = "Revisions below v3.0 are not supported."`; (12) feature `esp32p4`, "chip revision >= v3.x", and `ESP_HAL_CONFIG_MIN_CHIP_REVISION` default 300 |
+| Newest release: esp-hal 1.2.2 (2026-09-18), with the `esp32p4` feature, licence MIT OR Apache-2.0, minimum Rust 1.95.0 (the workspace pins 1.97.0) | Verified | crates.io registry record, read 2026-11-14; checksum `c9e3dfd511fed638fe41fdb4595f8c7f0cbb488d0f0cf2bbc063d76d805057cf` |
+| Marked **supported**: GPIO, UART, SPI master, I2C master. In 1.2.0 these are stable API, with `rng`, `efuse`, `clock` and `time`. | Verified (as declared) | (11) `support_status`; (12) module list |
+| Marked **partial**, and unstable API in 1.2.0: SD/MMC host, PSRAM, flash, DMA, timers, USB, MIPI-DSI, sleep, and the SHA, AES, ECC and RSA accelerators | Verified (as declared) | (11); (12). SD/MMC lacks 1.8 V signalling and delay tuning (esp-hal issue 6774, read 2026-11-14). |
+| The RNG driver is partial: its read throttling is not tuned for the P4 and nothing tests the quality of its output. It reads the `LP_TRNG` block. | Verified (as declared) | (11) `[device.rng]`, `{ name = "RNG", pac = "LP_TRNG" }`; esp-hal issue 5979, read 2026-11-14 |
+| **There is no camera driver.** `camera`, `mipi_csi` and `isp` are `not_supported`, so a `no_std` esp-hal firmware cannot read the board's camera. `hmac`, `ds`, `ecdsa` and `key_manager` are not supported either. | Verified | (11); (12) lists no camera, CSI or ISP module |
+| esp-hal turns PMP protection on by default (`ESP_HAL_CONFIG_ENABLE_PMP`, an unstable option) | Verified (as declared) | (12). Which regions it protects is **not reviewed**. |
 
 ## Facts
 

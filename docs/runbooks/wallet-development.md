@@ -38,8 +38,10 @@ arbitrary files, run those checks, start an agent or grant approval.
 The selected board is **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5**. The intended
 chip revision is **v3.2**; the owner's physical unit and PCB revision have not
 been identified. Check them before applying a schematic or chip erratum. The
-owner states the unit carries the 5 MP OV5647 camera; whether a `no_std` stack
-can drive it, and several production interface choices, remain unresolved.
+owner states the unit carries the 5 MP OV5647 camera. No `no_std` Rust driver
+can read it yet (see the
+[chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md)),
+and several production interface choices remain unresolved.
 
 Use [device-references](../../.github/skills/device-references/SKILL.md) as the
 source index. It distinguishes checked source facts, inference, and unknowns.
@@ -90,10 +92,13 @@ This is a dependency order, not approval to implement every stage:
    Build on them; do not write a second parser or digest.
 2. Specify a narrow signing policy and its rejection table. Resolve policy
    choices before implementing the signing boundary.
+   [ADR 0004](../decisions/0004-first-signing-scope.md) proposes both. Read its
+   status line first: a proposal the owner has not accepted permits no code.
 3. Build bounded parsing and policy checks in the hardware-independent core;
    add reviewed key derivation and signing using public test vectors.
 4. Establish the exact board, camera, chip revision, HAL support and isolation
-   evidence. Bring up display, touch and camera in separate tasks with no secrets.
+   evidence. Bring up each peripheral in its own task with no secrets. The
+   camera has no `no_std` driver yet.
 5. Connect bounded transport, transaction display, explicit user approval and
    signing. Test cancellation and failure paths before release work.
 6. Verify the complete device and release process separately. Host tests alone

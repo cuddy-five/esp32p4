@@ -54,4 +54,4 @@ This profile pins `claude-sonnet-5.5`, a different family from the coding agents
    - **Panic-Free Hostile Input Parsing**: Confirm zero `unwrap()`, `expect()`, or `[i]` slice indexing on camera QR frames, CBOR, or PSBTs.
 
 ## Output Specification
-In manual mode, return findings in plain language without modifying repository files. Your shell can write files, so a tool list or policy declaration alone does not enforce that boundary. When the owner requests formal records or the applicable review-domain policy requires them, return a security review contract for the coordinator to save and validate; preserve your authorship and read-only boundary.
+In manual mode, return findings in plain language without modifying repository files. Your shell can write files, so a tool list or policy declaration alone does not enforce that boundary. When the owner requests formal records or the applicable review-domain policy requires them, return a review contract with `review_kind: "security"` for the coordinator to save and validate; preserve your authorship and read-only boundary. A review of another kind does not count as the security review.

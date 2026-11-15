@@ -5,7 +5,8 @@ The owner's board: bought before 2026-10-26 and named again as the target on
 applying these sources. The recorded target **v3.2 is the ESP32-P4 chip
 revision**, not a confirmed PCB revision. The owner states that the unit
 carries the installed 5 MP OV5647 camera. Nobody has checked that on the
-device, and whether a `no_std` Rust stack can drive it is an open question.
+device. No `no_std` Rust driver for the camera interface exists yet (see the
+facts below), so firmware cannot use the camera today.
 
 Retrieved 2026-11-03.
 
@@ -32,7 +33,11 @@ Retrieved 2026-11-03.
    https://github.com/waveshareteam/Waveshare-ESP32-components/tree/3812a4c6146ccba2448695f3df7f24b9d9be1d34/bsp/esp32_p4_wifi6_touch_lcd_3_5
    (Apache-2.0). Its header `include/bsp/esp32_p4_wifi6_touch_lcd_3_5.h` was
    read on 2026-11-03. It defines the display, touch, audio, I2C and microSD
-   pins, and no ESP32-C6 or AXP2101 pins.
+   pins, and no ESP32-C6 or AXP2101 pins. Read again on 2026-11-14 with
+   `include/bsp/display.h` and the driver source `esp32_p4_wifi6_touch_lcd_3_5.c`
+   (SHA-256: header `e2e80d2ea7a12768186a50ccbed8ccd4f2bcc7ec687d68030e73366fc1cd8a16`,
+   `display.h` `342956b064ac5f176f0c584721dc80bf64d557334b0e664876e16e1960fd7905`,
+   source `f2a69a92e3fa305d84336bd25837f2b2c060f8df62280797cc52bc94f3ae98c3`).
 
 ## Facts
 
@@ -54,5 +59,8 @@ Retrieved 2026-11-03.
 | **How to keep the ESP32-C6 radio off: remove the C6, or its antenna feed** | **Owner decision (2026-11-03); not done yet** | GPIO54 control is software-only, the pull-up enables the C6 whenever the P4 is not driving it, and its supply cannot be cut separately (rows above). Removing the chip is stronger than removing the antenna feed, which leaves the C6 running. Rework and checks: [#21](https://github.com/cuddy-five/esp32p4/issues/21). |
 | The ESP32-C6's UART0 (`C6_U0TXD`, `C6_U0RXD`) and `C6_IO9` (its boot-mode strapping pin) reach a pin header beside P4 GPIO31-33 | Inferred (schematic labels); not checked visually | (2): those labels sit in the header's pin column, numbered 25-30. Anyone with header access could reflash the C6. |
 | Which camera module the device uses | **Owner statement (2026-10-26); not checked on the device** | The 5 MP OV5647, installed on the purchased unit. Read the module marking and a boot log before relying on it. |
-| Whether a `no_std` Rust stack can drive the camera over MIPI-CSI | **Unverified** | A session on 2026-10-26 read esp-hal's support table as marking ESP32-P4 MIPI-CSI unsupported. No commit was pinned; read the table again before planning camera work. |
-| Full GPIO map, power-rail map and P4 debug/UART exposure | **Unverified** | Not traced. Render (2) with `pdftoppm -r 400` and follow the nets. |
+| **No `no_std` Rust driver can read the camera.** esp-hal marks `camera`, `mipi_csi` and `isp` as not supported on the ESP32-P4. | Verified | [Chip file](chip-esp32-p4.md#rust-no_std-support-esp-hal), source (11), esp-hal `c72d6805` (2026-11-13). Read that file again before planning camera work. |
+| Display wiring as the vendor's code sets it: ST7796 on `SPI2`, SPI mode 3, 80 MHz; MOSI GPIO20, clock GPIO21, chip select GPIO23, data/command GPIO26, reset GPIO27, backlight GPIO28, no MISO. 320×480, 16-bit RGB565 sent big-endian, BGR order, colours inverted, X mirrored. | Verified (as declared) | (3) header lines 49-55 and 250; `display.h` lines 11-20; source lines 431-463. Not traced on the schematic and not measured. |
+| Touch wiring as the vendor's code sets it: I2C SCL GPIO8, SDA GPIO7; touch reset GPIO29, interrupt GPIO50; the vendor uses its `ft5x06` driver for the FT6336 | Verified (as declared) | (3) header lines 38-39, 56-57; source lines 513-516. Not traced or measured. |
+| microSD wiring as the vendor's code sets it: SD/MMC slot 0, 4-bit; clock GPIO43, command GPIO44, data GPIO39-42. **The card is powered through the chip's on-chip LDO channel 4**, which a driver must switch on first. | Verified (as declared) | (3) header lines 60-65; source lines 140-159 (`ldo_chan_id = 4`). Not traced or measured. |
+| The rest of the GPIO map, the power-rail map and P4 debug/UART exposure | **Unverified** | Not traced. Render (2) with `pdftoppm -r 400` and follow the nets. |

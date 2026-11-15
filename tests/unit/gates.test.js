@@ -7,6 +7,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import YAML from "yaml";
 import { evaluateTransition, IMPLEMENTED_GATES } from "../../src/lib/gates.js";
+import { ContractRegistry } from "../../src/lib/contracts.js";
 import { parseApprovalComments } from "../../src/lib/approval-comments.js";
 import { main } from "../../src/cli.js";
 import { discoverTask, RECORDS_ROOT } from "../../src/lib/task-records.js";
@@ -111,6 +112,101 @@ test("self-review fails for plans, code and verification", () => {
   const verifySelf = packet();
   verifySelf.find((d) => d.id === "evidence_verifier_0001").producer = { kind: "agent", name: "Implementer", role: "verifier" };
   assert.match(gate(run(verifySelf), "verification_passed").reason, /produced by implementer/);
+});
+
+test("a plan objection survives another reviewer's approval and a later code commit", () => {
+  for (const verdict of ["block", "request_changes"]) {
+    const docs = packet();
+    const objection = docs.find((d) => d.review_kind === "plan");
+    objection.verdict = verdict;
+    docs.push({
+      ...structuredClone(objection), id: "review_plan_other", created_at: "2026-10-12T00:20:00Z",
+      producer: { kind: "agent", name: "other-reviewer", role: "reviewer" },
+      verdict: "approve", subject: { sha: NEW_HEAD },
+    });
+    for (const transition of [{}, { from: "planning", to: "in_progress" }, { from: "planning", to: "awaiting_approval" }]) {
+      const report = run(docs, { ...transition, headSha: NEW_HEAD });
+      assert.equal(gate(report, "plan_reviewed").pass, false, `${verdict}: approval must not outvote an objection`);
+      assert.match(gate(report, "plan_reviewed").reason, /conflicting plan reviews.*plan-reviewer/);
+    }
+    // Abstaining is not a withdrawal of the earlier objection.
+    docs.push({ ...structuredClone(objection), id: "review_plan_abstain", created_at: "2026-10-12T00:15:00Z", verdict: "abstain" });
+    assert.equal(gate(run(docs), "plan_reviewed").pass, false);
+    // The objector can clear its own objection without a third reviewer outvoting it.
+    docs.push({ ...structuredClone(objection), id: "review_plan_resolved", created_at: "2026-10-12T00:30:00Z", verdict: "approve_with_comments" });
+    assert.equal(gate(run(docs), "plan_reviewed").pass, true);
+  }
+});
+
+test("plan objections apply only to the current plan and exclude the planner", () => {
+  const docs = packet();
+  const plan = docs.find((d) => d.contract === "plan");
+  const review = docs.find((d) => d.review_kind === "plan");
+  docs.push({ ...structuredClone(review), id: "review_old_plan_block", created_at: "2026-10-12T00:20:00Z", verdict: "block" });
+  const replacement = { ...structuredClone(plan), id: "plan_replacement", supersedes: plan.id, created_at: "2026-10-12T00:25:00Z" };
+  docs.push(replacement, { ...structuredClone(review), id: "review_new_plan", plan_id: replacement.id, created_at: "2026-10-12T00:30:00Z" });
+  assert.equal(gate(run(docs), "plan_reviewed").pass, true, "a new plan needs its own review");
+  docs.pop();
+  assert.equal(gate(run(docs), "plan_reviewed").pass, false, "old plan approval cannot approve a replacement");
+
+  for (const producer of [{ kind: "agent", name: "planner", role: "reviewer" }, { kind: "agent", name: "other-name", role: "planner" }]) {
+    const self = packet();
+    self.push({ ...structuredClone(review), id: "review_self_objection", created_at: "2026-10-12T00:05:00Z", producer, verdict: "block" });
+    assert.equal(gate(run(self), "plan_reviewed").pass, true, "a planner cannot supply an independent objection");
+  }
+});
+
+test("no blocking review is skipped: it stands until its own reviewer approves that commit", () => {
+  // The example task is low risk and touches no security domain, so policy asks for a code review only.
+  const roles = { code: "reviewer", security: "security_auditor", architecture: "reviewer", verification: "verifier" };
+  for (const [kind, role] of Object.entries(roles)) {
+    for (const verdict of ["block", "request_changes"]) {
+      const why = `${kind} ${verdict}`;
+      const failing = kind === "verification" ? "verification_passed" : "reviews_approve";
+      const objection = {
+        ...example("review"), id: `review_${kind}_objection`, created_at: "2026-10-12T01:10:00Z",
+        producer: { kind: "agent", name: `strict-${kind}`, role }, review_kind: kind, verdict, budget_used: { tokens: 1 },
+      };
+      const docs = [...packet(), objection];
+      assert.equal(run(docs).ok, false, `${why}: a written objection fails the merge decision, required or not`);
+      assert.equal(gate(run(docs), failing).pass, false, why);
+
+      // Abstaining withdraws nothing, and another reviewer's approval cannot outvote it.
+      docs.push({ ...structuredClone(objection), id: `review_${kind}_abstain`, created_at: "2026-10-12T01:11:00Z", verdict: "abstain" });
+      docs.push({
+        ...structuredClone(objection), id: `review_${kind}_other`, created_at: "2026-10-12T01:12:00Z",
+        producer: { kind: "agent", name: `lenient-${kind}`, role }, verdict: "approve",
+      });
+      assert.equal(run(docs).ok, false, `${why}: abstaining plus another approval must not clear it`);
+      assert.match(gate(run(docs), failing).reason, new RegExp(`${objection.id}.* ${verdict}`), why);
+
+      // Only the objector's own approval of the same commit clears it.
+      docs.push({ ...structuredClone(objection), id: `review_${kind}_resolved`, created_at: "2026-10-12T01:13:00Z", verdict: "approve_with_comments" });
+      const cleared = run(docs);
+      assert.equal(cleared.ok, true, `${why}: ${JSON.stringify(cleared.gates.filter((g) => !g.pass))}`);
+    }
+  }
+});
+
+test("a record the gates cannot place is an error, not a skipped review", () => {
+  const contracts = new ContractRegistry();
+  const blocking = (over) => ({
+    ...example("review"), id: "review_unplaced", created_at: "2026-10-12T01:10:00Z",
+    producer: { kind: "agent", name: "strict-reviewer", role: "reviewer" }, verdict: "block", budget_used: { tokens: 1 }, ...over,
+  });
+  const noKind = blocking();
+  delete noKind.review_kind;
+  const noPlan = blocking({ review_kind: "plan" });
+  delete noPlan.plan_id;
+  const blankName = blocking({ producer: { kind: "agent", name: "  ", role: "reviewer" } });
+  for (const [doc, message] of [
+    [noKind, /review review_unplaced\): no review_kind/],
+    [noPlan, /a plan review must name its plan_id/],
+    [blankName, /producer\.name is blank/],
+  ]) {
+    assert.equal(contracts.validate(doc).ok, true, "the schema accepts it, so the gate must refuse it");
+    assert.throws(() => run([...packet(), doc]), message);
+  }
 });
 
 test("out-of-scope work fails whether paths come from git or evidence", () => {

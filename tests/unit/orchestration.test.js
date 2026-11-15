@@ -559,9 +559,10 @@ describe("loader-enforced invariants", () => {
     }
   });
 
-  test("prompts, hooks, review domains, registries, glossary and decisions are protected paths", () => {
+  test("prompts, hooks, check scripts, review domains, registries, glossary and decisions are protected paths", () => {
     const { approvals } = checkPolicies();
-    for (const file of [".github/prompts/review.prompt.md", ".github/hooks/tool-policy.json", "scripts/hooks/pre-tool.js",
+    // scripts/gates holds what the required `firmware` check runs; weakening it weakens the check.
+    for (const file of [".github/prompts/review.prompt.md", ".github/hooks/tool-policy.json", "scripts/hooks/pre-tool.js", "scripts/gates/firmware-check.sh",
       ".review-domains.json", ".gitattributes", ".agents.registry.json", ".skills.registry.json", ".workflows.registry.json",
       "GLOSSARY.md", "docs/decisions/0003-agent-operating-limits.md"]) {
       assert.deepEqual(requiredHumanStages(approvals, { risk: { level: "low" }, paths: [file] }).stages, ["plan", "merge"], file);

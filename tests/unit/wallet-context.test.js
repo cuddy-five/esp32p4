@@ -52,11 +52,17 @@ test("source routing separates signing rules from peripheral work", () => {
   assert.match(signing, /scripts\/unified_sighash_check\.py/);
   assert.doesNotMatch(signing, /references\/board-waveshare/);
   assert.match(signing, /signing policy/);
+  // The owner's scope decision travels with signing and interface work, and
+  // says in the same line that a proposal is not yet permission.
+  for (const topic of ["signing", "interface"]) {
+    assert.match(buildWalletContext(topic), /docs\/decisions\/0004-first-signing-scope\.md — .*until its status line says accepted/);
+  }
 
   const hardware = buildWalletContext("hardware");
   assert.match(hardware, /references\/chip-esp32-p4\.md/);
   assert.match(hardware, /references\/board-waveshare/);
   assert.doesNotMatch(hardware, /scripts\/unified_sighash_check\.py/);
+  assert.doesNotMatch(hardware, /docs\/decisions\/0004/);
   assert.match(hardware, /device measurements/);
 
   const integration = buildWalletContext("integration");

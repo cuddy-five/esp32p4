@@ -112,6 +112,81 @@ test("another reviewer's approval does not outvote an objection at the same comm
   assert.equal(gate(docs, "reviews_approve").pass, true);
 });
 
+test("task status agrees with the gate on objections policy did not require or that were abstained from", () => {
+  // A security auditor blocks a low-risk task: the review was optional, the objection is not.
+  const audited = [...packet(), { ...codeReview("review_sec_block_1", "auditor", "block"), review_kind: "security", producer: { kind: "agent", name: "auditor", role: "security_auditor" } }];
+  assert.match(gate(audited, "reviews_approve").reason, /unresolved objection .*security review review_sec_block_1 by "auditor" block/);
+  const r = assess(audited);
+  assert.equal(r.state, "in_review");
+  assert.equal(r.next_role, "implementer");
+  assert.match(r.next_actions[0], /implementer: repair the findings in review_sec_block_1 \(round 1 of 2\)/);
+  assert.doesNotMatch(r.next_actions.join("\n"), /human: read the reviews/);
+
+  // The objector abstains, then the first reviewer approves again: still a conflict for the coordinator.
+  const abstained = [
+    ...packet(),
+    codeReview("review_code_block_1", "reviewer-a", "block", HEAD, "2026-10-12T01:10:00Z"),
+    codeReview("review_code_abstain_1", "reviewer-a", "abstain", HEAD, "2026-10-12T01:11:00Z"),
+    codeReview("review_code_ok_again", "reviewer", "approve", HEAD, "2026-10-12T01:12:00Z"),
+  ];
+  assert.equal(gate(abstained, "reviews_approve").pass, false);
+  const c = assess(abstained);
+  assert.equal(c.next_role, "coordinator");
+  assert.deepEqual(c.objections.map((o) => [o.id, o.kind, o.conflict]), [["review_code_block_1", "code", true]]);
+
+  // An architecture review is read at the review stage like a code review.
+  const design = [...packet(), { ...codeReview("review_arch_block_1", "architect", "request_changes"), review_kind: "architecture" }];
+  assert.equal(assess(design).next_role, "implementer");
+  assert.equal(assess(design).repair.used, 1);
+});
+
+test("plan conflicts route to the coordinator in either review order and count adjudication", () => {
+  for (const at of ["2026-10-12T00:05:00Z", "2026-10-12T00:15:00Z"]) {
+    const docs = packet();
+    const review = docs.find((d) => d.review_kind === "plan");
+    const objection = {
+      ...structuredClone(review), id: "review_plan_block", created_at: at,
+      producer: { kind: "agent", name: "plan-objector", role: "reviewer" },
+      verdict: "block", subject: { sha: SHA_B },
+    };
+    docs.push(objection);
+    const r = assess(docs);
+    assert.equal(r.state, "planning");
+    assert.equal(r.next_role, "coordinator");
+    assert.equal(r.objections[0].kind, "plan");
+    assert.equal(r.objections[0].conflict, true);
+    assert.match(r.next_actions[0], /plan reviews conflict.*run 1 independent adjudication/);
+    assert.equal(r.repair.used, 0, "plan reviews are not code repair rounds");
+    assert.doesNotMatch(r.next_actions.join("\n"), /human: read the reviews|implementer: repair/);
+
+    docs.push({ ...structuredClone(objection), id: "review_plan_abstain", created_at: "2026-10-12T00:18:00Z", verdict: "abstain" });
+    assert.equal(assess(docs).next_role, "coordinator");
+    assert.equal(assess(docs).objections[0].id, objection.id, "abstaining leaves the blocking review unresolved");
+
+    docs.push({ ...structuredClone(review), id: "review_plan_adjudication", created_at: "2026-10-12T00:20:00Z", producer: { kind: "agent", name: "adjudicator", role: "reviewer" } });
+    assert.match(assess(docs).next_actions[0], /after 1 adjudication review, the limit; escalate conflicting_reviews/);
+    docs.push({ ...structuredClone(objection), id: "review_plan_resolved", created_at: "2026-10-12T00:30:00Z", verdict: "approve" });
+    assert.equal(assess(docs).next_role, "human");
+    assert.deepEqual(assess(docs).objections, []);
+  }
+});
+
+test("an unopposed plan rejection returns to the planner, and a replacement drops old objections", () => {
+  const docs = packet();
+  const plan = docs.find((d) => d.contract === "plan");
+  const review = docs.find((d) => d.review_kind === "plan");
+  review.verdict = "request_changes";
+  const r = assess(docs);
+  assert.equal(r.next_role, "planner");
+  assert.equal(r.objections[0].conflict, false);
+  assert.match(r.next_actions[0], /planner: repair the findings in review_plan_0001/);
+  assert.equal(r.repair.used, 0);
+  docs.push({ ...structuredClone(plan), id: "plan_replacement", supersedes: plan.id, created_at: "2026-10-12T00:20:00Z" });
+  const replacement = assess(docs);
+  assert.equal(replacement.next_role, "reviewer", "an old rejection must not route a new plan to repair");
+  assert.deepEqual(replacement.objections, []);
+});
+
 test("a record delivered twice counts once; two different records under one id are an error", () => {
   const docs = packet();
   docs.push(structuredClone(docs[5]));

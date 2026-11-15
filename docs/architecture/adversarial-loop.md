@@ -138,10 +138,22 @@ Reasons that must escalate rather than be worked around: budget exceeded,
 policy violation, ambiguous requirements, repeated failure, security
 concern, human approval required, scope expansion, external dependency,
 conflicting reviews. A third repair round is refused (`repeated_failure`).
-An objection at a commit is cleared only by its own reviewer or a new
-commit; when another reviewer approves the same commit, one independent
-adjudication runs, then `conflicting_reviews` goes to the human. A record
-delivered twice counts once; two different records under one id stop the gate.
+No blocking review is skipped. A `block` or `request_changes` stands until
+the same reviewer approves the same subject; abstaining, another reviewer's
+approval and a majority do not withdraw it. It stands whether or not policy
+required that kind of review: a security auditor's block on a low-risk task
+fails `reviews_approve`. An implementation objection follows the commit, so a
+new commit starts clean. A plan objection follows the current plan id: a
+replacement plan with its own independent review starts clean, and a new code
+commit does not. When reviewers disagree on the same subject, one independent
+adjudication runs, then `conflicting_reviews` goes to the human. `task status`
+routes that conflict to the coordinator; an unopposed plan rejection returns
+to the planner. Plan reviews do not count as implementation repair rounds.
+
+The gates stop on a record they cannot place instead of leaving it out: a
+review with no `review_kind`, a plan review with no `plan_id`, or a blank
+`producer.name`. The schemas allow all three. A record delivered twice counts
+once; two different records under one id also stop the gate.
 
 ## Where the human sits
 
@@ -171,12 +183,12 @@ or rollback exists yet.
 | Gate | Holds when | Implemented by |
 |---|---|---|
 | `task_valid`, `plan_valid` | Document validates; exactly one current plan | `gate check`; `control-plane validate` for one file |
-| `plan_reviewed` | A plan review from a non-planner approves | `gate check` |
+| `plan_reviewed` | Latest review of the current plan approves, is not by the planner, and no independent reviewer has an unresolved objection to that plan | `gate check` |
 | `approval_required` / `approval_not_required` | Plan stage requires / does not require a human | `gate check`; `policy stages` shows the stages alone |
 | `approval_granted` | An overseer's unedited `/approve` PR comment covers this task, plan, stage and, at merge, the head commit | `gate check --pr` |
 | `evidence_collected`, `within_scope`, `within_budget` | Evidence for the head SHA; no changed path outside the task scope; `budget_used` ≤ `task.budget` | `gate check`; `evidence --base --run` produces the evidence |
-| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no other reviewer's latest review of that commit objects | `gate check` |
-| `verification_passed` | Verifier's own evidence green and verification review approves | `gate check` |
+| `reviews_approve` | Latest code review approves; a security review also approves when risk is medium or above, or when an enabled `.review-domains.json` domain names the security auditor for a changed path; reviewers distinct from implementer; no reviewer has an unresolved code, security or architecture objection at that commit, required or not | `gate check` |
+| `verification_passed` | Verifier's own evidence green, latest verification review approves, and no other verifier has an unresolved objection at that commit | `gate check` |
 | `no_open_escalation` | No escalation open or acknowledged, and no overseer `/halt` in force (latest `/halt` or `/resume` PR comment; a halt counts edited or naming another task, a resume only exact and unedited) | `gate check --pr`; `task status --pr` |
 | `retry_budget_remaining` | Repair rounds (reviewed commits sent back by a blocking review) do not exceed `limits.repair_rounds` (2) | `gate check`; `task status` reports the count |
 

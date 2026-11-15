@@ -10,12 +10,11 @@
  * escalations, repair rounds against the limit, and duplicate deliveries.
  * Records are claims: they do not show what a worker or GitHub job is doing now.
  */
-import { collectPacket, evaluateTransition, haltInForce, implementerNames, openObjections, repairRounds, sortControls } from "./gates.js";
+import { collectPacket, evaluateTransition, haltInForce, headReviewState, implementerNames, planReviewState, repairRounds, REVIEW_STAGE_KINDS, sortControls } from "./gates.js";
 import { loadStateMachine } from "./orchestration.js";
 
 const OPEN_ESCALATION = new Set(["open", "acknowledged"]);
 const APPROVING = new Set(["approve", "approve_with_comments"]);
-const BLOCKING = new Set(["request_changes", "block"]);
 const nameOf = (doc) => String(doc?.producer?.name ?? "").trim().toLowerCase();
 const DONE_OUTCOMES = new Set(["success", "partial"]);
 const short = (sha) => (typeof sha === "string" ? sha.slice(0, 12) : String(sha));
@@ -82,24 +81,24 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     actions.push(`${kind.role}: redo the ${kind.label} for ${short(headSha)}; ${newest.id} covers ${short(newest.subject.sha)}`);
   }
 
-  // Objections at the head. Another reviewer's approval does not clear one: that is a conflict.
+  // Plan objections follow the current plan id; implementation objections follow
+  // the head. An objection stands until its own reviewer approves that subject;
+  // a conflict needs another reviewer who approves it.
   const objections = [];
-  for (const kind of ["code", "security", "verification"]) {
-    // Each reviewer's latest verdict at the head; a conflict needs another reviewer who approves.
-    const latestBy = new Map();
-    for (const r of packet.reviews) {
-      if (r.review_kind === kind && r.subject.sha === headSha && !implementers.has(nameOf(r)) && r.producer?.role !== "implementer") latestBy.set(nameOf(r), r);
-    }
-    // Two reviewers make a conflict; every further reviewer of the same commit is an adjudication.
-    const adjudicated = Math.max(0, latestBy.size - 2);
-    for (const r of openObjections(packet.reviews, kind, headSha, implementers)) {
-      const conflict = [...latestBy.values()].some((o) => nameOf(o) !== nameOf(r) && APPROVING.has(o.verdict));
-      objections.push({ id: r.id, kind, verdict: r.verdict, by: r.producer?.name ?? null, conflict, ...(conflict ? { adjudications: adjudicated } : {}) });
+  const planState = planReviewState(packet);
+  for (const kind of ["plan", ...REVIEW_STAGE_KINDS, "verification"]) {
+    const { reviewers, objections: blocked } = kind === "plan" ? planState : headReviewState(packet.reviews, kind, headSha, implementers);
+    // Two reviewers make a conflict; every further reviewer of the same subject is an adjudication.
+    const adjudicated = Math.max(0, reviewers.length - 2);
+    for (const r of blocked) {
+      const conflict = reviewers.some((o) => nameOf(o) !== nameOf(r) && APPROVING.has(o.verdict));
+      objections.push({ id: r.id, kind, verdict: r.verdict, by: r.producer?.name ?? null, conflict, ...(kind === "plan" ? { plan_id: planState.plan.id } : {}), ...(conflict ? { adjudications: adjudicated } : {}) });
     }
   }
   const adjudications = sm.doc?.limits?.adjudication_attempts;
   for (const o of objections.filter((x) => x.conflict)) {
-    const conflict = `${o.kind} reviews conflict at ${short(headSha)} (${o.id} by ${o.by} ${o.verdict}, another reviewer approves)`;
+    const subject = o.kind === "plan" ? `for ${o.plan_id}` : `at ${short(headSha)}`;
+    const conflict = `${o.kind} reviews conflict ${subject} (${o.id} by ${o.by} ${o.verdict}, another reviewer approves)`;
     actions.push(Number.isInteger(adjudications) && o.adjudications >= adjudications
       ? `coordinator: ${conflict} after ${o.adjudications} adjudication review${o.adjudications === 1 ? "" : "s"}, the limit; escalate conflicting_reviews to the human and start no further review`
       : `coordinator: ${conflict}; run ${adjudications ?? "the agreed"} independent adjudication, then escalate conflicting_reviews to the human`);
@@ -108,7 +107,9 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
   // Repair rounds: blocking reviews send work back; past the limit only the human decides.
   const used = repairRounds(packet, implementers);
   const exhausted = Number.isInteger(limit) && used > limit;
-  const toRepair = objections.filter((o) => !o.conflict);
+  const planRepairs = objections.filter((o) => o.kind === "plan" && !o.conflict);
+  if (planRepairs.length) actions.push(`planner: repair the findings in ${planRepairs.map((o) => o.id).join(", ")}; publish a replacement plan and obtain its independent review`);
+  const toRepair = objections.filter((o) => o.kind !== "plan" && !o.conflict);
   if (exhausted) actions.push(`coordinator: repair limit reached (${used} rounds, limit ${limit}); escalate repeated_failure to the human, start no further round`);
   else if (toRepair.length) actions.push(`implementer: repair the findings in ${toRepair.map((o) => o.id).join(", ")} (round ${used} of ${limit ?? "?"})`);
 
@@ -128,9 +129,12 @@ export function assessTask(docs, { headSha, now = Date.now(), changedPaths, cont
     nextRole = role;
     source = failing.has(gate) ? `gate ${gate}: ${failing.get(gate)}` : "every merge-decision gate except the human approval passes";
     const objects = (kinds) => objections.filter((o) => kinds.includes(o.kind));
-    if (gate === "plan_reviewed" && BLOCKING.has(packet.reviews.filter((r) => r.review_kind === "plan").at(-1)?.verdict)) nextRole = "planner";
+    if (gate === "plan_reviewed") {
+      if (objects(["plan"]).some((o) => o.conflict)) nextRole = "coordinator";
+      else if (objects(["plan"]).length) nextRole = "planner";
+    }
     if (gate === "reviews_approve" || gate === "verification_passed") {
-      const kinds = gate === "reviews_approve" ? ["code", "security"] : ["verification"];
+      const kinds = gate === "reviews_approve" ? REVIEW_STAGE_KINDS : ["verification"];
       if (objects(kinds).some((o) => o.conflict)) nextRole = "coordinator";
       else if (objects(kinds).length) nextRole = "implementer";
       else if (gate === "reviews_approve" && /^(no security review|security review)/.test(failing.get(gate))) nextRole = "security_auditor";
