@@ -82,8 +82,9 @@ Leave unrelated skills unloaded.
   vectors; do not infer protocol behavior from a library's Bitcoin branding.
 - The target is the Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5 with ESP32-P4 silicon
   revision v3.2. Confirm the actual chip and PCB before driver work. The owner
-  states the unit has the 5 MP OV5647 camera installed; esp-hal has no driver
-  for it (chip sheet, 2026-11-14), and device tests remain
+  states the unit has the 5 MP OV5647 camera installed; esp-hal has released
+  no driver for it, so it needs one written for this project (chip sheet,
+  camera section), and device tests remain
   separate requirements. Do not assume the
   chip's ECDSA peripheral supports Bitcoin's secp256k1 or that an RNG capability
   proves the entropy source is active.

@@ -1,16 +1,16 @@
 # ADR 0004: First signing scope
 
-Status: proposed for owner review. Nothing below is decided until the owner
-accepts it, and it permits no firmware work before that.
-Date: 2026-11-14
+Status: accepted. The owner accepted every row unchanged on 2026-11-15
+("accept adr 0004"). Proposed on 2026-11-14.
+Date: 2026-11-15
 
-## What the owner is asked to decide
+## What this decides
 
-Agents cannot write the signing code until the owner says what the device may
-sign ([PROJECT.md](../../PROJECT.md), "Decisions still needed"). This record
-proposes the smallest useful answer: **the first signer handles one ordinary
-kind of payment and refuses everything else.** Accept it, change a row, or
-reject it. Later scopes add to it one decision at a time.
+Agents could not write the signing code until the owner said what the device
+may sign. This record is the smallest useful answer: **the first signer
+handles one ordinary kind of payment and refuses everything else.** Later
+scopes add to it one decision at a time. Changing a row is a new owner
+decision, recorded here with its date.
 
 How a payment reaches the signer: a computer running the fork's node software,
 Bitcoin Knots, builds an unsigned transaction and hands it over in a file
@@ -33,16 +33,16 @@ hands it back. The computer never holds the keys.
   - Its wallet makes P2WPKH addresses by default, from the key path `84h/0h/0h`
     on mainnet and `84h/1h/0h` on test chains (`src/wallet/wallet.h:149`,
     `src/wallet/walletutil.cpp:68-92`).
-- No `no_std` Rust driver can read the board's camera
+- esp-hal has released no driver for the board's camera interface
   ([chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md#rust-no_std-support-esp-hal)).
 
 BIP174 and BIP84 line numbers below refer to `bitcoin/bips` at `ada3419`, the
 commit the [Bitcoin standards](../../.github/skills/device-references/references/bitcoin-standards.md)
 sheet pins. Knots paths refer to the pinned release.
 
-## Proposed scope
+## Scope
 
-| # | Choice | Proposal | Why |
+| # | Choice | Decision | Why |
 | --- | --- | --- | --- |
 | 1 | Coins it spends | Only the device's own P2WPKH coins: the ordinary single-key address that starts `bc1q`. One signature per input. | It is Knots' default address type. It needs one signature algorithm (ECDSA), and 66 of the 166 pinned vectors are for its message type (segwit v0). Taproot, P2SH, legacy and multisig each need a later decision. |
 | 2 | Keys | One seed, with BIP32 keys at the BIP84 path `m/84'/0'/0'/c/i`: `c` is 0 for receiving and 1 for change, and `i` is the address number, below 100,000. | BIP84:38-41, and the path Knots uses. The fork keeps Bitcoin's coin type `0'` and address format, so one seed controls the same addresses on both chains. The bound stops a computer from hiding change at a number no wallet scans. |
@@ -81,16 +81,17 @@ unchanged (BIP174:544-546).
 
 ## Not decided here
 
-- **How a PSBT gets in and out.** The plan in
-  [ADR 0003](0003-agent-operating-limits.md) names the camera, and no `no_std`
-  Rust driver can read it. The choices: a microSD card (esp-hal has a partial
-  SD/MMC driver, the [board reference](../../.github/skills/device-references/references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md)
-  records the vendor's wiring, and a card needs a file-system reader, which is
-  more hostile input); QR codes on the screen, for output only; a camera driver
-  written for this project, which is large; or waiting for esp-hal. USB or UART
-  would end the air gap. Recommended: microSD first, because it is the only
-  two-way path that has a driver today. The scope above does not depend on
-  this choice.
+- **How a PSBT gets in and out.** The owner's plan is the camera: a
+  feasibility report first, then a `no_std` driver written for this project
+  (owner, 2026-10-26, restated 2026-11-15). esp-hal has released no camera
+  driver for this chip, so the driver is project work. The
+  [chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md#camera-input-what-a-driver-can-build-on)
+  lists what it can build on, and nothing is proven on the board. Still open:
+  the QR format for a PSBT too large for one code, and how the signed PSBT
+  gets back (QR codes on the screen keep the same air gap). A microSD card is
+  a fallback, not the plan; the first draft of this record recommended it
+  without the owner's earlier decision in view. USB or UART would end the air
+  gap. The scope above does not depend on this choice.
 - **RDTS limits.** Still deferred to
   [#21](https://github.com/cuddy-five/esp32p4/issues/21).
 - **The seed.** How the user enters or creates it, the entropy source, where
@@ -99,23 +100,21 @@ unchanged (BIP174:544-546).
 - **Rust crates** for secp256k1, BIP32 and BIP39. None is chosen.
 - **Screen wording** and how the user approves.
 
-## If the owner accepts
+## What follows
 
-1. The status line changes to "accepted" with the date, together with any row
-   the owner changed.
-2. First task (firmware, so task records are required): a PSBT version 0
+1. First task (firmware, so task records are required): a PSBT version 0
    reader in `wallet-core` with every rule above that needs no key: format,
    version, size and money limits, hash type and address kinds. It returns a
    summary (outputs and fee) or one refusal.
-3. The owner chooses the Rust crates for secp256k1, BIP32 and BIP39. Rows 2, 5
+2. The owner chooses the Rust crates for secp256k1, BIP32 and BIP39. Rows 2, 5
    and 7 cannot be built without them.
-4. Second task: key derivation, the ownership and change checks (rows 2, 5 and
+3. Second task: key derivation, the ownership and change checks (rows 2, 5 and
    7) and signing, against the public BIP32, BIP39 and BIP84 vectors, with the
    cross-family review ADR 0003 requires.
-5. Proof that it works with Knots: the pinned release on regtest, with the
+4. Proof that it works with Knots: the pinned release on regtest, with the
    fork scheduled (`-testactivationheight=blake2b@<height>`), creates the PSBT,
    finalizes the result and accepts the transaction. Until a verifier runs
    that, "works with Knots" is unproven.
-6. The interface task also needs two things that never expose a private key:
+5. The interface task also needs two things that never expose a private key:
    showing the account public key, so Knots can watch the wallet, and showing a
    receive address, so the user can check it on the device.

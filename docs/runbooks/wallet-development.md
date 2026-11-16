@@ -38,10 +38,11 @@ arbitrary files, run those checks, start an agent or grant approval.
 The selected board is **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5**. The intended
 chip revision is **v3.2**; the owner's physical unit and PCB revision have not
 been identified. Check them before applying a schematic or chip erratum. The
-owner states the unit carries the 5 MP OV5647 camera. No `no_std` Rust driver
-can read it yet (see the
-[chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md)),
-and several production interface choices remain unresolved.
+owner states the unit carries the 5 MP OV5647 camera. esp-hal has released no
+driver for it, so the plan is a `no_std` driver written for this project (the
+[chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md#camera-input-what-a-driver-can-build-on)
+lists what it can build on). Several production interface choices remain
+unresolved.
 
 Use [device-references](../../.github/skills/device-references/SKILL.md) as the
 source index. It distinguishes checked source facts, inference, and unknowns.
@@ -79,9 +80,11 @@ to turn into runnable tests for that task, not results already achieved.
 For signing policy, parsing success means only that data was decoded. The
 transaction reader in `wallet-core` accepts transactions with no outputs and
 does not enforce monetary bounds. Its digest function accepts more unified hash
-bytes for non-taproot inputs than a wallet should necessarily offer. A later signing-policy task must choose
-and test the permitted modes, amounts, fees, scripts and networks. Do not weaken
-the low-level reference behavior or invent those choices to make tests pass.
+bytes for non-taproot inputs than a wallet should offer.
+[ADR 0004](../decisions/0004-first-signing-scope.md) fixes the permitted modes,
+amounts, fees, scripts and networks; signing-policy tasks enforce them above the
+reader and digest. Do not weaken the low-level reference behavior, and take a
+choice the ADR leaves open to the owner instead of inventing it.
 RDTS handling also remains an owner decision recorded in issue #21.
 
 ## Suggested sequence
@@ -90,15 +93,15 @@ This is a dependency order, not approval to implement every stage:
 
 1. Start from the transaction reader and unified digest in `wallet-core`.
    Build on them; do not write a second parser or digest.
-2. Specify a narrow signing policy and its rejection table. Resolve policy
-   choices before implementing the signing boundary.
-   [ADR 0004](../decisions/0004-first-signing-scope.md) proposes both. Read its
-   status line first: a proposal the owner has not accepted permits no code.
+2. The signing policy and its rejection table are decided:
+   [ADR 0004](../decisions/0004-first-signing-scope.md), accepted 2026-11-15.
+   Build to its tables. A choice it leaves open goes back to the owner.
 3. Build bounded parsing and policy checks in the hardware-independent core;
    add reviewed key derivation and signing using public test vectors.
 4. Establish the exact board, camera, chip revision, HAL support and isolation
    evidence. Bring up each peripheral in its own task with no secrets. The
-   camera has no `no_std` driver yet.
+   camera needs a driver written for this project: boot, then the sensor's
+   chip ID over I2C, then frames, then QR reading, each proven on the board.
 5. Connect bounded transport, transaction display, explicit user approval and
    signing. Test cancellation and failure paths before release work.
 6. Verify the complete device and release process separately. Host tests alone

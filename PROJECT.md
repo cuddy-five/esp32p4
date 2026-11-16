@@ -35,6 +35,8 @@ resuming it; a local note cannot reveal a later halt or changed commit.
 | Requirement | Meaning and source |
 | --- | --- |
 | Unified-only signing | Refuse legacy sighash requests. The [pinned fork rules](.github/skills/device-references/references/fork-rules.md) define the unified message and test vectors. BLAKE2b proof of work does **not** replace the signing hash with BLAKE2b. |
+| First signing scope | [ADR 0004](docs/decisions/0004-first-signing-scope.md), accepted 2026-11-15: the device's own P2WPKH coins only, PSBT version 0, `ALL\|UNIFIED` only, every input or none, one change output it re-derives, fixed size and fee limits. Its refusal table is the test list. Changing a row is an owner decision. |
+| Optical transport | The plan is for PSBTs to reach the device through the camera, read by a `no_std` driver written for this project (owner: feasibility report first, 2026-10-26; restated 2026-11-15). The [chip reference](.github/skills/device-references/references/chip-esp32-p4.md#camera-input-what-a-driver-can-build-on) lists what the driver can build on. Nothing is proven on the board. |
 | Stateless secrets | Do not persist seeds, private keys or signing history. Secret lifetime, cleanup, placement and recovery need explicit design and tests. |
 | Air gap | Firmware must not depend on the onboard C6 or its SDIO link. The owner selected C6 removal or antenna-feed removal; these are different guarantees, neither verified on the device. See the [board reference](.github/skills/device-references/references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md). |
 | Evidence before hardware assumptions | Match the actual chip revision, board wiring and selected libraries to the [device references](.github/skills/device-references/SKILL.md). A source capability is not a device test. |
@@ -50,6 +52,8 @@ Refresh this snapshot before choosing a dependent task.
   pinned Bitcoin Knots release, holds no key and signs nothing. It has run only
   on a development computer. Its one dependency is `bitcoin_hashes` (SHA-256).
   [PR #36](https://github.com/cuddy-five/esp32p4/pull/36) records its reviews.
+- 2026-11-15: no code enforces ADR 0004 yet. The first task under it is the
+  PSBT version 0 reader, with the rules that need no key.
 - The pinned firmware gate checks formatting, lints, host tests and a RISC-V
   library build. There is no bootable wallet image.
 - The `firmware` review domain is `task_required`: a pull request that changes
@@ -62,16 +66,13 @@ Refresh this snapshot before choosing a dependent task.
 
 ## Decisions still needed before dependent implementation
 
-- **First: [ADR 0004](docs/decisions/0004-first-signing-scope.md).** It
-  proposes what the first signer accepts and refuses: script type, key path,
-  PSBT version, hash type, change check, and size, amount and fee limits. It is
-  a proposal until its status line says accepted, and signing work waits for
-  that. The parser and digest helper deliberately do not supply this policy.
-- Choose how a PSBT reaches the device. No `no_std` Rust driver can read the
-  camera (esp-hal, checked 2026-11-14), so optical input cannot be planned on
-  it today. ADR 0004 lists the choices.
-- Confirm on the device: chip and PCB revision, the installed camera, the pin
-  map and the radio rework.
+- Choose the Rust crates for secp256k1, BIP32 and BIP39. ADR 0004 leaves them
+  open, and its key, ownership and change checks cannot be built without them.
+  The PSBT reader that needs no key does not wait for this.
+- Choose the QR format for a PSBT too large for one code, with its limits, and
+  how the signed PSBT gets back.
+- Confirm on the device: chip and PCB revision, the installed camera and its
+  wiring, the pin map and the radio rework.
 - Choose the transaction review UI and what the user must approve on screen.
 - Resolve RDTS applicability from pinned rules; choose entropy conditioning,
   secret-memory placement and cleanup evidence. Camera noise is not assumed safe.

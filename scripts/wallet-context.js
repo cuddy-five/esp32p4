@@ -17,7 +17,7 @@ const SOURCES = Object.freeze({
   toolchain: ["firmware/rust-toolchain.toml", "compiler, components and cross-build target"],
   fork: [`${REFERENCES}fork-rules.md`, "pinned fork rules, vector provenance and uncovered cases"],
   standards: [`${REFERENCES}bitcoin-standards.md`, "primary BIP/RFC sources and vectors"],
-  scope: ["docs/decisions/0004-first-signing-scope.md", "proposed first signing scope and refusals; binds nothing until its status line says accepted"],
+  scope: ["docs/decisions/0004-first-signing-scope.md", "accepted first signing scope (owner, 2026-11-15): what the first signer accepts, and the refusal table that is its test list"],
   chip: [`${REFERENCES}chip-esp32-p4.md`, "silicon revision, errata, Rust HAL driver support, entropy and memory access"],
   board: [`${REFERENCES}board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md`, "board wiring, radio isolation and unknown hardware facts"],
   oracle: [".github/skills/device-references/scripts/unified_sighash_check.py", "independent hash checker; read its assumptions before use"],
