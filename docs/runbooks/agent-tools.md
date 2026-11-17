@@ -123,6 +123,34 @@ security-critical review. After a run that matters, check stderr for `which is n
 `model.call_start` events in `--output-format json` output. The `/model` picker
 shows which models the account has.
 
+### Hooks
+
+`.github/hooks/tool-policy.json` runs `node scripts/hooks/guard.mjs pre-tool-use`
+before every tool call, in Copilot CLI and in cloud agent jobs. Copilot loads
+repository hooks only in trusted folders. Not yet exercised in a live session.
+
+- **Denied:** eFuse writes; reading or printing credentials (`.env`, keys,
+  `gh auth token`, `$…TOKEN`); `/approve` or `/resume` comments, which count as
+  the owner's when posted with their login; merges and pull request approvals;
+  force pushes and pushes to `main`; repository settings, secrets and workflow
+  switches; Bitcoin wallet-secret or spending RPCs outside regtest.
+- **Asked:** flashing or erasing the board, discarding work (`reset --hard`,
+  `clean -f`, …), installs, dependency changes, starting workflows or Copilot
+  sessions, nodes outside regtest, and edits to the guardrails themselves
+  (hooks, check scripts, workflows, policies). Cloud agent and autopilot treat
+  "ask" as "deny".
+- **Stop check:** implementer and rust-coder declare an agent-scoped
+  `agentStop` hook (`guard.mjs stop`, CLI only). Before the agent finishes, it
+  runs `scripts/gates/firmware-check.sh` when the branch changes `firmware/`
+  and `npm test` when it changes the control plane, and returns a failure as the
+  agent's next prompt: three times in a row at most. A passing state is cached;
+  a check whose tools are missing is skipped.
+- The script exits 0 on every path, because Copilot denies a tool call when a
+  `preToolUse` hook crashes; a timeout lets the call through. The patterns stop
+  mistakes, not a determined attacker. Tests: `tests/unit/hooks-guard.test.js`.
+- To pause every hook while debugging, set `"disableAllHooks": true` in
+  `.github/copilot/settings.local.json` (CLI only; keep that file uncommitted).
+
 ## Skills
 
 Skills live in `.github/skills/<name>/SKILL.md`. A skill is written guidance:

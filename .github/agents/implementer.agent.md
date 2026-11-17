@@ -11,6 +11,11 @@ handoffs:
     agent: reviewer
     prompt: 'Independently review the change against the owner request and report concrete findings.'
     send: false
+hooks:
+  agentStop:
+    - type: command
+      command: node scripts/hooks/guard.mjs stop
+      timeoutSec: 600
 include-custom-instructions: true
 ---
 

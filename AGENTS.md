@@ -140,6 +140,12 @@ and settings. `src/` is the CLI and library (plain ESM, Node 20+, no build).
 architecture, threat models, runbooks, and ADRs. Files with a `.disabled`
 suffix are placeholders; enable them only when the task calls for it.
 
+Copilot runs `.github/hooks/tool-policy.json` before every tool call. It denies
+eFuse writes, credential reads, `/approve` comments, merges, force pushes and
+pushes to `main`, and asks before flashing, installs, dependency changes, paid
+runs and guardrail edits. Its reason is the rule: report a denial, never route
+around it. Details: [agent tools](docs/runbooks/agent-tools.md#hooks).
+
 Commands:
 
 ```bash
