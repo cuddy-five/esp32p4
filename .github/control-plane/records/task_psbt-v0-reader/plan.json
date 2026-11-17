@@ -1,0 +1,113 @@
+{
+  "contract": "plan",
+  "schema_version": "1.0.0",
+  "id": "plan_psbt-v0-reader-1",
+  "created_at": "2026-11-17T16:10:00Z",
+  "producer": { "kind": "agent", "name": "claude-code/planner", "role": "planner", "model": "claude-opus-5-5" },
+  "trace": { "correlation_id": "trace_adr-0004-first-signer", "parent_id": "task_psbt-v0-reader" },
+  "task_id": "task_psbt-v0-reader",
+  "summary": "Add three no_std, heap-free modules to `wallet-core`: `psbt` reads BIP174 version 0 structure, `script` names the five output kinds, and `policy` applies ADR 0004's no-key rules and returns a summary or one refusal. The exact public API, check order and key-shape table are below, so the implementer decides no rule and no layout. Tests come from two independent sources: Knots' PSBT vectors at the pinned release, and one base vector built outside the implementation (its bytes are below) that each boundary test changes in exactly one field. The implementer is `rust-coder` (gpt-6-luna); the security audit runs on claude-sonnet-5.5, another family (ADR 0003).",
+  "status": "proposed",
+  "steps": [
+    {
+      "id": "pin-knots-vectors",
+      "description": "Copy Knots `test/functional/data/rpc_psbt.json` unchanged to `firmware/wallet-core/tests/data/rpc_psbt.json`: from the owner's checkout `~/src/bitcoin` (tag v29.4.3.knots20260508), or from https://raw.githubusercontent.com/bitcoinknots/bitcoin/a7c4617524c334f542484bfef3919b9f12573840/test/functional/data/rpc_psbt.json, the only network address this task may use. Check before use: 66,087 bytes, SHA-256 898f22ccc12e2f1f5b4476eb5e742d6fe180b9a38d60c844470d5d72884b140e, git blob 1ccc5e0ba0c1945f243dbedbcc6163b5a202a08d. Add its provenance (commit, path, URL, both hashes, MIT licence, retrieval date) to `tests/data/README.md` in the style of the existing `unified_sighash.json` entry, and a test `the_psbt_fixture_is_the_pinned_knots_file` that fails if the SHA-256 changes. Read the file with `include_str!`; parse it in the test with a small hand-written base64 and JSON-string reader in the test file, not a new dependency.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/tests/data/rpc_psbt.json", "firmware/wallet-core/tests/data/README.md", "firmware/wallet-core/tests/psbt_vectors.rs"],
+      "tests": ["cargo test --manifest-path firmware/Cargo.toml -p wallet-core --locked the_psbt_fixture_is_the_pinned_knots_file"],
+      "risk": "low",
+      "reversible": true
+    },
+    {
+      "id": "psbt-reader",
+      "description": "Add `src/psbt.rs` (`pub mod psbt;` in lib.rs). Public API, exactly: `pub const MAX_PSBT_BYTES: usize = 65_536; pub const MAX_INPUTS: usize = 16; pub const MAX_OUTPUTS: usize = 16;` `pub enum MapRef { Global, Input(usize), Output(usize) }`; `pub enum PsbtError { TooLarge, BadMagic, Truncated, NonCanonicalSize, OversizedLength, DuplicateKey(MapRef), BadKeyData { map: MapRef, key_type: u64 }, BadValue { map: MapRef, key_type: u64 }, NoUnsignedTx, UnsignedTx(TxError), ScriptSigNotEmpty { input: usize }, NotVersion0, TooManyInputs, TooManyOutputs, MissingMap(MapRef), PreviousTxMismatch { input: usize }, TrailingBytes }`, both deriving Debug, Clone, Copy, PartialEq, Eq, with Display and `core::error::Error` like `TxError`; `pub struct Pair<'a> { pub key_type: u64, pub key_data: &'a [u8], pub value: &'a [u8] }`; `#[derive(Debug, Clone, Copy)] pub struct Map<'a>` holding the map's bytes, with `pairs(&self) -> impl Iterator<Item = Pair<'a>>` in stored order, `get(&self, key_type: u64) -> Option<&'a [u8]>` (the value of the pair of that type with empty key data) and `contains(&self, key_type: u64) -> bool` (any pair of that type); `pub struct Psbt<'a>` with `parse(bytes: &'a [u8]) -> Result<Psbt<'a>, PsbtError>`, `bytes()`, `tx() -> &Tx<'a>`, `global() -> Map<'a>`, `input(usize) -> Option<Map<'a>>`, `output(usize) -> Option<Map<'a>>`. Keep the maps as `[&'a [u8]; MAX_INPUTS]` and `[&'a [u8]; MAX_OUTPUTS]`: no Vec, no alloc. Check in this order and return the first failure: (1) length over MAX_PSBT_BYTES: TooLarge; (2) magic 70 73 62 74 ff: BadMagic; (3) global map, pair by pair until the 0x00 separator: compact sizes in shortest form (NonCanonicalSize) and at most 0x02000000 (OversizedLength), as tx.rs reads them; a key is a compact-size length, then a compact-size key type, then key data; the whole key may not repeat within a map (DuplicateKey); then the shape rules below; (4) the unsigned transaction (type 0x00, empty key data): absent NoUnsignedTx; `Tx::parse` failure UnsignedTx(err), so witness form and zero inputs are refused (BIP174:102); any non-empty `script_sig` ScriptSigNotEmpty { input } (Knots src/psbt.h:1081-1086); (5) version (0xFB): a value other than 0 NotVersion0; (6) more than 16 inputs TooManyInputs, more than 16 outputs TooManyOutputs, before any input or output map is read; (7) exactly one map per input, then one per output: bytes that end first MissingMap, plus framing, duplicate and shape rules; (8) for an input with a non-witness UTXO (0x00): `Tx::parse` of the value (a witness-form value is BadValue), SHA-256d of the value equal to outpoint bytes 0..32, and the outpoint index below its output count, else PreviousTxMismatch { input } (BIP174:431; Knots src/psbt.h:1182-1185); (9) bytes after the last map: TrailingBytes. Shape rules (key data / value; any other type, 0xFC proprietary included, is kept unchecked): global 0x00 empty / transaction (BIP174:97), 0x01 78 bytes / 4+4n bytes (BIP174:107), 0xFB empty / 4 bytes (BIP174:117); input 0x00 empty / transaction (BIP174:151), 0x01 empty / 8-byte amount then a compact-size-prefixed script and nothing after (BIP174:161), 0x02 33 or 65 bytes / any (BIP174:171), 0x03 empty / 4 bytes (BIP174:181), 0x04 0x05 0x07 0x08 empty / any (BIP174:191-231), 0x06 33 or 65 bytes / 4+4n bytes (BIP174:211), 0x0a and 0x0c 20 bytes, 0x0b and 0x0d 32 bytes (BIP174:241-271), 0x13 empty / 64 or 65 bytes, 0x14 64 bytes / 64 or 65 bytes, 0x15 33+32m bytes / any, 0x16 32 bytes / any, 0x17 and 0x18 empty / 32 bytes (BIP371:46-96); output 0x00 0x01 empty / any (BIP174:307-317), 0x02 33 or 65 bytes / 4+4n bytes (BIP174:327), 0x05 empty / 32 bytes, 0x06 empty / non-empty, 0x07 32 bytes / any (BIP371:120-140). A key-data failure is BadKeyData, a value failure BadValue. Do not check whether a public key lies on the curve: that needs a secp256k1 crate the owner has not chosen. Do not change tx.rs behaviour; an added read-only accessor is allowed.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/src/psbt.rs", "firmware/wallet-core/src/lib.rs", "firmware/wallet-core/src/tx.rs"],
+      "tests": [
+        "Unit tests in psbt.rs: shortest-form and oversized compact sizes, a key of length 1, the separator, a duplicate key in each kind of map, each shape rule at its exact length and one byte off, each PsbtError variant",
+        "tests/psbt_vectors.rs: every `invalid` and `invalid_with_msg` entry that is valid base64 is refused by policy::check; every `valid` entry parses with Psbt::parse except the zero-input one (BIP174:736), which is UnsignedTx(NoInputsOrWitnessFormat)"
+      ],
+      "depends_on": ["pin-knots-vectors"],
+      "risk": "high",
+      "reversible": true
+    },
+    {
+      "id": "output-kinds",
+      "description": "Add `src/script.rs` (`pub mod script;`): `#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum OutputKind { P2wpkh, P2wsh, P2tr, P2pkh, P2sh }` and `pub fn classify(script: &[u8]) -> Option<OutputKind>`, matching whole scripts only: P2WPKH 00 14 <20 bytes> (22 bytes), P2WSH 00 20 <32> (34), P2TR 51 20 <32> (34), P2PKH 76 a9 14 <20> 88 ac (25), P2SH a9 14 <20> 87 (23). Everything else, other witness versions and OP_RETURN included, is None (ADR 0004 row 6). Address text for the screen is a later task.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/src/script.rs", "firmware/wallet-core/src/lib.rs"],
+      "tests": ["Unit tests in script.rs: each template accepted at its exact length, refused one byte shorter and one longer, with one changed opcode, and witness versions 0 and 1 with the other program length"],
+      "risk": "medium",
+      "reversible": true
+    },
+    {
+      "id": "first-signer-policy",
+      "description": "Add `src/policy.rs` (`pub mod policy;`): `pub const MAX_MONEY: u64 = 2_100_000_000_000_000;` (Knots src/consensus/amount.h:26) `pub const MAX_FEE: u64 = 10_000_000;` (ADR 0004 row 9) `pub const UNIFIED_ALL: u32 = 0x21;` `pub enum Limit { Bytes, Inputs, Outputs }`, `pub enum MoneyLimit { Amount, Total, OutputsExceedInputs, Fee }`, `pub enum Refusal { Malformed(PsbtError), NotVersion0, OverLimit(Limit), ScriptSigNotEmpty { input: usize }, NoOutputs, MissingSpentOutput { input: usize }, SpentOutputNotP2wpkh { input: usize }, PreviousTxMismatch { input: usize }, HashType { input: usize }, AlreadySigned { input: usize }, UnsupportedField { input: usize, key_type: u64 }, UnsupportedOutput { output: usize }, Money(MoneyLimit) }` (derives and Display as in psbt.rs); `pub fn check(bytes: &[u8]) -> Result<Checked<'_>, Refusal>`; `pub struct Checked<'a>` with `psbt() -> &Psbt<'a>`, `spent() -> u64`, `fee() -> u64` and `payments() -> impl Iterator<Item = Payment<'a>>`; `pub struct Payment<'a> { pub index: usize, pub kind: OutputKind, pub script: &'a [u8], pub amount: u64 }`. `check` first maps a parse error: TooLarge to OverLimit(Bytes), TooManyInputs and TooManyOutputs to OverLimit(Inputs or Outputs), NotVersion0, ScriptSigNotEmpty and PreviousTxMismatch to the variants of the same name, anything else to Malformed. Then, returning the first failure: (1) no output: NoOutputs; (2) each input in order: no 0x01 witness UTXO MissingSpentOutput; its script not exactly P2WPKH SpentOutputNotP2wpkh; a non-witness UTXO whose output at the outpoint index differs from the witness UTXO in amount or script PreviousTxMismatch; a 0x03 hash type other than UNIFIED_ALL (u32, little endian) HashType; any of 0x02, 0x07, 0x08, 0x13, 0x14 AlreadySigned; any of 0x04, 0x05, 0x0a-0x0d, 0x15-0x18 UnsupportedField with the lowest such type; amount over MAX_MONEY Money(Amount); running total spent over MAX_MONEY Money(Total); (3) each output in order: `classify` None UnsupportedOutput; amount over MAX_MONEY Money(Amount); running total paid over MAX_MONEY Money(Total); (4) paid over spent Money(OutputsExceedInputs); spent minus paid over MAX_FEE Money(Fee). Use checked arithmetic only: the workspace denies overflowing operations, unwrap, expect, indexing and panics. An input without a declared hash type is accepted; signing later writes 0x21 (ADR 0004 row 4). Unknown and proprietary fields are neither refused nor reported.",
+      "kind": "implement",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/src/policy.rs", "firmware/wallet-core/src/lib.rs"],
+      "tests": ["Unit tests in policy.rs for the PsbtError mapping and the order of the checks"],
+      "depends_on": ["psbt-reader", "output-kinds"],
+      "risk": "high",
+      "reversible": true
+    },
+    {
+      "id": "boundary-tests",
+      "description": "Add `tests/psbt_policy.rs`. Base vector, built outside the implementation and passing a separate reference check on 2026-11-17 (364 bytes; one P2WPKH input of 100,000 sat, BIP173's example program, with its witness and non-witness UTXO and one input key path; outputs of 60,000 and 39,000 sat to P2WPKH; fee 1,000; one output key path): 70736274ff0100710200000001eb4f00d9f5e1c14d053ffd25381965e0902620e7f2ab97e67a6c04b0b28cc62c0000000000fdffffff0260ea00000000000016001422222222222222222222222222222222222222225898000000000000160014333333333333333333333333333333333333333300000000000100520200000001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0700000000ffffffff01a086010000000000160014751e76e8199196d454941c45d1b3a323f1433bd60000000001011fa086010000000000160014751e76e8199196d454941c45d1b3a323f1433bd622060279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179818d34db33f5400008000000080000000800000000000000000000022020279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179818d34db33f540000800000008000000080010000000000000000 . `check` must return Ok with spent 100,000, fee 1,000 and payments (0, P2wpkh, 60,000) and (1, P2wpkh, 39,000). Build every other case from it with a small test-only builder that writes maps and transactions from parts (so a length field cannot go stale), changing one field per case and saying which in a comment. For each refusal in the task's ac-1, ac-3 and ac-4: one case just inside the rule (accepted, or refused only for another named reason) and one just outside it (refused for exactly this reason). Limits at the bound and one past it: 65,536 and 65,537 bytes (pad with a proprietary 0xFC global pair), 16 and 17 inputs and outputs, amounts and totals at MAX_MONEY and one above, fee at MAX_FEE and one above, outputs equal to inputs and one above. Also: every prefix of every vector, and the base vector with each single byte flipped (xor 0xff), returns without a panic. Expected results come from ADR 0004, BIP174 and this plan, never from running the new code: if a vector or this plan seems to contradict ADR 0004 or BIP174, stop and report it to the coordinator instead of changing either.",
+      "kind": "test",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/tests/psbt_policy.rs"],
+      "tests": ["cargo test --manifest-path firmware/Cargo.toml -p wallet-core --locked", "bash scripts/gates/firmware-check.sh"],
+      "depends_on": ["first-signer-policy"],
+      "risk": "high",
+      "reversible": true
+    },
+    {
+      "id": "module-docs",
+      "description": "Update the crate documentation in lib.rs to list `psbt`, `script` and `policy`, and to state that `policy::check` is the only entry point a signer may use: `Psbt::parse` alone checks structure, not ADR 0004. Keep the existing sentences about no key, no heap and no panic true.",
+      "kind": "document",
+      "role": "implementer",
+      "files_touched": ["firmware/wallet-core/src/lib.rs"],
+      "depends_on": ["boundary-tests"],
+      "risk": "low",
+      "reversible": true
+    },
+    {
+      "id": "independent-verification",
+      "description": "Verifier, at the reviewed commit: run every acceptance check; confirm the fixture hashes against the pinned commit; read the base vector's bytes against the builder and this plan by hand (the verifier does not trust the implementer's run); and, only if the owner approves starting a scratch regtest node, confirm with the pinned Knots `decodepsbt` and `analyzepsbt` that the base vector decodes with fee 0.00001000. Record any check that could not run as not run, with the reason.",
+      "kind": "verify",
+      "role": "verifier",
+      "depends_on": ["module-docs"],
+      "tests": [
+        "bash scripts/gates/firmware-check.sh",
+        "npm test",
+        "git diff --check",
+        "python3 .github/skills/device-references/scripts/unified_sighash_check.py firmware/wallet-core/tests/data/unified_sighash.json"
+      ],
+      "risk": "low",
+      "reversible": true
+    }
+  ],
+  "assumptions": [
+    "The reader takes raw PSBT bytes. Base64 belongs to the transport task, so the one Knots `invalid` entry that is not valid base64 is out of scope here.",
+    "A PSBT whose unsigned transaction has no inputs is refused, through the existing `TxError::NoInputsOrWitnessFormat`: there is nothing to sign, and ADR 0004 row 5 ('signs every input or none') presumes inputs. Knots' decoder accepts one (BIP174:736); see the first open question.",
+    "A non-witness UTXO in witness form is refused, because `Tx::parse` reads only the original form. Knots writes it without witness data (src/psbt.h:235).",
+    "ADR 0004's 'script or taproot field' includes the hash-preimage fields 0x0a to 0x0d, which only script spends use.",
+    "Public keys are checked for length only. Whether one lies on the curve, and whether key paths, fingerprints and change claims are the device's own, needs keys and belongs to the second task (ADR 0004 rows 2, 5 and 7).",
+    "No new dependency is needed: SHA-256d comes from the existing `bitcoin_hashes`, and tests parse the vector file without a JSON crate."
+  ],
+  "open_questions": [
+    { "question": "Should a PSBT whose transaction has no inputs be refused? Knots accepts one, but nothing could be signed.", "blocking": false, "default_if_unanswered": "Refuse it, as Malformed(UnsignedTx(NoInputsOrWitnessFormat))." },
+    { "question": "Should a non-witness UTXO in witness form be refused rather than parsed?", "blocking": false, "default_if_unanswered": "Refuse it, as Malformed(BadValue)." },
+    { "question": "Do the hash-preimage fields (0x0a to 0x0d) count as the 'script fields' ADR 0004 refuses?", "blocking": false, "default_if_unanswered": "Yes: refuse them as UnsupportedField." }
+  ],
+  "rollback_strategy": "Revert the task's commits. The new modules are additions that nothing else calls yet, `tx.rs` gains at most a read-only accessor, and the fixture is a new file, so reverting restores main exactly.",
+  "verification_strategy": "Two independent oracles. Knots' own PSBT vectors at the pinned release cover structure. One base vector built outside the implementation, changed one field per test, covers every ADR 0004 rule at its boundary. A no-panic sweep covers every prefix and every single-byte change. The firmware gate runs fmt, clippy with warnings as errors, host tests and the riscv32imafc cross-build, which proves the code is no_std. Reviews: a code review by kimi-k3 (reviewer), a security audit by claude-sonnet-5.5 (security-auditor, another family than the implementer's gpt-6-luna, ADR 0003), then the verifier's independent run. Optionally, Knots decodepsbt on a scratch regtest node, if the owner approves.",
+  "estimated_budget": { "usd": 2 },
+  "approvals_required": [
+    { "approver": "human", "reason": "Risk high: the owner approves this plan before implementation and the merge at the reviewed commit (approvals.yaml)." }
+  ]
+}
