@@ -2,7 +2,8 @@
 name: coordinator
 description: 'Coordinates owner-directed work, summarizes progress, and routes tasks to appropriate specialists. Does not write or review application code.'
 argument-hint: 'Provide an issue number, task request, or handoff contract path to route'
-model: gpt-5.6-luna
+model: gpt-6-luna
+reasoningEffort: low
 tools: ['read', 'search', 'execute', 'github/*', 'agent', 'todo',
   'basic-memory/search_notes', 'basic-memory/read_note', 'basic-memory/build_context', 'basic-memory/recent_activity', 'basic-memory/read_content', 'basic-memory/list_directory',
   'basic-memory/write_note', 'basic-memory/edit_note']

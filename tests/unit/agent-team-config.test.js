@@ -66,12 +66,14 @@ describe("Owner-directed agent team configuration", () => {
 
   // Model pins, modelPolicy and review-family separation are checked by
   // `control-plane policy check` (src/lib/agent-profiles.js) against tool-access.yaml.
-  test("profile models match the registry for registered roles", () => {
+  test("profile models and reasoning efforts match the registry for registered roles", () => {
     const registered = new Map(JSON.parse(fs.readFileSync(".agents.registry.json", "utf8")).agents
-      .map((agent) => [agent.id.replaceAll("_", "-"), agent.model]));
+      .map((agent) => [agent.id.replaceAll("_", "-"), agent]));
     for (const name of expectedAgents) {
-      const { model } = readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
-      if (registered.has(name)) assert.equal(model, registered.get(name), `${name} profile and registry models differ`);
+      const { model, reasoningEffort } = readProfile(path.join(agentsDir, `${name}.agent.md`)).header;
+      if (!registered.has(name)) continue;
+      assert.equal(model, registered.get(name).model, `${name} profile and registry models differ`);
+      assert.equal(reasoningEffort, registered.get(name).reasoning_effort, `${name} profile and registry efforts differ`);
     }
   });
 

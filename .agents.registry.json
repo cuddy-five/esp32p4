@@ -5,7 +5,7 @@
       "id": "planner",
       "name": "Planner",
       "description": "Choose when the request asks to build or refresh codebase knowledge, design architecture, or write a step-by-step plan with tests and rollback. Not for writing code or reviewing.",
-      "model": "gpt-5.6-luna",
+      "model": "gpt-6-luna",
       "reasoning_effort": "high",
       "budget": {
         "max_ai_credits": 5000,
@@ -135,7 +135,7 @@
       "id": "verifier",
       "name": "Verifier",
       "description": "Choose when the request is to independently re-run tests, verify acceptance criteria, or check whether a pull request with passing reviews is ready to merge. Not for code review or writing code.",
-      "model": "claude-haiku-4.5",
+      "model": "claude-haiku-5.5",
       "reasoning_effort": "medium",
       "budget": {
         "max_ai_credits": 2000,

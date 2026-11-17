@@ -2,7 +2,8 @@
 name: planner
 description: 'Build or refresh codebase knowledge, then use verified architecture, conventions and tests to plan an owner-requested change. Planning only.'
 argument-hint: 'Describe the outcome or issue; optionally name existing docs/codebase knowledge and permitted documentation writes'
-model: gpt-5.6-luna
+model: gpt-6-luna
+reasoningEffort: high
 tools: ['read', 'search', 'edit', 'execute', 'web', 'lsp', 'github/*', 'context7/*', 'todo',
   'notebooklm/notebook_list', 'notebooklm/notebook_get', 'notebooklm/notebook_describe', 'notebooklm/source_describe', 'notebooklm/source_get_content', 'notebooklm/notebook_query', 'notebooklm/notebook_query_start', 'notebooklm/notebook_query_status', 'notebooklm/cross_notebook_query',
   'basic-memory/search_notes', 'basic-memory/read_note', 'basic-memory/build_context', 'basic-memory/recent_activity', 'basic-memory/read_content', 'basic-memory/list_directory']

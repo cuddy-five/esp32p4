@@ -4,6 +4,7 @@ description: 'Choose when existing code, SQL migrations, style, or a written pla
 argument-hint: 'Provide the plan contract or PR/diff + evidence contract to review'
 model: kimi-k3
 modelPolicy: required
+reasoningEffort: high
 tools: ['read', 'search', 'execute', 'lsp']
 skills: [review, code-review]
 handoffs:
