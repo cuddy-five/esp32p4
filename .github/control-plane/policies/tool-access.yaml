@@ -2,8 +2,9 @@
 # This document is not consumed or enforced by the agent runtime: shell access
 # can write files even if an edit tool is excluded, so do not treat these
 # declarations as isolation. `control-plane policy check`, which CI runs, does
-# fail when a profile lists a tool its role does not allow, has no model pin,
-# or breaks the model rules below.
+# fail when a profile lists a tool its role does not allow, has no model pin or
+# reasoning effort, or breaks the model rules below. The few rules Copilot does
+# enforce at run time are in .github/hooks/tool-policy.json (scripts/hooks/guard.mjs).
 
 version: 1
 

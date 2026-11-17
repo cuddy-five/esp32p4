@@ -20,8 +20,8 @@ roles:
     allowed_tools: [read, basic-memory/search_notes]
     forbidden_tools: [edit, basic-memory/write_note]
 `;
-const CODER = "model: gpt-6-luna\ntools: [read, edit]";
-const CHECKER = "model: kimi-k3\nmodelPolicy: required\ntools: [read]";
+const CODER = "model: gpt-6-luna\nreasoningEffort: high\ntools: [read, edit]";
+const CHECKER = "model: kimi-k3\nmodelPolicy: required\nreasoningEffort: medium\ntools: [read]";
 
 /** Problems reported for a temporary set of profiles; `null` leaves a profile out. */
 function problems({ coder = CODER, checker = CHECKER, extra = {}, policy = POLICY } = {}) {
@@ -67,7 +67,44 @@ describe("agent profiles against the tool policy", () => {
     assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required" }), /must list its tools/);
     assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: 'read, edit'" }), /"edit" is not allowed for role reviewer/);
     assert.match(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: ''" }), /must list its tools/);
-    assert.equal(problems({ checker: "model: kimi-k3\nmodelPolicy: required\ntools: []" }), "");
+    assert.equal(problems({ checker: "model: kimi-k3\nmodelPolicy: required\nreasoningEffort: low\ntools: []" }), "");
+  });
+
+  test("a profile needs a reasoning effort the CLI accepts", () => {
+    assert.match(problems({ coder: "model: gpt-6-luna\ntools: [read]" }), /must be one of none, minimal, low, medium, high, xhigh, max/);
+    assert.match(problems({ coder: "model: gpt-6-luna\nreasoningEffort: extreme\ntools: [read]" }), /reasoningEffort|must be one of/);
+  });
+
+  test("a models list holds model IDs, once each, starting with the pin", () => {
+    const coder = (models) => `model: gpt-6-luna\nmodels: ${models}\nreasoningEffort: high\ntools: [read]`;
+    assert.equal(problems({ coder: coder("[gpt-6-luna, gpt-5.6-luna]") }), "");
+    assert.match(problems({ coder: coder("[gpt-5.6-luna, gpt-6-luna]") }), /must start with the model pin "gpt-6-luna"/);
+    assert.match(problems({ coder: coder("[gpt-6-luna, gpt-6-luna]") }), /lists a model twice/);
+    assert.match(problems({ coder: coder("gpt-6-luna") }), /must be a non-empty list of model IDs/);
+    assert.match(problems({ coder: coder("[]") }), /must be a non-empty list of model IDs/);
+  });
+
+  test("a fallback model counts for review-family separation, on either side", () => {
+    const checker = "model: kimi-k3\nmodels: [kimi-k3, gpt-5.6-luna]\nmodelPolicy: required\nreasoningEffort: medium\ntools: [read]";
+    assert.match(problems({ checker }), /shares model family "gpt" with coder, a coding agent/);
+    const coder = "model: gpt-6-luna\nmodels: [gpt-6-luna, kimi-k3]\nreasoningEffort: high\ntools: [read]";
+    assert.match(problems({ coder }), /shares model family "kimi" with coder, a coding agent/);
+  });
+
+  test("a prompt over GitHub's 30,000-character limit fails", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-profiles-"));
+    try {
+      const agentsDir = path.join(dir, "agents");
+      fs.mkdirSync(agentsDir);
+      fs.writeFileSync(path.join(agentsDir, "coder.agent.md"), `---\n${CODER}\n---\n${"x".repeat(30_001)}`);
+      fs.writeFileSync(path.join(agentsDir, "checker.agent.md"), `---\n${CHECKER}\n---\n${"x".repeat(30_000)}`);
+      const toolAccessFile = path.join(dir, "tool-access.yaml");
+      fs.writeFileSync(toolAccessFile, POLICY);
+      const found = checkAgentProfiles({ agentsDir, toolAccessFile }).problems;
+      assert.deepEqual(found.map((p) => [path.basename(p.file), p.message]), [["coder.agent.md", "prompt is 30001 characters; GitHub allows 30000"]]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("a profile without a model pin fails", () => {

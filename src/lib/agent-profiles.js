@@ -8,6 +8,10 @@ import YAML from "yaml";
 // check: the agent client, not this code, decides what an agent can do.
 
 const MODEL_ID = /^[a-z0-9][a-z0-9.-]*$/;
+// The levels Copilot CLI accepts (`effortLevel`, cli-config-dir reference); a model may support fewer.
+export const REASONING_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"];
+// GitHub's limit on a custom agent's prompt, the Markdown below the frontmatter.
+const MAX_PROMPT_CHARS = 30_000;
 
 /** True when `pattern` names `tool` exactly or is a `server/*` wildcard that covers it. */
 export function covers(pattern, tool) {
@@ -19,9 +23,16 @@ export function modelFamily(model) {
   return model.split("-")[0];
 }
 
+/** The models a profile may run on, in priority order: `models` when it is a list, else `model`. */
+export function authoredModels(header) {
+  if (Array.isArray(header.models)) return header.models.filter((m) => typeof m === "string");
+  return typeof header.model === "string" ? [header.model] : [];
+}
+
 function readFrontmatter(file) {
-  const match = fs.readFileSync(file, "utf8").match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-  return match ? (YAML.parse(match[1]) ?? {}) : null;
+  const text = fs.readFileSync(file, "utf8");
+  const match = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  return match ? { header: YAML.parse(match[1]) ?? {}, promptChars: text.length - match[0].length } : null;
 }
 
 /**
@@ -49,17 +60,19 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
 
   const profiles = [];
   for (const { name, file } of entries) {
-    let header;
+    let parsed;
     try {
-      header = readFrontmatter(file);
+      parsed = readFrontmatter(file);
     } catch (err) {
       fail(file, "", `invalid frontmatter: ${err.message}`);
       continue;
     }
-    if (!header) {
+    if (!parsed) {
       fail(file, "", "needs YAML frontmatter");
       continue;
     }
+    const { header, promptChars } = parsed;
+    if (promptChars > MAX_PROMPT_CHARS) fail(file, "", `prompt is ${promptChars} characters; GitHub allows ${MAX_PROMPT_CHARS}`);
     const role = roleOf[name];
     if (!roles[role]) {
       fail(toolAccessFile, `/profiles/${name}`, role ? `role "${role}" is not defined under roles` : `profile "${name}" has no role`);
@@ -84,6 +97,21 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
     }
     // Without a pin the agent runs on whatever model the session uses.
     if (typeof header.model !== "string" || !MODEL_ID.test(header.model)) fail(file, "/model", "must pin one model ID");
+    // `models` is the CLI's priority list; a client that reads only `model` must get the same first choice.
+    if (header.models !== undefined) {
+      const list = header.models;
+      if (!Array.isArray(list) || !list.length || list.some((m) => typeof m !== "string" || !MODEL_ID.test(m))) {
+        fail(file, "/models", "must be a non-empty list of model IDs");
+      } else if (new Set(list).size !== list.length) {
+        fail(file, "/models", "lists a model twice");
+      } else if (list[0] !== header.model) {
+        fail(file, "/models", `must start with the model pin "${header.model}"`);
+      }
+    }
+    // Unset, the agent inherits the session's effort when it runs on the session's model, up to max.
+    if (!REASONING_EFFORTS.includes(header.reasoningEffort)) {
+      fail(file, "/reasoningEffort", `must be one of ${REASONING_EFFORTS.join(", ")}`);
+    }
     profiles.push({ file, name, role, header });
   }
   for (const name of Object.keys(roleOf)) {
@@ -91,16 +119,15 @@ export function checkAgentProfiles({ agentsDir, toolAccessFile }) {
   }
 
   // ADR 0003: security-critical review needs a different model family than its author.
+  // Every listed model counts: a fallback is a model the agent may run on.
   const models = policy.models ?? {};
-  const pinned = (p) => typeof p.header.model === "string";
-  const coders = profiles.filter((p) => (models.coding_roles ?? []).includes(p.role) && pinned(p));
+  const coders = profiles.filter((p) => (models.coding_roles ?? []).includes(p.role));
   for (const p of profiles.filter((q) => (models.review_roles ?? []).includes(q.role))) {
     // The CLI reference spells it modelPolicy; a probe showed the kebab-case `model-policy` has no effect.
     if (p.header.modelPolicy !== "required") fail(p.file, "/modelPolicy", "review roles must set modelPolicy: required");
-    if (!pinned(p)) continue;
-    for (const c of coders) {
-      if (modelFamily(c.header.model) === modelFamily(p.header.model)) {
-        fail(p.file, "/model", `shares model family "${modelFamily(p.header.model)}" with ${c.name}, a coding agent`);
+    for (const family of new Set(authoredModels(p.header).map(modelFamily))) {
+      for (const c of coders.filter((q) => authoredModels(q.header).some((m) => modelFamily(m) === family))) {
+        fail(p.file, "/model", `shares model family "${family}" with ${c.name}, a coding agent`);
       }
     }
   }

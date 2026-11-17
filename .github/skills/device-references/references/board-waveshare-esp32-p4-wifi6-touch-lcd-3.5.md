@@ -1,9 +1,18 @@
 # Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5
 
 The owner's board: bought before 2026-10-26 and named again as the target on
-2026-11-13. Check the physical unit's PCB revision and chip revision before
-applying these sources. The recorded target **v3.2 is the ESP32-P4 chip
-revision**, not a confirmed PCB revision. The owner states that the unit
+2026-11-13. Check the physical unit's PCB revision before applying these
+sources. The recorded target **v3.2 is the ESP32-P4 chip revision**, not a
+confirmed PCB revision.
+
+**Read from the owner's unit** (`espflash board-info`, 2026-10-28, Atuin history
+`01a18436153f7585a22af39eccd160e7`): chip `esp32p4 (revision v3.2)`, 40 MHz
+crystal, 16 MB flash, security flags `0x00000000`. It was reached through the
+board's USB-to-UART bridge, which the host shows as `/dev/ttyACM0` ("USB Single
+Serial", USB vendor `1a86`, WCH). The host rule
+`/etc/udev/rules.d/60-esp32.rules` gives the logged-in user the tty of vendors
+`303a` (Espressif) and `1a86` (`TAG+="uaccess"`), so no `dialout` group is
+needed. The PCB revision is still unread. The owner states that the unit
 carries the installed 5 MP OV5647 camera. Nobody has checked that on the
 device. esp-hal has released no driver for the camera interface, so the
 owner's plan is a `no_std` driver written for this project (see the facts

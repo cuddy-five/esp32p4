@@ -3,6 +3,7 @@ name: rust-coder
 description: 'Rust, Bitcoin and ESP32 specialist for researching and implementing owner-approved wallet work. Verify board and protocol details before relying on them.'
 argument-hint: 'Describe the Rust or wallet question and any verified requirements'
 model: gpt-6-luna
+reasoningEffort: high
 infer: true
 skills: [rust-patterns, rust-testing, device-references]
 tools: ['read', 'search', 'edit', 'execute', 'web', 'lsp', 'github/*', 'context7/*', 'todo',
@@ -20,6 +21,11 @@ handoffs:
     agent: verifier
     prompt: 'Run the relevant Rust checks independently and report results and unavailable checks.'
     send: false
+hooks:
+  agentStop:
+    - type: command
+      command: node scripts/hooks/guard.mjs stop
+      timeoutSec: 600
 include-custom-instructions: true
 ---
 

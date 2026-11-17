@@ -62,10 +62,13 @@ tool or if anyone gets a delete, move or project tool.
 **CI gate.** `node src/cli.js policy check`, part of CI's `test` job, reads every
 profile and fails unless it is mapped to a role in
 `.github/control-plane/policies/tool-access.yaml`, lists only tools that role
-allows (a missing `tools` list fails, since Copilot then grants every tool), and
-pins one model ID. Review roles must also set `modelPolicy: required`
-and use a different model family from the coding agents. The gate checks
-declarations; the client still decides what an agent can actually do.
+allows (a missing `tools` list fails, since Copilot then grants every tool),
+pins one model ID, sets a `reasoningEffort` the CLI accepts, and keeps its
+prompt under GitHub's 30,000 characters. A `models` priority list, if a
+profile adds one, must start with the `model` pin. Review roles must also set
+`modelPolicy: required` and use a different model family from every model the
+coding agents list. The gate checks declarations; the client still decides
+what an agent can actually do.
 
 ### Models
 
@@ -75,16 +78,27 @@ share OpenAI's `gpt-6-luna` and every review role uses another family. The
 [CI gate](#agents) checks that each review role declares a family the coding
 agents do not use; the shared `gpt-6-luna` pin itself is a convention.
 
-| Agent | Pinned model | Family | `modelPolicy` | Model that ran (2026-11-03) |
-| --- | --- | --- | --- | --- |
-| coordinator | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
-| planner | `gpt-5.6-luna` | OpenAI | none | `gpt-5.6-luna` |
-| implementer | `gpt-6-luna` | OpenAI | none | `gpt-6-luna` |
-| rust-coder | `gpt-6-luna` (no pin before) | OpenAI | none | `gpt-6-luna` after the pin; the session model, `claude-sonnet-5.5`, before it |
-| reviewer | `kimi-k3` | Moonshot AI | `required` | `kimi-k3` |
-| security-auditor | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | `required` | `claude-sonnet-5.5`; with the old pin, the same model as the session fallback |
-| verifier | `claude-haiku-4.5` | Anthropic | `required` | `claude-haiku-4.5` |
-| custom-agent-foundry | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | none | `claude-sonnet-5.5`, as the session fallback for the old pin; not run again |
+| Agent | Pinned model | Family | `modelPolicy` | `reasoningEffort` | Model that ran (2026-11-03) |
+| --- | --- | --- | --- | --- | --- |
+| coordinator | `gpt-6-luna` (`gpt-5.6-luna` until 2026-11-17) | OpenAI | none | `low` | `gpt-5.6-luna`; the new pin has not run as coordinator |
+| planner | `gpt-6-luna` (`gpt-5.6-luna` until 2026-11-17) | OpenAI | none | `high` | `gpt-5.6-luna`; the new pin has not run as planner |
+| implementer | `gpt-6-luna` | OpenAI | none | `medium` | `gpt-6-luna` |
+| rust-coder | `gpt-6-luna` (no pin before) | OpenAI | none | `high` | `gpt-6-luna` after the pin; the session model, `claude-sonnet-5.5`, before it |
+| reviewer | `kimi-k3` | Moonshot AI | `required` | `high` | `kimi-k3` |
+| security-auditor | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | `required` | `high` | `claude-sonnet-5.5`; with the old pin, the same model as the session fallback |
+| verifier | `claude-haiku-5.5` (`claude-haiku-4.5` until 2026-11-17) | Anthropic | `required` | `medium` | `claude-haiku-4.5`; the new pin has not run on this account |
+| custom-agent-foundry | `claude-sonnet-5.5` (`claude-sonnet-4.6` before) | Anthropic | none | `medium` | `claude-sonnet-5.5`, as the session fallback for the old pin; not run again |
+
+**Reasoning effort.** Unset, an agent inherits the session's effort, up to
+`max`, when it runs on the session's model, so every profile sets one: `low`
+to route, `medium` for ordinary code and checks, `high` for plans, wallet code
+and the two reviews. Effort is paid as output tokens; GitHub's prices per
+million input/output tokens (2026-11-16): `gpt-6-luna` and `claude-haiku-5.5`
+$0.10/$0.50, `gpt-5.6-luna` $0.20/$1.20, `claude-haiku-4.5` $1.00/$5.00,
+`claude-sonnet-5.5` $2/$10, `kimi-k3` $3/$15. A level the model cannot honor
+falls back to the session's (CLI reference). The CLI also reads `models`, a
+priority list; no profile uses one, so an unavailable review pin fails closed
+under `--model <pin>` instead of moving to a dearer model.
 
 **What was wrong.** GitHub retired Claude Sonnet 4.6 from Copilot on 2026-09-01
 for most plans ([changelog](https://github.blog/changelog/2026-08-31-selected-github-copilot-models-deprecated)).
@@ -108,6 +122,34 @@ session model whatever their pin (CLI reference), so do not use `Auto` for
 security-critical review. After a run that matters, check stderr for `which is not available`, or the
 `model.call_start` events in `--output-format json` output. The `/model` picker
 shows which models the account has.
+
+### Hooks
+
+`.github/hooks/tool-policy.json` runs `node scripts/hooks/guard.mjs pre-tool-use`
+before every tool call, in Copilot CLI and in cloud agent jobs. Copilot loads
+repository hooks only in trusted folders. Not yet exercised in a live session.
+
+- **Denied:** eFuse writes; reading or printing credentials (`.env`, keys,
+  `gh auth token`, `$…TOKEN`); `/approve` or `/resume` comments, which count as
+  the owner's when posted with their login; merges and pull request approvals;
+  force pushes and pushes to `main`; repository settings, secrets and workflow
+  switches; Bitcoin wallet-secret or spending RPCs outside regtest.
+- **Asked:** flashing or erasing the board, discarding work (`reset --hard`,
+  `clean -f`, …), installs, dependency changes, starting workflows or Copilot
+  sessions, nodes outside regtest, and edits to the guardrails themselves
+  (hooks, check scripts, workflows, policies). Cloud agent and autopilot treat
+  "ask" as "deny".
+- **Stop check:** implementer and rust-coder declare an agent-scoped
+  `agentStop` hook (`guard.mjs stop`, CLI only). Before the agent finishes, it
+  runs `scripts/gates/firmware-check.sh` when the branch changes `firmware/`
+  and `npm test` when it changes the control plane, and returns a failure as the
+  agent's next prompt: three times in a row at most. A passing state is cached;
+  a check whose tools are missing is skipped.
+- The script exits 0 on every path, because Copilot denies a tool call when a
+  `preToolUse` hook crashes; a timeout lets the call through. The patterns stop
+  mistakes, not a determined attacker. Tests: `tests/unit/hooks-guard.test.js`.
+- To pause every hook while debugging, set `"disableAllHooks": true` in
+  `.github/copilot/settings.local.json` (CLI only; keep that file uncommitted).
 
 ## Skills
 

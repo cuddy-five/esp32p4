@@ -4,6 +4,7 @@ description: 'Choose when the request involves secrets, credentials, auth, input
 argument-hint: 'Provide the commit SHA, diff, task contract, and evidence contract to audit'
 model: claude-sonnet-5.5
 modelPolicy: required
+reasoningEffort: high
 tools: ['read', 'search', 'execute', 'lsp', 'github/*', 'context7/*',
   'notebooklm/notebook_list', 'notebooklm/notebook_get', 'notebooklm/notebook_describe', 'notebooklm/source_describe', 'notebooklm/source_get_content', 'notebooklm/notebook_query', 'notebooklm/notebook_query_start', 'notebooklm/notebook_query_status', 'notebooklm/cross_notebook_query']
 skills: [review, differential-review]

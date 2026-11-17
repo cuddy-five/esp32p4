@@ -3,6 +3,7 @@ name: implementer
 description: 'Choose to write, fix, refactor, test or document the control plane. Not for reviewing or independently verifying your own work.'
 argument-hint: 'Describe the owner-requested change and relevant files'
 model: gpt-6-luna
+reasoningEffort: medium
 tools: ['read', 'search', 'edit', 'execute', 'context7/*', 'todo']
 skills: [implementation, surgical-patch, lean-build]
 handoffs:
@@ -10,6 +11,11 @@ handoffs:
     agent: reviewer
     prompt: 'Independently review the change against the owner request and report concrete findings.'
     send: false
+hooks:
+  agentStop:
+    - type: command
+      command: node scripts/hooks/guard.mjs stop
+      timeoutSec: 600
 include-custom-instructions: true
 ---
 

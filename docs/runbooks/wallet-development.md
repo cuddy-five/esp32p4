@@ -35,9 +35,11 @@ arbitrary files, run those checks, start an agent or grant approval.
 
 ## Keep facts and choices separate
 
-The selected board is **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5**. The intended
-chip revision is **v3.2**; the owner's physical unit and PCB revision have not
-been identified. Check them before applying a schematic or chip erratum. The
+The selected board is **Waveshare ESP32-P4-WIFI6-Touch-LCD-3.5**. The owner's
+unit reports chip revision **v3.2**, 40 MHz crystal and 16 MB flash
+(`espflash board-info`, 2026-10-28; see the
+[board sheet](../../.github/skills/device-references/references/board-waveshare-esp32-p4-wifi6-touch-lcd-3.5.md)).
+Its PCB revision has not been identified; check it before applying a schematic. The
 owner states the unit carries the 5 MP OV5647 camera. esp-hal has released no
 driver for it, so the plan is a `no_std` driver written for this project (the
 [chip reference](../../.github/skills/device-references/references/chip-esp32-p4.md#camera-input-what-a-driver-can-build-on)
